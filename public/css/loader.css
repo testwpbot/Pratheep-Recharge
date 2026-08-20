@@ -1,0 +1,372 @@
+/* ================================================================
+   Page loader for Happy Pratheep Recharge
+   ----------------------------------------------------------------
+   Full-screen gold 8-dot spinner. Shown ONLY on 3 entry moments
+   (homepage, first-entry dashboard, first-entry admin) for 3s.
+   Hidden instantly on all other pages.
+   While .is-loading is on <html>:
+       * scroll is locked with scrollbar-gutter (no width shift)
+       * every child of <body> except the loader is VISIBILITY:HIDDEN
+   ================================================================ */
+
+html.is-loading{
+  overflow:hidden !important;
+  scrollbar-gutter:stable;
+}
+html.is-loading body > *:not(.page-loader){
+  visibility:hidden !important;
+}
+html.is-loading body{
+  pointer-events:none;
+}
+
+/* ---------- full-screen spinner overlay ---------- */
+.page-loader{
+  position:fixed;inset:0;z-index:99999;
+  background:#f6f8fc;
+
+  display:grid;place-items:center;
+
+  opacity:0;visibility:hidden;
+  transition:opacity .25s ease;
+  pointer-events:none;
+}
+.page-loader.is-active{
+  opacity:1;visibility:visible;pointer-events:auto;
+}
+.page-loader.no-transition{ transition:none !important; }
+
+/* ---------- dot spinner (converted from the React/styled-components version) ---------- */
+.dot-spinner{
+  --uib-size:4.5rem;
+  --uib-speed:1.25s;
+  --uib-color:#e8a317;
+  position:relative;
+  display:flex;align-items:center;justify-content:center;
+  height:var(--uib-size);width:var(--uib-size);
+}
+.dot-spinner__dot{
+  position:absolute;top:0;left:0;
+  display:flex;align-items:center;justify-content:flex-start;
+  height:100%;width:100%;
+}
+.dot-spinner__dot::before{
+  content:'';height:20%;width:20%;border-radius:50%;
+  background-color:var(--uib-color);
+  transform:scale(0);opacity:.55;
+  animation:pulse0112 calc(var(--uib-speed) * 1.111) ease-in-out infinite;
+  box-shadow:0 0 22px rgba(232,163,23,.45);
+}
+.dot-spinner__dot:nth-child(2){transform:rotate(45deg);}
+.dot-spinner__dot:nth-child(2)::before{animation-delay:calc(var(--uib-speed) * -0.875);}
+.dot-spinner__dot:nth-child(3){transform:rotate(90deg);}
+.dot-spinner__dot:nth-child(3)::before{animation-delay:calc(var(--uib-speed) * -0.75);}
+.dot-spinner__dot:nth-child(4){transform:rotate(135deg);}
+.dot-spinner__dot:nth-child(4)::before{animation-delay:calc(var(--uib-speed) * -0.625);}
+.dot-spinner__dot:nth-child(5){transform:rotate(180deg);}
+.dot-spinner__dot:nth-child(5)::before{animation-delay:calc(var(--uib-speed) * -0.5);}
+.dot-spinner__dot:nth-child(6){transform:rotate(225deg);}
+.dot-spinner__dot:nth-child(6)::before{animation-delay:calc(var(--uib-speed) * -0.375);}
+.dot-spinner__dot:nth-child(7){transform:rotate(270deg);}
+.dot-spinner__dot:nth-child(7)::before{animation-delay:calc(var(--uib-speed) * -0.25);}
+.dot-spinner__dot:nth-child(8){transform:rotate(315deg);}
+.dot-spinner__dot:nth-child(8)::before{animation-delay:calc(var(--uib-speed) * -0.125);}
+
+@keyframes pulse0112{
+  0%,100%{transform:scale(0);opacity:.55;}
+  50%{transform:scale(1);opacity:1;}
+}
+
+.dot-spinner__label{
+  position:absolute;top:120%;left:50%;transform:translateX(-50%);
+  white-space:nowrap;
+  font-size:13px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;
+  color:#123a76;
+}
+
+/* Global hidden-attribute override. Many components set display:flex/block/inline-block
+   in their base rule, which otherwise overrides the UA [hidden]{display:none} and leaves
+   elements like .btn-spinner visible/animating before they should be. */
+[hidden]{display:none !important;}
+
+/* ---------- mini spinner (used inside buttons during submit) ---------- */
+.btn-spinner{
+  width:16px;
+  height:16px;
+  border:2px solid currentColor;
+  border-right-color:transparent;
+  border-radius:50%;
+  animation:btnSpin .7s linear infinite;
+  flex:none;
+  vertical-align:middle;
+}
+@keyframes btnSpin{to{transform:rotate(360deg);}}
+
+.btn-admin.is-loading,
+button.is-loading,
+.auth__submit.is-loading,
+.app-sidebar__footer form button.is-loading,
+.account-dropdown__logout.is-loading,
+a.is-loading,
+.btn.is-loading{
+  pointer-events:none !important;
+}
+.btn-admin.is-loading > .btn-label,
+button.is-loading > .btn-label,
+.auth__submit.is-loading > .btn-label,
+.app-sidebar__footer form button.is-loading > .btn-label,
+.account-dropdown__logout.is-loading > .btn-label,
+a.is-loading > .btn-label,
+.btn.is-loading > .btn-label{
+  opacity:0;
+  transition:opacity .15s ease;
+}
+.btn-admin.is-loading .btn-spinner,
+button.is-loading .btn-spinner,
+.auth__submit.is-loading .btn-spinner,
+.app-sidebar__footer form button.is-loading .btn-spinner,
+.account-dropdown__logout.is-loading .btn-spinner,
+a.is-loading .btn-spinner,
+.btn.is-loading .btn-spinner{
+  display:inline-block !important;
+  position:absolute;
+  top:50%;
+  left:50%;
+  margin:-8px 0 0 -8px;
+  border:2px solid currentColor;
+  border-right-color:transparent;
+}
+
+/* ---------- toast (AJAX feedback) ---------- */
+.toast{
+  position:fixed;bottom:24px;right:24px;z-index:200000;
+  padding:12px 18px;border-radius:12px;font-weight:700;font-size:14px;
+  box-shadow:0 10px 30px rgba(7,27,61,.25);
+  transform:translateY(120%);opacity:0;transition:transform .3s ease,opacity .3s ease;
+  display:flex;align-items:center;gap:10px;
+}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast--success{background:#13663a;color:#fff;}
+.toast--error{background:#b42f2f;color:#fff;}
+.toast--info{background:var(--navy-900);color:#fff;}
+
+/* ================================================================
+   PAGE ENTRANCE ANIMATION
+   ----------------------------------------------------------------
+   When a page first paints (after the welcome loader or instantly
+   on non-entry pages), major content blocks fade in and slide up
+   in a gentle cascade. No spinner, no blocking — just a smooth
+   reveal that feels premium but doesn't slow anything down.
+
+   Mark any element you want animated with class="reveal". Children
+   with class="reveal-child" get a staggered delay automatically.
+   The JS below adds .reveal to common containers if not present,
+   then flips .is-revealed on <body> to start the animation.
+   ================================================================ */
+.reveal,
+.page-reveal .card,
+.page-reveal .wallet-hero,
+.page-reveal .dep-stats > *,
+.page-reveal .stats-grid > *,
+.page-reveal .toolbar,
+.page-reveal .cat-tabs,
+.page-reveal .service-grid > *,
+.page-reveal .data-table,
+.page-reveal .alert,
+.page-reveal .bank-box,
+.page-reveal .dash-hero,
+.page-reveal .wallet-cards > *,
+.page-reveal h2,
+.page-reveal .set-tabs,
+.page-reveal .auth__card,
+.page-reveal .sec__head,
+.page-reveal .cards > *,
+.page-reveal .steps > *,
+.page-reveal .why__grid > *,
+.page-reveal .stats > *,
+.page-reveal .hero__copy,
+.page-reveal .hero__art,
+.page-reveal .hero__actions,
+.page-reveal .proof,
+.page-reveal .providers,
+.page-reveal .footer{
+  opacity:0;
+  transform:translateY(14px);
+  transition:opacity .55s cubic-bezier(.2,.7,.2,1), transform .55s cubic-bezier(.2,.7,.2,1);
+  will-change:opacity,transform;
+}
+body.is-revealed .reveal,
+body.is-revealed.page-reveal .card,
+body.is-revealed.page-reveal .wallet-hero,
+body.is-revealed.page-reveal .dep-stats > *,
+body.is-revealed.page-reveal .stats-grid > *,
+body.is-revealed.page-reveal .toolbar,
+body.is-revealed.page-reveal .cat-tabs,
+body.is-revealed.page-reveal .service-grid > *,
+body.is-revealed.page-reveal .data-table,
+body.is-revealed.page-reveal .alert,
+body.is-revealed.page-reveal .bank-box,
+body.is-revealed.page-reveal .dash-hero,
+body.is-revealed.page-reveal .wallet-cards > *,
+body.is-revealed.page-reveal h2,
+body.is-revealed.page-reveal .set-tabs,
+body.is-revealed.page-reveal .auth__card,
+body.is-revealed.page-reveal .sec__head,
+body.is-revealed.page-reveal .cards > *,
+body.is-revealed.page-reveal .steps > *,
+body.is-revealed.page-reveal .why__grid > *,
+body.is-revealed.page-reveal .stats > *,
+body.is-revealed.page-reveal .hero__copy,
+body.is-revealed.page-reveal .hero__art,
+body.is-revealed.page-reveal .hero__actions,
+body.is-revealed.page-reveal .proof,
+body.is-revealed.page-reveal .providers,
+body.is-revealed.page-reveal .footer{
+  opacity:1;
+  transform:translateY(0);
+}
+/* Stagger children of common grids so they cascade one after another */
+.page-reveal .cards > *:nth-child(n){ transition-delay:calc((var(--ri, 0) + 0) * 70ms); }
+.page-reveal .cards > *:nth-child(1){ --ri:1; }
+.page-reveal .cards > *:nth-child(2){ --ri:2; }
+.page-reveal .cards > *:nth-child(3){ --ri:3; }
+.page-reveal .cards > *:nth-child(4){ --ri:4; }
+.page-reveal .cards > *:nth-child(5){ --ri:5; }
+.page-reveal .cards > *:nth-child(6){ --ri:6; }
+.page-reveal .stats-grid > *:nth-child(1){ transition-delay:60ms; }
+.page-reveal .stats-grid > *:nth-child(2){ transition-delay:120ms; }
+.page-reveal .stats-grid > *:nth-child(3){ transition-delay:180ms; }
+.page-reveal .stats-grid > *:nth-child(4){ transition-delay:240ms; }
+.page-reveal .stats-grid > *:nth-child(5){ transition-delay:300ms; }
+.page-reveal .stats-grid > *:nth-child(6){ transition-delay:360ms; }
+.page-reveal .service-grid > *:nth-child(n){ transition-delay:calc((var(--ri,0)) * 45ms); }
+.page-reveal .dep-stats > *:nth-child(1){ transition-delay:80ms; }
+.page-reveal .dep-stats > *:nth-child(2){ transition-delay:140ms; }
+.page-reveal .dep-stats > *:nth-child(3){ transition-delay:200ms; }
+.page-reveal .dep-stats > *:nth-child(4){ transition-delay:260ms; }
+.page-reveal .wallet-cards > *:nth-child(1){ transition-delay:120ms; }
+.page-reveal .wallet-cards > *:nth-child(2){ transition-delay:200ms; }
+.page-reveal .hero__copy{ transition-delay:120ms; }
+.page-reveal .hero__actions{ transition-delay:280ms; }
+.page-reveal .hero__art{ transition-delay:220ms; }
+.page-reveal .proof{ transition-delay:380ms; }
+.page-reveal .wallet-hero{ transition-delay:40ms; }
+.page-reveal .card{ transition-delay:110ms; }
+.page-reveal .dash-hero{ transition-delay:40ms; }
+.page-reveal .cat-tabs{ transition-delay:80ms; }
+.page-reveal .set-tabs{ transition-delay:40ms; }
+.page-reveal .auth__card{ transition-delay:60ms; }
+.page-reveal .data-table{ transition-delay:160ms; }
+.page-reveal .toolbar{ transition-delay:60ms; }
+.page-reveal .bank-box{ transition-delay:130ms; }
+.page-reveal .alert{ transition-delay:60ms; }
+
+/* Respect reduced-motion: skip the entrance animation entirely */
+@media (prefers-reduced-motion:reduce){
+  .reveal,
+  .page-reveal .card,
+  .page-reveal .wallet-hero,
+  .page-reveal .dep-stats > *,
+  .page-reveal .stats-grid > *,
+  .page-reveal .toolbar,
+  .page-reveal .cat-tabs,
+  .page-reveal .service-grid > *,
+  .page-reveal .data-table,
+  .page-reveal .alert,
+  .page-reveal .bank-box,
+  .page-reveal .dash-hero,
+  .page-reveal .wallet-cards > *,
+  .page-reveal h2,
+  .page-reveal .set-tabs,
+  .page-reveal .auth__card,
+  .page-reveal .sec__head,
+  .page-reveal .cards > *,
+  .page-reveal .steps > *,
+  .page-reveal .why__grid > *,
+  .page-reveal .stats > *,
+  .page-reveal .hero__copy,
+  .page-reveal .hero__art,
+  .page-reveal .hero__actions,
+  .page-reveal .proof,
+  .page-reveal .providers,
+  .page-reveal .footer{
+    opacity:1 !important; transform:none !important; transition:none !important;
+  }
+}
+
+/* Safety net: if JS never fires (noscript / error), content still appears
+   after 1.2s so nothing stays permanently invisible. */
+@keyframes revealFallback{
+  to{opacity:1; transform:translateY(0);}
+}
+.page-reveal .card,
+.page-reveal .wallet-hero,
+.page-reveal .dep-stats > *,
+.page-reveal .stats-grid > *,
+.page-reveal .auth__card,
+.page-reveal .dash-hero,
+.page-reveal .hero__copy,
+.page-reveal .hero__art,
+.page-reveal .hero__actions,
+.page-reveal .proof,
+.page-reveal .providers{
+  animation:revealFallback .55s cubic-bezier(.2,.7,.2,1) 1.2s both;
+}
+body.is-revealed .card,
+body.is-revealed .wallet-hero,
+body.is-revealed .dep-stats > *,
+body.is-revealed .stats-grid > *,
+body.is-revealed .auth__card,
+body.is-revealed .dash-hero,
+body.is-revealed .hero__copy,
+body.is-revealed .hero__art,
+body.is-revealed .hero__actions,
+body.is-revealed .proof,
+body.is-revealed .providers{
+  animation:none;
+}
+
+/* After the reveal animation settles, JS adds .is-revealed-done on <body>.
+   At that point we CLEAR transform entirely (even translateY(0)), because
+   any non-none transform creates a containing block for position:fixed
+   descendants and breaks modals / dropdowns that live inside .card.
+   Opacity stays at 1 (final visible state). */
+body.is-revealed-done .reveal,
+body.is-revealed-done.page-reveal .card,
+body.is-revealed-done.page-reveal .wallet-hero,
+body.is-revealed-done.page-reveal .dep-stats > *,
+body.is-revealed-done.page-reveal .stats-grid > *,
+body.is-revealed-done.page-reveal .toolbar,
+body.is-revealed-done.page-reveal .cat-tabs,
+body.is-revealed-done.page-reveal .service-grid > *,
+body.is-revealed-done.page-reveal .data-table,
+body.is-revealed-done.page-reveal .alert,
+body.is-revealed-done.page-reveal .bank-box,
+body.is-revealed-done.page-reveal .dash-hero,
+body.is-revealed-done.page-reveal .wallet-cards > *,
+body.is-revealed-done.page-reveal h2,
+body.is-revealed-done.page-reveal .set-tabs,
+body.is-revealed-done.page-reveal .auth__card,
+body.is-revealed-done.page-reveal .sec__head,
+body.is-revealed-done.page-reveal .cards > *,
+body.is-revealed-done.page-reveal .steps > *,
+body.is-revealed-done.page-reveal .why__grid > *,
+body.is-revealed-done.page-reveal .stats > *,
+body.is-revealed-done.page-reveal .hero__copy,
+body.is-revealed-done.page-reveal .hero__art,
+body.is-revealed-done.page-reveal .hero__actions,
+body.is-revealed-done.page-reveal .proof,
+body.is-revealed-done.page-reveal .providers,
+body.is-revealed-done.page-reveal .footer{
+  opacity:1;
+  transform:none;
+  transition:none;
+  will-change:auto;
+}
+
+/* ---------- reduced motion ---------- */
+@media (prefers-reduced-motion:reduce){
+  .dot-spinner__dot::before{animation:none;transform:scale(1);opacity:1;}
+  .page-loader,.page-loader.is-active{transition:none;}
+  .btn-spinner{animation:none !important;}
+}

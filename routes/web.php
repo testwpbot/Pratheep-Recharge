@@ -1,0 +1,148 @@
+<?php
+
+use App\Http\Controllers\Admin\AdminComplaintController;
+use App\Http\Controllers\Admin\AdminDashboardController;
+use App\Http\Controllers\Admin\AdminDepositController;
+use App\Http\Controllers\Admin\AdminOrderController;
+use App\Http\Controllers\Admin\AdminPlanController;
+use App\Http\Controllers\Admin\AdminProviderController;
+use App\Http\Controllers\Admin\AdminServiceController;
+use App\Http\Controllers\Admin\AdminSettingsController;
+use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\Dashboard\ComplaintController;
+use App\Http\Controllers\Dashboard\DashboardController;
+use App\Http\Controllers\Dashboard\DepositController;
+use App\Http\Controllers\Dashboard\EarningsController;
+use App\Http\Controllers\Dashboard\RefundsController;
+use App\Http\Controllers\Dashboard\WalletController;
+use App\Http\Controllers\PageController;
+use App\Http\Controllers\RechargeController;
+use Illuminate\Support\Facades\Route;
+
+/*
+|--------------------------------------------------------------------------
+| Public pages
+|--------------------------------------------------------------------------
+*/
+Route::get('/', [PageController::class, 'home'])->name('home');
+
+Route::view('/support',       'pages.placeholder', ['section' => 'Support'])->name('support');
+Route::view('/privacy',       'pages.placeholder', ['section' => 'Privacy Policy'])->name('privacy');
+Route::view('/terms',         'pages.placeholder', ['section' => 'Terms of Service'])->name('terms');
+Route::view('/refund',        'pages.placeholder', ['section' => 'Refund Policy'])->name('refund');
+Route::view('/gift-cards',    'pages.placeholder', ['section' => 'Gift Cards'])->name('gift-cards');
+
+/*
+|--------------------------------------------------------------------------
+| Auth (guest only)
+|--------------------------------------------------------------------------
+*/
+Route::middleware('guest')->group(function () {
+    Route::get('/login',    [AuthenticatedSessionController::class, 'create'])->name('login');
+    Route::post('/login',   [AuthenticatedSessionController::class, 'store']);
+    Route::get('/register', [RegisteredUserController::class, 'create'])->name('register');
+    Route::post('/register',[RegisteredUserController::class, 'store']);
+});
+Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])
+    ->middleware('auth')
+    ->name('logout');
+
+/*
+|--------------------------------------------------------------------------
+| Public (guest-facing) recharge catalog
+|--------------------------------------------------------------------------
+*/
+Route::get('/services',                [RechargeController::class, 'index'])->name('recharge.index');
+Route::get('/services/{categorySlug}', [RechargeController::class, 'index'])->name('recharge.category');
+
+Route::redirect('/mobile-reload', '/services/mobile');
+Route::redirect('/postpaid',      '/services/mobile');
+Route::redirect('/data-packages', '/services/mobile');
+Route::redirect('/broadband',     '/services/broadband');
+Route::redirect('/electricity',   '/services/utility');
+Route::redirect('/water',         '/services/utility');
+Route::redirect('/tv',            '/services/tv');
+Route::view('/sign-in',           'auth.login')->name('sign-in');
+
+/*
+|--------------------------------------------------------------------------
+| Customer dashboard (auth)
+|--------------------------------------------------------------------------
+*/
+Route::middleware('auth')->group(function () {
+    Route::get('/dashboard',                              [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/plans',                                  [DashboardController::class, 'plans'])->name('dashboard.plans');
+    Route::get('/wallet',                                 [WalletController::class, 'index'])->name('wallet');
+    Route::get('/earnings',                               [EarningsController::class, 'index'])->name('earnings');
+    Route::get('/refunds',                                [RefundsController::class, 'index'])->name('refunds');
+    Route::post('/wallet/deposit',                        [DepositController::class, 'store'])->name('wallet.deposit');
+
+    // Complaints (customer side)
+    Route::get('/complaints',                             [ComplaintController::class, 'index'])->name('complaints');
+    Route::get('/complaints/{complaint}',                 [ComplaintController::class, 'show'])->name('complaints.show');
+    Route::post('/complaints',                            [ComplaintController::class, 'store'])->name('complaints.store');
+
+    Route::get('/service/{service}',                      [RechargeController::class, 'form'])->name('recharge.form');
+    Route::post('/recharge',                              [RechargeController::class, 'confirm'])->name('recharge.confirm');
+    Route::get('/orders/{order}',                         [RechargeController::class, 'show'])->name('recharge.show');
+    Route::get('/orders/{order}/invoice',                 [RechargeController::class, 'invoice'])->name('recharge.invoice');
+    Route::get('/orders/{order}/invoice/download',        [RechargeController::class, 'invoiceDownload'])->name('recharge.invoice.download');
+    Route::get('/my-orders',                              [RechargeController::class, 'history'])->name('recharge.history');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Admin panel (auth + admin)
+|--------------------------------------------------------------------------
+*/
+Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(function () {
+    Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
+
+    // Providers
+    Route::get('/providers',                              [AdminProviderController::class, 'index'])->name('providers.index');
+    Route::get('/providers/{provider}/edit',              [AdminProviderController::class, 'edit'])->name('providers.edit');
+    Route::patch('/providers/{provider}',                 [AdminProviderController::class, 'update'])->name('providers.update');
+    Route::post('/providers/{provider}/toggle',           [AdminProviderController::class, 'toggle'])->name('providers.toggle');
+    Route::post('/providers/{provider}/import',           [AdminProviderController::class, 'import'])->name('providers.import');
+
+    // Services
+    Route::get('/services',                               [AdminServiceController::class, 'index'])->name('services.index');
+    Route::get('/services/{service}/edit',                [AdminServiceController::class, 'edit'])->name('services.edit');
+    Route::patch('/services/{service}',                   [AdminServiceController::class, 'update'])->name('services.update');
+    Route::post('/services/{service}/toggle',             [AdminServiceController::class, 'toggle'])->name('services.toggle');
+    Route::post('/services/bulk-profit',                  [AdminServiceController::class, 'bulkProfit'])->name('services.bulk');
+
+    // Orders
+    Route::get('/orders',                                 [AdminOrderController::class, 'index'])->name('orders.index');
+    Route::get('/orders/{order}',                         [AdminOrderController::class, 'show'])->name('orders.show');
+    Route::post('/orders/{order}/sync',                   [AdminOrderController::class, 'sync'])->name('orders.sync');
+    Route::post('/orders/{order}/failover',               [AdminOrderController::class, 'failover'])->name('orders.failover');
+
+    // Plans
+    Route::get('/plans',                                  [AdminPlanController::class, 'index'])->name('plans.index');
+    Route::get('/plans/create',                           [AdminPlanController::class, 'create'])->name('plans.create');
+    Route::post('/plans',                                 [AdminPlanController::class, 'store'])->name('plans.store');
+    Route::get('/plans/{plan}/edit',                      [AdminPlanController::class, 'edit'])->name('plans.edit');
+    Route::patch('/plans/{plan}',                         [AdminPlanController::class, 'update'])->name('plans.update');
+    Route::delete('/plans/{plan}',                        [AdminPlanController::class, 'destroy'])->name('plans.destroy');
+    Route::post('/plans/{plan}/toggle',                   [AdminPlanController::class, 'toggle'])->name('plans.toggle');
+
+    // Deposits
+    Route::get('/deposits',                               [AdminDepositController::class, 'index'])->name('deposits.index');
+    Route::get('/deposits/{deposit}',                     [AdminDepositController::class, 'show'])->name('deposits.show');
+    Route::post('/deposits/{deposit}/approve',            [AdminDepositController::class, 'approve'])->name('deposits.approve');
+    Route::post('/deposits/{deposit}/reject',             [AdminDepositController::class, 'reject'])->name('deposits.reject');
+
+    // Complaints
+    Route::get('/complaints',                             [AdminComplaintController::class, 'index'])->name('complaints.index');
+    Route::get('/complaints/{complaint}',                 [AdminComplaintController::class, 'show'])->name('complaints.show');
+    Route::post('/complaints/{complaint}/reply',          [AdminComplaintController::class, 'reply'])->name('complaints.reply');
+
+    // Settings
+    Route::get('/settings',                               [AdminSettingsController::class, 'index'])->name('settings.index');
+    Route::post('/settings/smtp',                         [AdminSettingsController::class, 'saveSmtp'])->name('settings.smtp');
+    Route::post('/settings/bank',                         [AdminSettingsController::class, 'saveBank'])->name('settings.bank');
+    Route::post('/settings/general',                      [AdminSettingsController::class, 'saveGeneral'])->name('settings.general');
+    Route::post('/settings/test-smtp',                    [AdminSettingsController::class, 'testSmtp'])->name('settings.test-smtp');
+});

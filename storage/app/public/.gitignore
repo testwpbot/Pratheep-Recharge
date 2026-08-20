@@ -1,0 +1,6 @@
+*
+!.gitignore
+!.gitkeep
+!deposits/
+deposits/*
+!deposits/.gitkeep

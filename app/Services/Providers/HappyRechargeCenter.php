@@ -1,0 +1,239 @@
+<?php
+
+namespace App\Services\Providers;
+
+use App\Models\Order;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+
+/**
+ * Happy Recharge Center (India) provider integration.
+ *
+ * Docs (from provider):
+ *  - Recharge: GET Recharge.aspx?Apitoken=…&Amount=…&OperatorCode=…&Number=…&ClientId=…
+ *      Responses (STATUS is UPPERCASE):
+ *          SUCCESS → {"STATUS":"SUCCESS","TRANSACTIONID":"…","OPERATORID":"…","CLIENTID":"…","MESSAGE":""}
+ *          FAILURE → {"STATUS":"FAILURE","TRANSACTIONID":"…","OPERATORID":"","CLIENTID":"…","MESSAGE":""}
+ *          PENDING → {"STATUS":"IN PROCESS","TRANSACTIONID":"…","OPERATORID":"","CLIENTID":"…","MESSAGE":""}
+ *  - Balance:  GET Balance.aspx?Apitoken=…
+ *      MESSAGE contains balance as a comma-formatted string e.g. "1,970.10"; STATUS always SUCCESS.
+ *  - Status:   GET rechargestatus.aspx?Apitoken=…&ClientId=…
+ *      Outer STATUS always SUCCESS; check RECHARGESTATUS (SUCCESS / FAILURE / "IN PROCESS" / "TRANSACTION NOT FOUND").
+ *
+ * Timeouts match TopupMart (90s total, 15s connect) because carrier retries can be slow.
+ */
+class HappyRechargeCenter implements ProviderInterface
+{
+    protected string $baseUrl;
+    protected string $apiKey;
+
+    public function __construct(?string $baseUrl = null, ?string $apiKey = null)
+    {
+        $this->baseUrl = rtrim($baseUrl ?? config('services.happy_recharge_center.base_url', 'http://happyrechargecenter.com/RechargeApi'), '/');
+        $this->apiKey  = (string) ($apiKey ?? config('services.happy_recharge_center.api_key', ''));
+    }
+
+    /* ---------- catalog (admin "Import") ---------- */
+    public function fetchServices(): array
+    {
+        // TODO: DTH operator codes for HRC were not available in the operator-list page
+        // when this integration was added (page too long). Once the admin provides the
+        // correct OperatorCode values for Airtel DTH / DishTV / Sun Direct / Tata Play /
+        // Videocon d2h, fill them in below and click "Import Services" in the admin
+        // panel. The existing TopupMart placeholder DTH services (op_codes 120–124)
+        // should then be re-pointed to this provider (or deleted and re-imported).
+        return [
+            // ['op_code' => '?', 'name' => 'Airtel DTH',    'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/airtel.png'],
+            // ['op_code' => '?', 'name' => 'DishTV',        'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/dishtv.png'],
+            // ['op_code' => '?', 'name' => 'Sun Direct',    'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/sundirect.png'],
+            // ['op_code' => '?', 'name' => 'Tata Play',     'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/tataplay.png'],
+            // ['op_code' => '?', 'name' => 'Videocon d2h',  'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/d2h.png'],
+        ];
+    }
+
+    /* ---------- balance ---------- */
+    public function balance(): ?float
+    {
+        if (! $this->apiKey) {
+            return null;
+        }
+        try {
+            $res = Http::timeout(15)->connectTimeout(10)->get($this->baseUrl . '/Balance.aspx', [
+                'Apitoken' => $this->apiKey,
+            ]);
+            if (! $res->successful()) {
+                Log::warning("HappyRechargeCenter balance HTTP {$res->status()}: {$res->body()}");
+                return null;
+            }
+            $data = $res->json() ?? [];
+            $raw  = (string) ($data['MESSAGE'] ?? '');
+            // Balance comes back as a comma-formatted string like "1,970.10"
+            $clean = str_replace([',', ' '], '', $raw);
+            if ($clean === '' || ! is_numeric($clean)) {
+                Log::warning('HappyRechargeCenter balance parse error: ' . $res->body());
+                return null;
+            }
+            return (float) $clean;
+        } catch (\Throwable $e) {
+            Log::warning('HappyRechargeCenter balance exception: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /* ---------- recharge ---------- */
+    public function recharge(Order $order): array
+    {
+        $number = preg_replace('/[^0-9]/', '', $order->account_number);
+        $amount = rtrim(rtrim(number_format((float) $order->amount, 2, '.', ''), '0'), '.');
+
+        $query = [
+            'Apitoken'     => $this->apiKey,
+            'Amount'       => $amount,
+            'OperatorCode' => (string) $order->service->op_code,
+            'Number'       => $number,
+            'ClientId'     => $order->reference,
+        ];
+
+        Log::info('HappyRechargeCenter recharge request', [
+            'order'   => $order->reference,
+            'op_code' => $order->service->op_code,
+            'number'  => $number,
+            'amount'  => $amount,
+        ]);
+
+        try {
+            // HRC uses GET with query params (no JSON body).
+            $res = Http::timeout(90)->connectTimeout(15)->get(
+                $this->baseUrl . '/Recharge.aspx',
+                $query
+            );
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            // Timeout / network error — leave pending for cron reconciliation,
+            // same as TopupMart.
+            Log::warning('HappyRechargeCenter recharge TIMEOUT', [
+                'order' => $order->reference, 'error' => $e->getMessage(),
+            ]);
+            return ['status' => 'pending', 'message' => 'Request sent — waiting for provider confirmation…'];
+        }
+
+        $body = $res->body();
+        $data = $res->json();
+        if (! is_array($data)) {
+            Log::warning('HappyRechargeCenter recharge returned non-JSON', [
+                'order'  => $order->reference,
+                'status' => $res->status(),
+                'body'   => mb_substr($body, 0, 1000),
+            ]);
+            return ['status' => 'pending', 'message' => 'Provider returned an unrecognised response — we will verify your order shortly.', '_raw' => mb_substr($body, 0, 500)];
+        }
+
+        Log::info('HappyRechargeCenter recharge response', [
+            'order'   => $order->reference,
+            'payload' => $data,
+        ]);
+
+        // Normalise to lowercase status key/value to match what OrderService expects.
+        // HRC returns upper-case STATUS: SUCCESS / FAILURE / IN PROCESS.
+        return $this->normaliseResponse($data);
+    }
+
+    /* ---------- status check ---------- */
+    public function checkStatus(Order $order): array
+    {
+        try {
+            $res = Http::timeout(30)->connectTimeout(10)->get(
+                $this->baseUrl . '/rechargestatus.aspx',
+                [
+                    'Apitoken' => $this->apiKey,
+                    'ClientId' => $order->reference,
+                ]
+            );
+            $data = $res->json();
+            if (! is_array($data)) {
+                Log::warning('HappyRechargeCenter status returned non-JSON', [
+                    'order' => $order->reference,
+                    'body'  => mb_substr($res->body(), 0, 500),
+                ]);
+                return ['status' => 'pending', 'message' => 'Status check pending…'];
+            }
+
+            Log::info('HappyRechargeCenter status response', [
+                'order'   => $order->reference,
+                'payload' => $data,
+            ]);
+
+            // Outer STATUS is always SUCCESS on a valid call. Real status is in RECHARGESTATUS.
+            return $this->normaliseStatusResponse($data, $order);
+        } catch (\Throwable $e) {
+            Log::warning("HappyRechargeCenter status exception for {$order->reference}: " . $e->getMessage());
+            return ['status' => 'pending', 'message' => 'Status check failed — will retry.'];
+        }
+    }
+
+    /* ---------- helpers ---------- */
+
+    /**
+     * Normalise the immediate Recharge.aspx response into the shape OrderService expects
+     * (lower-case 'status' key + optional 'transaction_id' + 'message').
+     */
+    protected function normaliseResponse(array $data): array
+    {
+        $rawStatus = strtoupper(trim((string) ($data['STATUS'] ?? 'FAILURE')));
+        $txnId     = $data['TRANSACTIONID'] ?? null;
+        $opId      = $data['OPERATORID'] ?? null;
+        $message   = $data['MESSAGE'] ?: null;
+
+        return [
+            'status'         => $this->mapStatus($rawStatus),
+            'transaction_id' => $txnId ?: null,
+            'operator_id'    => $opId ?: null,
+            'message'        => $message,
+            '_raw_status'    => $rawStatus,
+        ];
+    }
+
+    /**
+     * Normalise the rechargestatus.aspx response. Outer STATUS is always SUCCESS;
+     * we map RECHARGESTATUS to our canonical statuses.
+     */
+    protected function normaliseStatusResponse(array $data, Order $order): array
+    {
+        // If outer STATUS is not SUCCESS (rare), treat as failure.
+        $outer = strtoupper(trim((string) ($data['STATUS'] ?? 'FAILURE')));
+        if ($outer !== 'SUCCESS') {
+            return ['status' => 'pending', 'message' => $data['MESSAGE'] ?? 'Provider status check returned error'];
+        }
+
+        $raw    = strtoupper(trim((string) ($data['RECHARGESTATUS'] ?? 'IN PROCESS')));
+        $opId   = $data['OPERATORID'] ?? null;
+        $message = $data['MESSAGE'] ?: null;
+
+        $out = [
+            'status'         => $this->mapStatus($raw),
+            'transaction_id' => $order->provider_txn_id ?: null,
+            'operator_id'    => $opId ?: null,
+            'message'        => $message,
+            '_raw_status'    => $raw,
+        ];
+
+        // "TRANSACTION NOT FOUND" → treat as pending for up to the reconciliation
+        // window; if it never materialises the cron/admin will handle it.
+        if (str_contains($raw, 'NOT FOUND')) {
+            $out['status'] = 'pending';
+            $out['message'] = 'Transaction not yet found at provider — will retry.';
+        }
+
+        return $out;
+    }
+
+    /** Map HRC upper-case status strings to our internal lowercase status. */
+    protected function mapStatus(string $raw): string
+    {
+        // SUCCESS, FAILURE, IN PROCESS, plus NOT FOUND variants.
+        if ($raw === 'SUCCESS')     return 'success';
+        if ($raw === 'FAILURE')     return 'failed';
+        if ($raw === 'IN PROCESS')  return 'pending';
+        if (str_contains($raw, 'NOT FOUND')) return 'pending';
+        return 'pending';
+    }
+}

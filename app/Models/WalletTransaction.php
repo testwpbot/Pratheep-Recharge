@@ -1,0 +1,51 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
+
+class WalletTransaction extends Model
+{
+    protected $fillable = [
+        'wallet_id', 'type', 'amount', 'balance_before', 'balance_after',
+        'description', 'transactable_id', 'transactable_type',
+    ];
+
+    protected $casts = [
+        'amount'         => 'decimal:2',
+        'balance_before' => 'decimal:2',
+        'balance_after'  => 'decimal:2',
+    ];
+
+    const TYPE_DEPOSIT  = 'deposit';
+    const TYPE_CASHBACK = 'cashback';
+    const TYPE_DEBIT    = 'debit';
+    const TYPE_REFUND   = 'refund';
+    const TYPE_ADJUST   = 'adjustment';
+
+    public function wallet(): BelongsTo
+    {
+        return $this->belongsTo(Wallet::class);
+    }
+
+    public function transactable(): MorphTo
+    {
+        return $this->morphTo();
+    }
+
+    /**
+     * Signed delta (positive = credit, negative = debit).
+     */
+    public function signedAmount(): float
+    {
+        $a = abs((float) $this->amount);
+        return in_array($this->type, [self::TYPE_DEBIT], true) ? -$a : $a;
+    }
+
+    public function isCredit(): bool
+    {
+        return $this->signedAmount() >= 0;
+    }
+}
