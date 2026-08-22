@@ -216,18 +216,28 @@ textarea.hpr-input, .hpr-input--ta{
 
 /* ----- Custom dropdown (toolbar + compact table cells) ----- */
 .hpr-dd{position:relative; display:inline-block; min-width:0; vertical-align:middle;}
+.field .hpr-dd, .hpr-dd--block{display:block; width:100%;}
 .hpr-dd__btn{
   display:inline-flex; align-items:center; gap:8px;
   width:100%; height:40px; padding:0 34px 0 14px;
   border-radius:12px; border:1.6px solid rgba(11,42,91,.16); background:#fff;
   font:inherit; font-weight:700; font-size:13.5px; color:var(--navy-800);
   cursor:pointer; transition:.2s; text-align:left; white-space:nowrap;
+  overflow:hidden;
 }
 .hpr-dd__btn:hover{border-color:var(--gold-500); background:#fffdf6;}
 .hpr-dd.is-open .hpr-dd__btn{
   border-color:var(--gold-500); box-shadow:0 0 0 4px rgba(232,163,23,.18);
 }
-.hpr-dd__label{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;}
+.hpr-dd__label{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center;}
+.hpr-dd__btn img,
+.hpr-dd__label img,
+.hpr-dd__item img,
+.bank-dd-preview img{
+  width:22px !important; height:22px !important;
+  max-width:22px !important; max-height:22px !important;
+  object-fit:contain; flex:none;
+}
 .hpr-dd__caret{
   position:absolute; right:12px; top:50%; transform:translateY(-50%);
   color:var(--muted); pointer-events:none; transition:transform .2s;
@@ -585,9 +595,11 @@ textarea.hpr-input, .hpr-input--ta{
   display:flex; align-items:center; gap:12px; margin-bottom:16px;
   padding-bottom:14px; border-bottom:1px solid var(--line);
 }
-.bank-card__head img{
+.bank-card__head img,
+.bank-card__logo{
   width:44px; height:44px; object-fit:contain; background:#fff;
   border:1px solid var(--line); border-radius:10px; padding:4px;
+  flex:none;
 }
 .bank-card__head > div{flex:1; min-width:0;}
 .bank-card__head b{display:block; color:var(--navy-900);}
@@ -693,6 +705,37 @@ textarea.hpr-input, .hpr-input--ta{
 .file-upload:hover{border-color:var(--gold-500); background:#fffdf6;}
 .file-upload input[type=file]{position:absolute; inset:0; opacity:0; cursor:pointer;}
 .file-upload__name{font-size:13px; font-weight:700; color:var(--navy-800); margin-top:8px; word-break:break-all;}
+
+.hpr-file{
+  display:flex; align-items:center; gap:14px;
+  padding:12px; border:1.6px solid rgba(11,42,91,.14);
+  border-radius:14px; background:#f7f9fd;
+}
+.hpr-file__preview{
+  width:72px; height:72px; flex:none;
+  border-radius:12px; border:1px solid var(--line); background:#fff;
+  display:flex; align-items:center; justify-content:center; overflow:hidden;
+}
+.hpr-file__preview img{
+  width:100%; height:100%; object-fit:contain; padding:6px;
+}
+.hpr-file__preview.is-empty{background:#eef2f8;}
+.hpr-file__ph{font-size:11px; font-weight:700; color:var(--muted); letter-spacing:.04em; text-transform:uppercase;}
+.hpr-file__side{min-width:0; flex:1; display:flex; flex-direction:column; gap:8px; align-items:flex-start;}
+.hpr-file__btn{
+  display:inline-flex; align-items:center; gap:8px;
+  height:38px; padding:0 14px; border-radius:10px;
+  background:linear-gradient(135deg,var(--navy-700),var(--navy-900));
+  color:#fff; font:inherit; font-weight:700; font-size:13px;
+  cursor:pointer; position:relative; overflow:hidden;
+}
+.hpr-file__btn:hover{box-shadow:0 8px 16px rgba(7,27,61,.25);}
+.hpr-file__btn input[type=file]{position:absolute; inset:0; opacity:0; cursor:pointer;}
+.hpr-file__name{font-size:12px; color:var(--muted); font-weight:600; word-break:break-word;}
+@media (max-width:520px){
+  .hpr-file{flex-direction:column; align-items:stretch;}
+  .hpr-file__preview{width:88px; height:88px;}
+}
 
 /* ---------- Reusable centered modal (rc-modal) ---------- */
 .rc-modal{

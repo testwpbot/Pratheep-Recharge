@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>@yield('title', 'Admin Panel') — {{ config('app.name') }}</title>
-<link rel="icon" type="image/png" href="{{ asset('assets/logo-mark.png') }}">
+@include('partials.favicon')
 <link rel="stylesheet" href="{{ asset('css/landing.css') }}">
 <link rel="stylesheet" href="{{ asset('css/loader.css') }}">
 <link rel="stylesheet" href="{{ asset('css/admin.css') }}">
@@ -130,10 +130,15 @@
     var btn = dd.querySelector('.hpr-dd__btn');
     if (!menu || !btn) return;
     var r = btn.getBoundingClientRect();
-    var w = Math.max(r.width, 140);
+    var w = Math.min(Math.max(r.width, 180), window.innerWidth - 16);
     menu.style.position = 'fixed';
     menu.style.minWidth = w + 'px';
-    menu.style.left = r.left + 'px';
+    menu.style.maxWidth = (window.innerWidth - 16) + 'px';
+    menu.style.width = w + 'px';
+    var left = r.left;
+    if (left + w > window.innerWidth - 8) left = Math.max(8, window.innerWidth - w - 8);
+    if (left < 8) left = 8;
+    menu.style.left = left + 'px';
     menu.style.top = (r.bottom + 6) + 'px';
     menu.style.right = 'auto';
     var space = window.innerHeight - r.bottom - 16;
@@ -171,7 +176,7 @@
       var lab = dd.querySelector('.hpr-dd__label');
       var preview = item.querySelector('[data-dd-preview]');
       if (lab){
-        if (preview) lab.innerHTML = preview.innerHTML;
+        if (preview) lab.innerHTML = preview.outerHTML;
         else lab.textContent = label;
       }
       dd.querySelectorAll('.hpr-dd__item').forEach(function(i){ i.classList.toggle('is-active', i === item); });

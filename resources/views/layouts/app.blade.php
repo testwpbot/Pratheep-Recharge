@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 @include('partials.seo')
-<link rel="icon" type="image/png" href="{{ asset('assets/logo-mark.png') }}">
+@include('partials.favicon')
 <link rel="stylesheet" href="{{ asset('css/landing.css') }}">
 <link rel="stylesheet" href="{{ asset('css/loader.css') }}">
 @stack('styles')

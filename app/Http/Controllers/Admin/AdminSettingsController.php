@@ -18,7 +18,7 @@ class AdminSettingsController extends Controller
     {
         $smtp = Setting::forGroup('smtp');
         $general = Setting::forGroup('general');
-        $seo = Setting::forGroup('seo');
+        $seo = Setting::seo();
         $banks = BankAccount::query()->orderBy('sort_order')->orderBy('id')->get();
         $bankCatalog = SriLankanBanks::all();
         $isMainAdmin = auth()->user()?->isMainAdmin() ?? false;
@@ -68,24 +68,31 @@ class AdminSettingsController extends Controller
             'og_description'          => 'nullable|string|max:180',
             'og_image_url'            => 'nullable|url|max:500',
             'og_image'                => 'nullable|image|max:2048',
+            'favicon'                 => 'nullable|file|max:1024|mimes:png,jpg,jpeg,webp,ico,svg,gif',
             'robots'                  => 'nullable|in:index,noindex',
             'google_site_verification'=> 'nullable|string|max:120',
         ]);
 
         foreach (['meta_title', 'meta_description', 'meta_keywords', 'og_title', 'og_description', 'og_image_url', 'robots', 'google_site_verification'] as $k) {
-            if (array_key_exists($k, $data)) {
-                Setting::set('seo', $k, (string) ($data[$k] ?? ''));
-            }
+            Setting::set('seo', $k, (string) ($data[$k] ?? ''));
+        }
+
+        $dir = public_path('uploads/seo');
+        if (! is_dir($dir)) {
+            mkdir($dir, 0755, true);
         }
 
         if ($request->hasFile('og_image')) {
-            $dir = public_path('uploads/seo');
-            if (! is_dir($dir)) {
-                mkdir($dir, 0755, true);
-            }
             $name = 'og-' . time() . '.' . $request->file('og_image')->getClientOriginalExtension();
             $request->file('og_image')->move($dir, $name);
             Setting::set('seo', 'og_image_path', 'uploads/seo/' . $name);
+        }
+
+        if ($request->hasFile('favicon')) {
+            $ext = strtolower($request->file('favicon')->getClientOriginalExtension() ?: 'png');
+            $name = 'favicon-' . time() . '.' . $ext;
+            $request->file('favicon')->move($dir, $name);
+            Setting::set('seo', 'favicon_path', 'uploads/seo/' . $name);
         }
 
         return redirect()->route('admin.settings.index', ['tab' => 'seo'])
@@ -127,7 +134,7 @@ class AdminSettingsController extends Controller
     {
         $data = $request->validate([
             'bank_slug'    => 'required|string|max:80',
-            'bank_name'    => 'required|string|max:160',
+            'bank_name'    => 'nullable|string|max:160',
             'account_name' => 'required|string|max:160',
             'account_no'   => 'required|string|max:80',
             'branch'       => 'nullable|string|max:160',
@@ -138,8 +145,19 @@ class AdminSettingsController extends Controller
         unset($data['logo']);
 
         $cat = SriLankanBanks::find($data['bank_slug']);
-        if ($cat && $data['bank_slug'] !== 'custom' && empty($data['bank_name'])) {
+        if (($data['bank_slug'] ?? '') === 'custom') {
+            if (trim((string) ($data['bank_name'] ?? '')) === '') {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'bank_name' => 'Type the bank name.',
+                ]);
+            }
+        } elseif ($cat) {
             $data['bank_name'] = $cat['name'];
+            if (! $request->hasFile('logo') && empty($data['logo_url'])) {
+                $data['logo_path'] = $cat['logo'];
+            }
+        } elseif (trim((string) ($data['bank_name'] ?? '')) === '') {
+            $data['bank_name'] = $data['bank_slug'];
         }
 
         return $data;

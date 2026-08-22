@@ -64,7 +64,7 @@
     @forelse ($banks as $acc)
       <div class="card bank-card">
         <div class="bank-card__head">
-          <img src="{{ $acc->logoUrl() }}" alt="">
+          <img class="bank-card__logo" src="{{ $acc->logoUrl() }}" alt="">
           <div>
             <b>{{ $acc->bank_name }}</b>
             <small>{{ $acc->is_active ? 'Shown to customers' : 'Hidden' }}</small>
@@ -97,7 +97,7 @@
   <div class="card">
     <div class="card__head">
       <h3>SEO</h3>
-      <small style="color:var(--muted); font-weight:600;">How Google and social apps show this website.</small>
+      <small style="color:var(--muted); font-weight:600;">How Google and social apps show this website. Boxes below already show what is saved now.</small>
     </div>
     <form method="POST" action="{{ route('admin.settings.seo') }}" enctype="multipart/form-data">
       @csrf
@@ -143,10 +143,36 @@
         </div>
         <div class="field">
           <label>Or upload share image</label>
-          <input type="file" name="og_image" accept="image/*">
-          @if(!empty($seo['og_image_path']))
-            <div class="hint">Current image is saved.</div>
-          @endif
+          @php
+            $ogPreview = old('og_image_url', $seo['og_image_url'] ?? '');
+            if ($ogPreview === '' && !empty($seo['og_image_path'])) {
+                $ogPreview = asset($seo['og_image_path']);
+            }
+          @endphp
+          @include('admin.settings._file-picker', [
+            'name' => 'og_image',
+            'current' => $ogPreview,
+            'button' => 'Choose share image',
+            'hint' => 'Shown on Facebook / WhatsApp. PNG or JPG · max 2MB',
+          ])
+        </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>Website icon (favicon)</label>
+          @php
+            $favPreview = '';
+            if (!empty($seo['favicon_path'])) {
+                $favPreview = asset($seo['favicon_path']);
+            } else {
+                $favPreview = asset('assets/logo-mark.png');
+            }
+          @endphp
+          @include('admin.settings._file-picker', [
+            'name' => 'favicon',
+            'current' => $favPreview,
+            'button' => 'Upload favicon',
+            'hint' => 'Small square icon in the browser tab. PNG, ICO or SVG · max 1MB',
+            'accept' => 'image/png,image/jpeg,image/webp,image/svg+xml,image/x-icon,.ico',
+          ])
         </div>
         <div class="field" style="grid-column:1/-1;">
           <label>Google site verification code</label>
@@ -365,6 +391,48 @@
   var q = new URLSearchParams(window.location.search).get('tab');
   if (q) openTab(q);
 
+  function setFilePreview(box, src){
+    if (!box || !src) return;
+    var hold = box.querySelector('.hpr-file__preview');
+    if (!hold) return;
+    var img = hold.querySelector('img');
+    if (!img){
+      hold.innerHTML = '';
+      img = document.createElement('img');
+      img.alt = '';
+      hold.appendChild(img);
+    }
+    img.src = src;
+    hold.classList.remove('is-empty');
+    var ph = hold.querySelector('.hpr-file__ph');
+    if (ph) ph.remove();
+  }
+
+  document.querySelectorAll('[data-hpr-file]').forEach(function(box){
+    var input = box.querySelector('input[type=file]');
+    var nameEl = box.querySelector('.hpr-file__name');
+    if (!input) return;
+    input.addEventListener('change', function(){
+      var f = input.files && input.files[0];
+      if (!f) return;
+      if (nameEl) nameEl.textContent = f.name;
+      if (!f.type || f.type.indexOf('image/') !== 0) return;
+      var reader = new FileReader();
+      reader.onload = function(ev){ setFilePreview(box, ev.target.result); };
+      reader.readAsDataURL(f);
+    });
+  });
+
+  document.querySelectorAll('input[name=logo_url], input[name=og_image_url]').forEach(function(inp){
+    inp.addEventListener('input', function(){
+      var val = (inp.value || '').trim();
+      if (!/^https?:\/\//i.test(val)) return;
+      var form = inp.closest('form');
+      var box = form ? form.querySelector('[data-hpr-file]') : null;
+      setFilePreview(box, val);
+    });
+  });
+
   document.querySelectorAll('[data-bank-picker]').forEach(function(dd){
     dd.addEventListener('click', function(e){
       var item = e.target.closest('.hpr-dd__item');
@@ -373,19 +441,31 @@
       if (!form) return;
       var slug = item.getAttribute('data-value');
       var name = item.getAttribute('data-bank-name') || '';
+      var logo = item.getAttribute('data-logo') || '';
       var hiddenName = form.querySelector('.bank-name-hidden');
-      var visName = form.querySelector('.bank-custom-name input[name=bank_name]');
-      form.querySelectorAll('.bank-custom-name, .bank-custom-logo').forEach(function(el){
+      var visName = form.querySelector('.bank-custom-name-input');
+      form.querySelectorAll('.bank-custom-only').forEach(function(el){
         el.style.display = slug === 'custom' ? '' : 'none';
       });
-      if (slug === 'custom'){
-        if (hiddenName) hiddenName.disabled = true;
-        if (visName) visName.disabled = false;
-      } else {
-        if (hiddenName){ hiddenName.disabled = false; hiddenName.value = name; }
-        if (visName) visName.disabled = true;
+      if (hiddenName) hiddenName.value = name;
+      if (visName){
+        visName.required = slug === 'custom';
+        if (slug !== 'custom') visName.value = name;
+      }
+      var card = form.closest('.bank-card');
+      var headImg = card ? card.querySelector('.bank-card__logo') : null;
+      if (headImg && logo) headImg.src = logo;
+      var fileInput = form.querySelector('[data-hpr-file] input[type=file]');
+      if (logo && (!fileInput || !fileInput.files || !fileInput.files[0])){
+        setFilePreview(form.querySelector('[data-hpr-file]'), logo);
       }
     });
+    var form = dd.closest('form');
+    var visName = form ? form.querySelector('.bank-custom-name-input') : null;
+    var hiddenName = form ? form.querySelector('.bank-name-hidden') : null;
+    if (visName && hiddenName){
+      visName.addEventListener('input', function(){ hiddenName.value = visName.value; });
+    }
   });
 
   var testBtn = document.getElementById('testSmtpBtn');

@@ -1,8 +1,8 @@
 @php
-  $seo = \App\Models\Setting::forGroup('seo');
+  $seo = \App\Models\Setting::seo();
   $siteName = \App\Models\Setting::get('general', 'site_name', config('app.name', 'Happy Pratheep Recharge'));
   $title = trim($__env->yieldContent('title'));
-  $pageTitle = $seo['meta_title'] ?? '';
+  $pageTitle = trim((string) ($seo['meta_title'] ?? ''));
   if ($title !== '') {
       $fullTitle = $title;
   } elseif ($pageTitle !== '') {
@@ -15,13 +15,13 @@
       $desc = $seo['meta_description'] ?? 'Mobile reloads, data packages, ISP bills and utility payments for Sri Lanka. Fast, secure bank transfers.';
   }
   $keywords = $seo['meta_keywords'] ?? '';
-  $ogTitle = $seo['og_title'] ?: $fullTitle;
-  $ogDesc = $seo['og_description'] ?: $desc;
-  $ogImage = $seo['og_image_url'] ?? '';
-  if (! $ogImage && ! empty($seo['og_image_path'])) {
+  $ogTitle = trim((string) ($seo['og_title'] ?? '')) ?: $fullTitle;
+  $ogDesc = trim((string) ($seo['og_description'] ?? '')) ?: $desc;
+  $ogImage = trim((string) ($seo['og_image_url'] ?? ''));
+  if ($ogImage === '' && ! empty($seo['og_image_path'])) {
       $ogImage = asset($seo['og_image_path']);
   }
-  if (! $ogImage) {
+  if ($ogImage === '') {
       $ogImage = asset('assets/logo.png');
   }
   $robots = ($seo['robots'] ?? 'index') === 'noindex' ? 'noindex,follow' : 'index,follow';

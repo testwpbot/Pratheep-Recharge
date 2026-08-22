@@ -13,7 +13,7 @@ class SriLankanBanks
     {
         return [
             ['slug' => 'bank-of-ceylon', 'name' => 'Bank of Ceylon', 'logo' => 'assets/banks/bank-of-ceylon.png'],
-            ['slug' => 'peoples-bank', 'name' => "People's Bank", 'logo' => 'assets/banks/peoples-bank.webp'],
+            ['slug' => 'peoples-bank', 'name' => "People's Bank", 'logo' => 'assets/banks/peoples-bank.png'],
             ['slug' => 'commercial-bank', 'name' => 'Commercial Bank', 'logo' => 'assets/banks/commercial-bank.png'],
             ['slug' => 'hatton-national-bank', 'name' => 'Hatton National Bank (HNB)', 'logo' => 'assets/banks/hatton-national-bank.png'],
             ['slug' => 'sampath-bank', 'name' => 'Sampath Bank', 'logo' => 'assets/banks/sampath-bank.png'],
@@ -25,9 +25,9 @@ class SriLankanBanks
             ['slug' => 'union-bank', 'name' => 'Union Bank', 'logo' => 'assets/banks/union-bank.png'],
             ['slug' => 'amana-bank', 'name' => 'Amana Bank', 'logo' => 'assets/banks/amana-bank.png'],
             ['slug' => 'cargills-bank', 'name' => 'Cargills Bank', 'logo' => 'assets/banks/cargills-bank.png'],
-            ['slug' => 'national-savings-bank', 'name' => 'National Savings Bank', 'logo' => null],
-            ['slug' => 'hsbc', 'name' => 'HSBC', 'logo' => null],
-            ['slug' => 'standard-chartered', 'name' => 'Standard Chartered', 'logo' => null],
+            ['slug' => 'national-savings-bank', 'name' => 'National Savings Bank', 'logo' => 'assets/banks/national-savings-bank.png'],
+            ['slug' => 'hsbc', 'name' => 'HSBC', 'logo' => 'assets/banks/hsbc.png'],
+            ['slug' => 'standard-chartered', 'name' => 'Standard Chartered', 'logo' => 'assets/banks/standard-chartered.png'],
             ['slug' => 'custom', 'name' => 'Other bank (own logo)', 'logo' => null],
         ];
     }
@@ -41,5 +41,15 @@ class SriLankanBanks
         }
 
         return null;
+    }
+
+    public static function logoAsset(?string $slug): ?string
+    {
+        $row = $slug ? static::find($slug) : null;
+        if (! $row || empty($row['logo'])) {
+            return null;
+        }
+
+        return asset($row['logo']);
     }
 }

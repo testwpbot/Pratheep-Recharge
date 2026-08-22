@@ -37,6 +37,41 @@ class Setting extends Model
     }
 
     /**
+     * SEO values with safe defaults so views never hit a missing key.
+     *
+     * @return array<string,string>
+     */
+    public static function seo(): array
+    {
+        $site = static::get('general', 'site_name', config('app.name', 'Happy Pratheep Recharge'));
+        $defaults = [
+            'meta_title'               => $site . ' — Mobile reloads, bills and DTH in Sri Lanka',
+            'meta_description'         => 'Mobile reloads, data packages, ISP bills and utility payments for Sri Lanka. Fast, secure bank transfers.',
+            'meta_keywords'            => 'reload, Dialog, Mobitel, Airtel, Hutch, electricity bill, DTH, Sri Lanka',
+            'og_title'                 => '',
+            'og_description'           => '',
+            'og_image_url'             => '',
+            'og_image_path'            => '',
+            'favicon_path'             => '',
+            'robots'                   => 'index',
+            'google_site_verification' => '',
+        ];
+        $saved = static::forGroup('seo');
+        $out = array_merge($defaults, is_array($saved) ? $saved : []);
+        foreach ($out as $k => $v) {
+            $out[$k] = is_string($v) ? $v : (string) ($v ?? '');
+        }
+        if (trim($out['og_title']) === '') {
+            $out['og_title'] = $out['meta_title'];
+        }
+        if (trim($out['og_description']) === '') {
+            $out['og_description'] = $out['meta_description'];
+        }
+
+        return $out;
+    }
+
+    /**
      * Boot SMTP config into the mailer at runtime (called from a service provider).
      */
     public static function bootMailConfig(): void

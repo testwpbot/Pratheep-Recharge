@@ -3,9 +3,14 @@
   $account = $account ?? null;
   $slug = old('bank_slug', $account->bank_slug ?? 'bank-of-ceylon');
   $isCustom = $slug === 'custom';
+  $cur = \App\Support\SriLankanBanks::find($slug);
   $action = $account
       ? route('admin.settings.banks.update', $account)
       : route('admin.settings.banks.store');
+  $previewLogo = $account
+      ? $account->logoUrl()
+      : (\App\Support\SriLankanBanks::logoAsset($slug) ?: asset('assets/logo-mark.png'));
+  $bankName = old('bank_name', $account->bank_name ?? ($cur['name'] ?? ''));
 @endphp
 <form method="POST" action="{{ $action }}" enctype="multipart/form-data" class="bank-form">
   @csrf
@@ -14,12 +19,11 @@
   <div class="form-grid">
     <div class="field" style="grid-column:1/-1;">
       <label>Bank <span class="req">*</span></label>
-      <div class="hpr-dd" data-hpr-dd data-bank-picker>
+      <div class="hpr-dd hpr-dd--block" data-hpr-dd data-bank-picker>
         <input type="hidden" name="bank_slug" value="{{ $slug }}">
         <button type="button" class="hpr-dd__btn">
           <span class="hpr-dd__label">
-            @php $cur = \App\Support\SriLankanBanks::find($slug); @endphp
-            @if($cur && $cur['logo'])
+            @if($cur && !empty($cur['logo']))
               <span class="bank-dd-preview"><img src="{{ asset($cur['logo']) }}" alt=""> {{ $cur['name'] }}</span>
             @else
               {{ $cur['name'] ?? 'Pick a bank' }}
@@ -32,7 +36,8 @@
             <button type="button" class="hpr-dd__item {{ $slug===$b['slug'] ? 'is-active' : '' }}"
                     data-value="{{ $b['slug'] }}"
                     data-label="{{ $b['name'] }}"
-                    data-bank-name="{{ $b['name'] }}">
+                    data-bank-name="{{ $b['name'] }}"
+                    data-logo="{{ !empty($b['logo']) ? asset($b['logo']) : '' }}">
               <span data-dd-preview class="bank-dd-preview">
                 @if($b['logo'])
                   <img src="{{ asset($b['logo']) }}" alt="">
@@ -47,13 +52,12 @@
       </div>
     </div>
 
-    <div class="field bank-custom-name" @unless($isCustom) style="display:none" @endunless>
+    <input type="hidden" class="bank-name-hidden" name="bank_name" value="{{ $bankName }}">
+
+    <div class="field bank-custom-only" @unless($isCustom) style="display:none" @endunless>
       <label>Bank name <span class="req">*</span></label>
-      <input type="text" name="bank_name" value="{{ old('bank_name', $account->bank_name ?? optional(\App\Support\SriLankanBanks::find($slug))['name'] ?? '') }}" placeholder="Type the bank name">
+      <input type="text" class="bank-custom-name-input" value="{{ $bankName }}" placeholder="Type the bank name" @if($isCustom) required @endif>
     </div>
-    @unless($isCustom)
-      <input type="hidden" class="bank-name-hidden" name="bank_name" value="{{ old('bank_name', $account->bank_name ?? optional(\App\Support\SriLankanBanks::find($slug))['name'] ?? '') }}">
-    @endunless
 
     <div class="field">
       <label>Account name <span class="req">*</span></label>
@@ -67,13 +71,18 @@
       <label>Branch</label>
       <input type="text" name="branch" value="{{ old('branch', $account->branch ?? '') }}">
     </div>
-    <div class="field bank-custom-logo" @unless($isCustom) style="display:none" @endunless>
-      <label>Logo URL</label>
+    <div class="field bank-custom-only" @unless($isCustom) style="display:none" @endunless>
+      <label>Logo URL <small style="color:var(--muted);font-weight:600;">(optional)</small></label>
       <input type="url" name="logo_url" value="{{ old('logo_url', $account->logo_url ?? '') }}" placeholder="https://…">
     </div>
-    <div class="field bank-custom-logo" @unless($isCustom) style="display:none" @endunless>
-      <label>Or upload logo</label>
-      <input type="file" name="logo" accept="image/*">
+    <div class="field" style="grid-column:1/-1;">
+      <label>Bank logo</label>
+      @include('admin.settings._file-picker', [
+        'name' => 'logo',
+        'current' => $previewLogo,
+        'button' => 'Upload logo',
+        'hint' => 'Pick a bank above, or upload your own. PNG / JPG / WEBP · max 2MB',
+      ])
     </div>
     <div class="field" style="grid-column:1/-1;">
       <label>Note for customers</label>
