@@ -180,10 +180,11 @@ class AdminSettingsController extends Controller
     public function saveGeneral(Request $request)
     {
         $data = $request->validate([
-            'site_name'       => 'required|string|max:120',
-            'support_email'   => 'nullable|email|max:255',
-            'support_phone'   => 'nullable|string|max:40',
-            'deposit_note'    => 'nullable|string|max:2000',
+            'site_name'           => 'required|string|max:120',
+            'support_email'       => 'nullable|email|max:255',
+            'support_phone'       => 'nullable|string|max:40',
+            'deposit_note'        => 'nullable|string|max:2000',
+            'min_wallet_balance'  => 'required|numeric|min:0|max:10000',
         ]);
 
         foreach ($data as $k => $v) {

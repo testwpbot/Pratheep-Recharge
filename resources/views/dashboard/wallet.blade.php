@@ -13,6 +13,11 @@
 <div class="wallet-hero">
   <small>Wallet Balance</small>
   <b>LKR {{ number_format($wallet->balance, 2) }}</b>
+  @if(!empty($walletNotice))
+    <p class="wallet-hero__note">{{ $walletNotice['message'] }}</p>
+  @else
+    <p class="wallet-hero__note">Keep at least LKR {{ number_format($minDeposit, 2) }} in your wallet to place a recharge.</p>
+  @endif
   <div class="wallet-hero__grid">
     <div><span>Cashback Earned</span><i>LKR {{ number_format($totalEarned, 2) }}</i></div>
     <div><span>Total Credited</span><i>LKR {{ number_format($totalDeposited + $totalEarned, 2) }}</i></div>
@@ -117,8 +122,8 @@
         <div class="form-grid">
           <div class="field">
             <label>Amount (LKR) <span class="req">*</span></label>
-            <input type="number" name="amount" min="100" max="500000" step="0.01" required placeholder="e.g. 1000">
-            <div class="hint">Minimum LKR 100. The exact amount you sent.</div>
+            <input type="number" name="amount" min="{{ $minDeposit }}" max="500000" step="0.01" required placeholder="e.g. {{ number_format($minDeposit, 0) }}">
+            <div class="hint">Smallest deposit is LKR {{ number_format($minDeposit, 2) }}. Type the exact amount you sent.</div>
           </div>
           <div class="field">
             <label>Bank you sent from <span class="req">*</span></label>
@@ -254,6 +259,15 @@
 
 @push('styles')
 <style>
+.wallet-hero__note{
+  position:relative;
+  margin:10px 0 0;
+  font-size:13.5px;
+  font-weight:600;
+  line-height:1.45;
+  color:rgba(255,255,255,.82);
+  max-width:46rem;
+}
 .wallet-grid{
   display:grid;
   gap:20px;

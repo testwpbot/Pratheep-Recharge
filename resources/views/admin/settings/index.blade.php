@@ -43,6 +43,12 @@
           <label>Support phone</label>
           <input type="text" name="support_phone" value="{{ old('support_phone', $general['support_phone'] ?? '') }}" placeholder="+94 77 123 4567">
         </div>
+        <div class="field">
+          <label>Smallest wallet amount (LKR)</label>
+          <input type="number" name="min_wallet_balance" min="0" max="10000" step="1"
+                 value="{{ old('min_wallet_balance', $general['min_wallet_balance'] ?? 100) }}" required>
+          <div class="hint">Customers need this much in the wallet to recharge. New customers must add at least this amount. Default 100.</div>
+        </div>
         <div class="field" style="grid-column:1/-1;">
           <label>Deposit note (shown to customers)</label>
           <textarea name="deposit_note" rows="3">{{ old('deposit_note', $general['deposit_note'] ?? '') }}</textarea>

@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Setting;
 use App\Models\Wallet;
 use App\Models\WalletDeposit;
-use Illuminate\Http\Request;
+use App\Support\WalletLimits;
 use Illuminate\View\View;
 
 class WalletController extends Controller
@@ -27,7 +27,11 @@ class WalletController extends Controller
 
         $banks = \App\Models\BankAccount::active()->get();
         $general = Setting::forGroup('general');
+        $minDeposit = WalletLimits::minDeposit();
+        $walletNotice = WalletLimits::notice($user, $wallet);
 
-        return view('dashboard.wallet', compact('wallet', 'deposits', 'transactions', 'banks', 'general'));
+        return view('dashboard.wallet', compact(
+            'wallet', 'deposits', 'transactions', 'banks', 'general', 'minDeposit', 'walletNotice'
+        ));
     }
 }

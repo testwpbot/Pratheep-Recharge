@@ -7,6 +7,7 @@ use App\Mail\DepositSubmitted;
 use App\Models\Setting;
 use App\Models\WalletDeposit;
 use App\Models\User;
+use App\Support\WalletLimits;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -15,12 +16,16 @@ class DepositController extends Controller
 {
     public function store(Request $request)
     {
+        $min = WalletLimits::minDeposit();
+
         $request->validate([
-            'amount'          => 'required|numeric|min:100|max:500000',
+            'amount'          => 'required|numeric|min:' . $min . '|max:500000',
             'bank_name'       => 'required|string|max:120',
             'depositor_name'  => 'required|string|max:120',
             'reference_number'=> 'nullable|string|max:120',
             'slip'            => 'required|file|mimes:jpg,jpeg,png,pdf,webp|max:5120',
+        ], [
+            'amount.min' => 'The smallest deposit is ' . WalletLimits::money($min) . '.',
         ]);
 
         $path = null;

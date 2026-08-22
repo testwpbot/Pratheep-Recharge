@@ -9,6 +9,7 @@ use App\Models\Service;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
+use App\Support\WalletLimits;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
@@ -66,12 +67,7 @@ class OrderService
         $wallet = Wallet::firstOrCreate(['user_id' => $user->id]);
         $wallet = Wallet::whereKey($wallet->id)->lockForUpdate()->first() ?? $wallet;
 
-        if ((float) $wallet->balance < $amount) {
-            $short = number_format($amount - (float) $wallet->balance, 2);
-            throw new \RuntimeException(
-                'Insufficient wallet balance. You need LKR ' . $short . ' more to place this recharge. Please top up your wallet.'
-            );
-        }
+        WalletLimits::assertCanDebit($user, $wallet, $amount);
 
         // Cashback (profit) amount per this order — credited ONLY after order success.
         $profit = $service->calculateCashback($amount, $user);
@@ -83,6 +79,7 @@ class OrderService
         DB::transaction(function () use ($user, $service, $provider, $accountNumber, $notifyNumber, $amount, $profit, $wallet, $balanceBeforeDebit, &$order) {
             // Re-lock wallet inside the transaction (the lock above was outside)
             $w = Wallet::whereKey($wallet->id)->lockForUpdate()->first() ?? $wallet;
+            WalletLimits::assertCanDebit($user, $w, $amount);
             $before = (float) $w->balance;
             $w->balance = $before - $amount;
             $w->cashback_balance = 0;
@@ -198,6 +195,8 @@ class OrderService
             $order->save();
         }
 
+        $this->syncWalletNotice($user->id);
+
         return $order->fresh();
     }
 
@@ -260,6 +259,7 @@ class OrderService
 
         // Refresh the passed-in model too so callers see the new state
         $order->refresh();
+        $this->syncWalletNotice((int) $order->user_id);
     }
 
     /** Mark order failed. Idempotent. Refunds the wallet debit if one exists. */
@@ -290,6 +290,7 @@ class OrderService
         });
 
         $order->refresh();
+        $this->syncWalletNotice((int) $order->user_id);
     }
 
     /**
@@ -476,6 +477,16 @@ class OrderService
         ]);
 
         return $order->fresh(['provider', 'service', 'user']);
+    }
+
+    /** Email the customer if this debit left their wallet below the minimum. */
+    protected function syncWalletNotice(int $userId): void
+    {
+        try {
+            app(WalletBalanceNotifier::class)->syncUser($userId);
+        } catch (\Throwable $e) {
+            Log::warning('Wallet low-balance check failed: ' . $e->getMessage());
+        }
     }
 
     /** Match an HRC DTH service to the hidden Topup Mart DTH equivalent (by opcode map / name). */

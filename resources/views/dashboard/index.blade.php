@@ -19,7 +19,11 @@
     <a href="{{ route('wallet') }}" class="wcard" style="text-decoration:none; color:inherit;">
       <small>Wallet Balance</small>
       <b>LKR {{ number_format($stats['balance'], 2) }}</b>
-      <span style="color:var(--gold-600); font-weight:700;">Top up via bank transfer →</span>
+      @if(!empty($walletNotice))
+        <span style="color:var(--gold-600); font-weight:700;">{{ $walletNotice['type'] === 'low' ? 'Wallet is low — add money →' : 'Add money to start →' }}</span>
+      @else
+        <span style="color:var(--gold-600); font-weight:700;">Top up via bank transfer →</span>
+      @endif
     </a>
   </div>
 </div>

@@ -15,3 +15,6 @@ Schedule::command(SyncPendingOrders::class)->everyMinute();
 
 // Compare API float vs customer wallets and email admin when short
 Schedule::command(CheckProviderFunds::class)->everyMinute()->withoutOverlapping();
+
+// Email customers whose wallet dropped below the minimum
+Schedule::command(\App\Console\Commands\NotifyLowWallets::class)->hourly()->withoutOverlapping();

@@ -63,9 +63,11 @@ class EmailVerificationController extends Controller
         ]);
 
         if ($reason === 'signup') {
+            $min = number_format(\App\Support\WalletLimits::minDeposit(), 2);
+
             return redirect()
                 ->route('login')
-                ->with('status', 'Email confirmed. You can sign in now.');
+                ->with('status', 'Email confirmed. Sign in, then add at least LKR ' . $min . ' to your wallet to start.');
         }
 
         Auth::login($user->fresh(), $remember);

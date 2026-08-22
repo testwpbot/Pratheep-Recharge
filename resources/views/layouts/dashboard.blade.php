@@ -28,6 +28,7 @@
   [data-dash-compact] .stat b{font-size:16px;}
   [data-dash-compact] .stat span{font-size:10px;}
   [data-dash-compact] .alert{margin-bottom:12px; padding:10px 12px;}
+  [data-dash-compact] .wallet-notice{padding:10px 12px; margin-bottom:12px; border-radius:12px;}
 }
 </style>
 </head>
@@ -103,6 +104,15 @@
     </div>
 
     <div class="app-content">
+      @if (!empty($walletNotice) && !request()->routeIs('wallet'))
+        <div class="wallet-notice wallet-notice--{{ $walletNotice['type'] }}">
+          <div class="wallet-notice__text">
+            <b>{{ $walletNotice['title'] }}</b>
+            <p>{{ $walletNotice['message'] }}</p>
+          </div>
+          <a href="{{ route('wallet') }}" class="btn-admin btn-admin--gold btn-admin--sm">Add money</a>
+        </div>
+      @endif
       @if (session('status') || session('success'))
         <div class="alert alert--success">{{ session('status') ?: session('success') }}</div>
       @endif

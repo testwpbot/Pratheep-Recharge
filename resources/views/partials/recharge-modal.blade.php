@@ -227,6 +227,27 @@ button.service-card{
   window.__hprRcModalReady = true;
   document.body.appendChild(modal);
 
+  @php
+    $hprUser = auth()->user();
+    $hprWallet = $hprUser
+      ? ($hprUser->wallet ?: \App\Models\Wallet::firstOrCreate(['user_id' => $hprUser->id]))
+      : null;
+    $hprMin = \App\Support\WalletLimits::minBalance();
+    $hprBal = (float) ($hprWallet->balance ?? 0);
+    $hprCan = $hprUser && $hprWallet
+      ? \App\Support\WalletLimits::canStartRecharge($hprUser, $hprWallet)
+      : false;
+    $hprBlock = $hprCan
+      ? ''
+      : (($hprBal <= 0.009)
+          ? ('Add at least LKR ' . number_format($hprMin, 2) . ' to your wallet before you can recharge.')
+          : ('Your wallet is below LKR ' . number_format($hprMin, 2) . '. Add money to keep recharging.'));
+  @endphp
+  window.__hprWallet = {
+    can_recharge: {{ $hprCan ? 'true' : 'false' }},
+    message: @json($hprBlock)
+  };
+
   var mLogo    = document.getElementById('rcLogo');
   var mOpName  = document.getElementById('rcOperatorName');
   var mForm    = document.getElementById('rcForm');
@@ -401,6 +422,12 @@ button.service-card{
     var card = e.target.closest('[data-plan-card], [data-rc-custom]');
     if (!card || modal.contains(card)) return;
     e.preventDefault();
+    if (window.__hprWallet && window.__hprWallet.can_recharge === false) {
+      var msg = window.__hprWallet.message || 'Add money to your wallet before you can recharge.';
+      if (window.toast) window.toast(msg, 'error');
+      else alert(msg);
+      return;
+    }
     openModal(card);
   });
   document.addEventListener('keydown', function(e){

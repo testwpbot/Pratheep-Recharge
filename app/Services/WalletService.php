@@ -6,6 +6,7 @@ use App\Models\Wallet;
 use App\Models\WalletDeposit;
 use App\Models\WalletTransaction;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class WalletService
 {
@@ -19,7 +20,7 @@ class WalletService
             return $deposit;
         }
 
-        return DB::transaction(function () use ($deposit, $adminId, $note) {
+        $deposit = DB::transaction(function () use ($deposit, $adminId, $note) {
             $wallet = Wallet::firstOrCreate(['user_id' => $deposit->user_id]);
             $wallet = Wallet::whereKey($wallet->id)->lockForUpdate()->first() ?? $wallet;
 
@@ -48,6 +49,14 @@ class WalletService
 
             return $deposit;
         });
+
+        try {
+            app(WalletBalanceNotifier::class)->syncUser((int) $deposit->user_id);
+        } catch (\Throwable $e) {
+            Log::warning('Wallet low-balance check after deposit failed: ' . $e->getMessage());
+        }
+
+        return $deposit;
     }
 
     /**
