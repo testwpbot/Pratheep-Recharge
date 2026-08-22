@@ -179,6 +179,18 @@
   @media (max-width:1000px){
     .user-chip{display:none;}
   }
+  .drawer__who{
+    display:flex; align-items:center; gap:10px;
+    margin:0 0 12px; min-width:0;
+  }
+  .drawer__who img{
+    width:36px; height:36px; border-radius:50%; object-fit:cover; flex:none;
+    border:2px solid var(--gold-500);
+  }
+  .drawer__who span{
+    min-width:0; font-size:13px; font-weight:700; color:var(--navy-800);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
 </style>
 
 <!-- mobile drawer -->
@@ -205,43 +217,21 @@
     <a href="{{ route('recharge.category', 'utility') }}"><span class="di"><x-icon name="drop-dr" :size="18"/></span>Water — NWSDB</a>
     <a href="{{ route('gift-cards') }}"><span class="di"><x-icon name="gift-dr" :size="18"/></span>Gift Cards</a>
     <a href="{{ route('support') }}"><span class="di"><x-icon name="headset-dr" :size="18"/></span>Support</a>
-
-    @auth
-      <p class="drawer__label" style="margin-top:18px;">Account</p>
-      <a href="#" style="pointer-events:none;opacity:.85;">
-        <span class="di" style="background:transparent;border:0;box-shadow:none;padding:0;">
-          <img src="{{ auth()->user()->avatarUrl(40) }}" alt="" style="width:38px;height:38px;border-radius:50%;object-fit:cover;border:2px solid var(--gold-500);">
-        </span>
-        {{ auth()->user()->email }}
-      </a>
-    @endauth
   </nav>
 
   <div class="drawer__account">
     <p class="drawer__label">Account</p>
     @auth
+      <div class="drawer__who">
+        <img src="{{ auth()->user()->avatarUrl(40) }}" alt="">
+        <span>{{ auth()->user()->email }}</span>
+      </div>
       <a href="{{ route('dashboard') }}" class="btn btn--navy" style="width:100%;justify-content:center;">
         <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V21h13V9.5"/><path d="M10 21v-6h4v6"/>
         </svg>
         Dashboard
       </a>
-      <a href="{{ route('dashboard.plans') }}" class="btn btn--ghost" style="margin-top:9px;width:100%;justify-content:center;">
-        <x-icon name="tag" :size="17"/>
-        Plans & Rates
-      </a>
-      <a href="{{ route('dashboard') }}" class="btn btn--gold" style="margin-top:9px;width:100%;justify-content:center;">
-        <x-icon name="bolt-nav" :size="17"/>
-        Recharge Now
-      </a>
-      @if(auth()->user()->is_admin)
-        <a href="{{ route('admin.dashboard') }}" class="btn btn--ghost" style="margin-top:9px;width:100%;justify-content:center;">
-          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2 3 7v5c0 5 4 9 9 10 5-1 9-5 9-10V7l-9-5z"/>
-          </svg>
-          Admin Panel
-        </a>
-      @endif
       <form method="POST" action="{{ route('logout') }}">
         @csrf
         <button type="submit" class="btn" style="width:100%;margin-top:9px;background:#d43b3b;color:#fff;box-shadow:0 8px 20px rgba(212,59,59,.3);justify-content:center;position:relative;" data-loading="Signing out…">
