@@ -5,6 +5,10 @@
   $isHrc = $order->provider && $order->provider->isHappyRechargeCenter();
   $failedOver = is_array($order->provider_response) && !empty($order->provider_response['_failover']);
   $canFailover = $isHrc && in_array($order->status, ['pending','processing']);
+  $transferPartner = in_array($order->status, ['pending','processing'])
+    ? \App\Support\ServicePairs::partner($order->service)
+    : null;
+  $switched = is_array($order->provider_response) && !empty($order->provider_response['_transfer']);
 @endphp
 
 @section('content')
@@ -15,6 +19,9 @@
     <span class="pill pill--{{ $order->status }}">{{ ucfirst($order->status) }}</span>
     @if ($failedOver)
       <span class="pill pill--pending" title="Re-sent via Topup Mart after HRC pending">Failed over</span>
+    @endif
+    @if ($switched)
+      <span class="pill pill--processing">Switched route</span>
     @endif
   </div>
 
@@ -43,6 +50,12 @@
       @if ($canFailover)
         <button class="btn-admin btn-admin--danger" type="button" id="failoverBtn">
           ⚠ Fail over to Topup Mart
+        </button>
+      @endif
+
+      @if ($transferPartner)
+        <button class="btn-admin btn-admin--primary" type="button" id="transferBtn">
+          Send via {{ $transferPartner->name }}
         </button>
       @endif
     </div>
@@ -98,6 +111,43 @@
 </div>
 @endif
 
+@if ($transferPartner)
+<div class="rc-modal" id="transferModal" hidden>
+  <div class="rc-modal__backdrop" data-close-transfer></div>
+  <div class="rc-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="trHead">
+    <button class="rc-modal__close" data-close-transfer aria-label="Close">✕</button>
+    <div class="rc-modal__head">
+      <h3 id="trHead">Send through {{ $transferPartner->name }}?</h3>
+      <small>Order {{ $order->reference }} · LKR {{ number_format($order->amount, 2) }}</small>
+    </div>
+    <div style="color:var(--navy-800); font-weight:600; font-size:14px; line-height:1.6;">
+      <p style="margin:0 0 10px;">
+        This order is still pending on <b>{{ $order->service->name }}</b>.
+        Send the <b>same order</b> through <b>{{ $transferPartner->name }}</b> instead.
+      </p>
+      <ul style="margin:0 0 12px; padding-left:20px;">
+        <li>Customer is not charged again.</li>
+        <li>Same number and amount.</li>
+        <li>If the first route later succeeds, check it by hand.</li>
+      </ul>
+    </div>
+    <form method="POST" action="{{ route('admin.orders.transfer', $order) }}" id="transferForm" data-ajax>
+      @csrf
+      <div class="field" style="margin-bottom:14px;">
+        <label>Admin note (optional)</label>
+        <textarea name="note" rows="2" class="hpr-input hpr-input--ta" placeholder="Why you are switching…"></textarea>
+      </div>
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button type="button" class="btn-admin btn-admin--ghost" data-close-transfer>Cancel</button>
+        <button type="submit" class="btn-admin btn-admin--primary" data-loading="Sending…">
+          Yes, send via {{ $transferPartner->name }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+@endif
+
 @endsection
 
 @push('scripts')
@@ -107,12 +157,28 @@
   var btn = document.getElementById('failoverBtn');
   var modal = document.getElementById('failoverModal');
   if (!btn || !modal) return;
-  // Move modal to body so it's outside any transformed ancestor (safe for fixed positioning).
   document.body.appendChild(modal);
   function open(){ modal.hidden = false; }
   function close(){ modal.hidden = true; }
   btn.addEventListener('click', open);
   modal.querySelectorAll('[data-close]').forEach(function(el){
+    el.addEventListener('click', close);
+  });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') close(); });
+})();
+</script>
+@endif
+@if ($transferPartner)
+<script>
+(function(){
+  var btn = document.getElementById('transferBtn');
+  var modal = document.getElementById('transferModal');
+  if (!btn || !modal) return;
+  document.body.appendChild(modal);
+  function open(){ modal.hidden = false; }
+  function close(){ modal.hidden = true; }
+  btn.addEventListener('click', open);
+  modal.querySelectorAll('[data-close-transfer]').forEach(function(el){
     el.addEventListener('click', close);
   });
   document.addEventListener('keydown', function(e){ if (e.key === 'Escape') close(); });

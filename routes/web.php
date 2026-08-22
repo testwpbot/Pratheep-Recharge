@@ -158,6 +158,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified.otp', 'adm
     Route::get('/orders/{order}',                         [AdminOrderController::class, 'show'])->name('orders.show');
     Route::post('/orders/{order}/sync',                   [AdminOrderController::class, 'sync'])->name('orders.sync');
     Route::post('/orders/{order}/failover',               [AdminOrderController::class, 'failover'])->name('orders.failover');
+    Route::post('/orders/{order}/transfer',               [AdminOrderController::class, 'transfer'])->name('orders.transfer');
 
     // Plans
     Route::get('/plans',                                  [AdminPlanController::class, 'index'])->name('plans.index');

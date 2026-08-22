@@ -57,6 +57,13 @@
                     <button class="btn-admin btn-admin--danger btn-admin--sm" type="submit" data-loading="Failing…" title="Fail over to Topup Mart">⚠ Failover</button>
                   </form>
                 @endif
+                @php $_pair = \App\Support\ServicePairs::partner($o->service); @endphp
+                @if ($_pair)
+                  <form method="POST" action="{{ route('admin.orders.transfer', $o) }}" data-ajax data-ajax-redirect onsubmit="return confirm('Send this pending order through {{ addslashes($_pair->name) }}? The customer is not charged again.');">
+                    @csrf
+                    <button class="btn-admin btn-admin--primary btn-admin--sm" type="submit" data-loading="Sending…" title="Send via {{ $_pair->name }}">Send via {{ $_pair->name }}</button>
+                  </form>
+                @endif
               @endif
             </div>
           </td>

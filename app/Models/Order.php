@@ -49,6 +49,18 @@ class Order extends Model
         return $this->hasMany(Complaint::class)->latest();
     }
 
+    /**
+     * Reference we send to the provider. After an admin switches Dialog ↔ Dialog API
+     * this becomes the original ref plus -T1 / -T2 so status checks follow the new request.
+     */
+    public function providerClientRef(): string
+    {
+        $resp = is_array($this->provider_response) ? $this->provider_response : [];
+        $ref = trim((string) ($resp['_client_ref'] ?? ''));
+
+        return $ref !== '' ? $ref : (string) $this->reference;
+    }
+
     /** Generate a unique order reference */
     public static function generateReference(): string
     {

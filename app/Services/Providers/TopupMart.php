@@ -126,7 +126,7 @@ class TopupMart implements ProviderInterface
             'amount'     => $amount,
             'op_code'    => (string) $order->service->op_code,
             'NotifyNo'   => $notify,
-            'client_ref' => $order->reference,
+            'client_ref' => $order->providerClientRef(),
         ];
 
         Log::info('TopupMart recharge request', [

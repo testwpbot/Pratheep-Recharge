@@ -105,4 +105,39 @@ class AdminOrderController extends Controller
             return back()->with('error', $message);
         }
     }
+
+    /**
+     * Admin sends a pending Dialog order through Dialog API, or the other way.
+     */
+    public function transfer(Request $request, Order $order, OrderService $svc)
+    {
+        /** @var User $admin */
+        $admin = Auth::user();
+        $note = trim((string) $request->input('note', ''));
+
+        try {
+            $updated = $svc->transferToPairedService($order, $admin, $note !== '' ? $note : null);
+            $toName = $updated->service->name ?? 'the other route';
+            $message = "Order {$updated->reference} sent through {$toName}. Status: {$updated->status}. Customer was not charged again.";
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'ok' => true,
+                    'message' => $message,
+                    'new_order_id' => $updated->id,
+                    'new_order_ref' => $updated->reference,
+                    'new_order_status' => $updated->status,
+                    'redirect' => route('admin.orders.show', $updated),
+                ]);
+            }
+
+            return redirect()->route('admin.orders.show', $updated)->with('status', $message);
+        } catch (\Throwable $e) {
+            $message = 'Could not switch route: ' . $e->getMessage();
+            if ($request->wantsJson()) {
+                return response()->json(['ok' => false, 'message' => $message], 500);
+            }
+
+            return back()->with('error', $message);
+        }
+    }
 }

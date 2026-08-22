@@ -479,6 +479,139 @@ class OrderService
         return $order->fresh(['provider', 'service', 'user']);
     }
 
+    /**
+     * Admin switches a pending Dialog order to Dialog API (or the other way).
+     * Same order, same wallet debit — only the op_code / service changes.
+     */
+    public function transferToPairedService(Order $order, User $admin, ?string $note = null): Order
+    {
+        $order->loadMissing(['provider', 'service.provider', 'user']);
+
+        if ($order->status !== 'pending' && $order->status !== 'processing') {
+            throw new \RuntimeException('Only a pending order can be sent through the other Dialog route.');
+        }
+
+        $fromService = $order->service;
+        $partner = \App\Support\ServicePairs::partner($fromService);
+        if (! $partner) {
+            throw new \RuntimeException('This service has no matching Dialog / Dialog API pair.');
+        }
+
+        $toProvider = $partner->provider ?: $order->provider;
+        if (! $toProvider) {
+            throw new \RuntimeException('The other Dialog route has no provider set.');
+        }
+
+        $prevResp = is_array($order->provider_response) ? $order->provider_response : [];
+        $count = (int) ($prevResp['_transfer_count'] ?? 0) + 1;
+        $clientRef = $order->reference . '-T' . $count;
+
+        $stamp = now()->timezone('Asia/Colombo')->format('Y-m-d H:i');
+        $noteText = "[ADMIN SWITCH {$stamp} by {$admin->name}] "
+            . "Same order sent through {$partner->name} (op {$partner->op_code}). "
+            . "First route was {$fromService->name} (op {$fromService->op_code}). "
+            . 'Customer was not charged again. If the first route later succeeds, check it by hand.';
+        if ($note) {
+            $noteText .= ' Admin note: ' . $note;
+        }
+
+        $originalProviderId = $order->provider_id;
+        $originalServiceId = $order->service_id;
+        $originalTxn = $order->provider_txn_id;
+
+        DB::transaction(function () use ($order, $partner, $toProvider, $prevResp, $count, $clientRef, $noteText, $originalProviderId, $originalServiceId, $originalTxn) {
+            $locked = Order::whereKey($order->id)->lockForUpdate()->first();
+            if (! $locked) {
+                throw new \RuntimeException('Order not found.');
+            }
+            if ($locked->status !== 'pending' && $locked->status !== 'processing') {
+                throw new \RuntimeException('Only a pending order can be sent through the other Dialog route.');
+            }
+
+            $locked->provider_id = $toProvider->id;
+            $locked->service_id = $partner->id;
+            $locked->provider_txn_id = null;
+            $locked->status = 'processing';
+            $locked->provider_status = 'transfer_processing';
+            $locked->processed_at = now();
+            $locked->completed_at = null;
+            $locked->message = trim(($locked->message ? $locked->message . "\n\n" : '') . $noteText);
+            $locked->provider_response = array_merge($prevResp, [
+                '_client_ref' => $clientRef,
+                '_transfer_count' => $count,
+                '_transfer' => [
+                    'at' => now()->toDateTimeString(),
+                    'from_provider_id' => $originalProviderId,
+                    'from_service_id' => $originalServiceId,
+                    'from_txn' => $originalTxn,
+                    'to_provider_id' => $toProvider->id,
+                    'to_service_id' => $partner->id,
+                    'client_ref' => $clientRef,
+                ],
+            ]);
+            $locked->save();
+        });
+
+        $order->refresh()->load(['provider', 'service', 'user']);
+        $order->setRelation('provider', $toProvider);
+        $order->setRelation('service', $partner);
+
+        $resp = null;
+        $timedOut = false;
+        try {
+            $resp = ProviderFactory::make($toProvider)->recharge($order);
+        } catch (ConnectionException $e) {
+            $timedOut = true;
+            $resp = ['status' => 'pending', 'message' => 'Sent through ' . $partner->name . ' — waiting for confirmation…'];
+            Log::warning('Dialog pair transfer TIMEOUT', [
+                'order' => $order->reference,
+                'to' => $partner->op_code,
+                'error' => $e->getMessage(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Dialog pair transfer exception', [
+                'order' => $order->reference,
+                'to' => $partner->op_code,
+                'error' => $e->getMessage(),
+            ]);
+            $resp = ['status' => 'failed', 'message' => 'Could not send through ' . $partner->name . ': ' . $e->getMessage()];
+        }
+
+        $merged = is_array($order->provider_response) ? $order->provider_response : [];
+        $order->provider_response = array_merge($merged, [
+            '_transfer_response' => $resp,
+            '_timed_out' => $timedOut,
+        ]);
+        if (! empty($resp['transaction_id'])) {
+            $order->provider_txn_id = $resp['transaction_id'];
+        }
+        if (! empty($resp['message'])) {
+            $order->message = ($order->message ? $order->message . "\n\n" : '') . $resp['message'];
+        }
+
+        $status = strtolower((string) ($resp['status'] ?? 'failed'));
+        if ($status === 'success') {
+            $order->save();
+            $this->markSuccess($order);
+        } elseif ($status === 'pending' || $timedOut) {
+            $order->status = 'pending';
+            $order->provider_status = $timedOut ? 'awaiting_confirmation' : 'pending';
+            $order->save();
+        } else {
+            // Keep pending so admin can send it back the other way.
+            // Do not refund — the first request may still complete.
+            $order->status = 'pending';
+            $order->provider_status = 'transfer_rejected';
+            $order->save();
+        }
+
+        Log::info("Admin service switch: {$order->reference} {$fromService->op_code} → {$partner->op_code} by admin {$admin->id}", [
+            'status' => $order->fresh()->status,
+        ]);
+
+        return $order->fresh(['provider', 'service', 'user']);
+    }
+
     /** Email the customer if this debit left their wallet below the minimum. */
     protected function syncWalletNotice(int $userId): void
     {
