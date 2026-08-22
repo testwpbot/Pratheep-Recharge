@@ -47,26 +47,12 @@ class HostingLayout
         $app->usePublicPath(dirname($base));
     }
 
-    /** Create public/storage → storage/app/public when the host allows it. */
+    /**
+     * Do not create a storage symlink on DirectAdmin.
+     * is_link() / symlink() hit open_basedir and take the whole site down.
+     */
     public static function ensurePublicStorage(): void
     {
-        $link = public_path('storage');
-        $target = storage_path('app/public');
-
-        if (is_link($link) || is_dir($link) || is_file($link)) {
-            return;
-        }
-
-        if (! is_dir($target)) {
-            @mkdir($target, 0755, true);
-        }
-
-        if (@symlink($target, $link)) {
-            return;
-        }
-
-        // Some hosts block symlink(). A real folder still lets Apache serve
-        // files if they are written here; artisan storage:link is preferred.
-        @mkdir($link, 0755, true);
+        // no-op on purpose
     }
 }
