@@ -1,5 +1,6 @@
 @extends('layouts.dashboard')
 @section('title', 'Complaint ' . $complaint->reference)
+@section('dash_compact', '1')
 
 @section('content')
 

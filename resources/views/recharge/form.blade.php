@@ -1,5 +1,6 @@
 @extends(auth()->check() ? 'layouts.dashboard' : 'layouts.app')
 @section('title', "{$service->name} — Recharge")
+@section('dash_compact', '1')
 
 @push('styles')
 <style>.amount-chips button{font-family:inherit;}</style>

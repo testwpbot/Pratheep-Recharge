@@ -9,8 +9,29 @@
 <link rel="stylesheet" href="{{ asset('css/loader.css') }}">
 <link rel="stylesheet" href="{{ asset('css/admin.css') }}">
 @stack('styles')
+<style>
+/* Mobile-only tighter first screen for dashboard pages.
+   Plans & Rates does not set dash_compact, so it stays as-is. */
+@media (max-width:720px){
+  [data-dash-compact] .app-content{padding:12px;}
+  [data-dash-compact] .app-topbar{height:54px;}
+  [data-dash-compact] .app-topbar h2{font-size:15px;}
+  [data-dash-compact] .card{padding:14px 12px; border-radius:14px;}
+  [data-dash-compact] .card + .card{margin-top:12px;}
+  [data-dash-compact] .card__head{margin-bottom:12px; gap:8px;}
+  [data-dash-compact] .card__head h3{font-size:15.5px;}
+  [data-dash-compact] .stats-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px; margin-bottom:12px;
+  }
+  [data-dash-compact] .stat{padding:10px 10px; border-radius:12px;}
+  [data-dash-compact] .stat b{font-size:16px;}
+  [data-dash-compact] .stat span{font-size:10px;}
+  [data-dash-compact] .alert{margin-bottom:12px; padding:10px 12px;}
+}
+</style>
 </head>
-<body data-shell="app">
+<body data-shell="app"@if(trim($__env->yieldContent('dash_compact'))) data-dash-compact @endif>
 
 @include('partials.loader')
 

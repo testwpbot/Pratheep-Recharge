@@ -1,5 +1,6 @@
 @extends('layouts.dashboard')
 @section('title', 'My Dashboard')
+@section('dash_compact', '1')
 
 @section('content')
 
@@ -235,9 +236,9 @@
   .service-card .cb-badge{font-size:9px; padding:3px 7px; top:8px; right:8px;}
 }
 @media (max-width:380px){
-  .service-grid{gap:10px;}
-  .service-card{padding:18px 10px; min-height:150px;}
-  .service-card img{width:56px; height:56px;}
+  .service-grid{gap:8px;}
+  .service-card{padding:14px 8px; min-height:128px;}
+  .service-card img{width:46px; height:46px;}
 }
 </style>
 @endpush

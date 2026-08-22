@@ -1,5 +1,6 @@
 @extends('layouts.dashboard')
 @section('title', 'My Refunds')
+@section('dash_compact', '1')
 
 @section('content')
 
@@ -184,10 +185,13 @@
   .ref-stat:last-child{grid-column:1/-1;}
 }
 @media (max-width:560px){
-  .ref-hero{padding:18px 18px;}
-  .ref-hero__top b{font-size:26px;}
-  .ref-hero__grid{grid-template-columns:1fr;}
-  .earn-filters{grid-template-columns:1fr;}
+  .ref-hero{padding:14px 14px; border-radius:14px; margin-bottom:12px;}
+  .ref-hero__top b{font-size:22px;}
+  .ref-hero__grid{grid-template-columns:1fr 1fr; gap:8px; margin-top:12px;}
+  .ref-stat:last-child{grid-column:1 / -1;}
+  .ref-stat{padding:10px 12px;}
+  .ref-stat b{font-size:15px;}
+  .earn-filters{grid-template-columns:1fr; gap:10px;}
   .earn-filters__btns{justify-content:stretch;}
   .earn-filters__btns .btn-admin{flex:1;}
 }

@@ -1,5 +1,6 @@
 @extends('layouts.dashboard')
 @section('title', 'My Complaints')
+@section('dash_compact', '1')
 
 @section('content')
 
@@ -109,6 +110,12 @@
 
 .cmp-empty{
   text-align:center; padding:50px 20px; display:flex; flex-direction:column; align-items:center;
+}
+@media (max-width:560px){
+  .cmp-hero{padding:14px 14px; border-radius:14px; margin-bottom:12px;}
+  .cmp-hero b{font-size:22px;}
+  .cmp-hero p{margin-top:6px; font-size:13px;}
+  .cmp-tabs{padding:0 0 12px; margin-bottom:12px; gap:6px;}
 }
 </style>
 @endpush

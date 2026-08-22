@@ -1,5 +1,6 @@
 @extends('layouts.dashboard')
 @section('title', 'My Wallet')
+@section('dash_compact', '1')
 
 @section('content')
 
@@ -319,11 +320,17 @@
   .wallet-grid{grid-template-columns:1fr;}
 }
 @media (max-width:520px){
-  .wallet-hero{padding:16px 16px; border-radius:16px; margin-bottom:14px;}
-  .wallet-hero b{font-size:26px; margin-top:4px;}
-  .wallet-hero__grid{grid-template-columns:1fr 1fr; gap:8px; margin-top:12px;}
-  .wallet-hero__grid div{padding:8px 10px;}
-  .wallet-hero__grid i{font-size:15px;}
+  .wallet-hero{padding:14px 14px; border-radius:14px; margin-bottom:12px;}
+  .wallet-hero b{font-size:24px; margin-top:2px;}
+  .wallet-hero__grid{grid-template-columns:1fr 1fr; gap:6px; margin-top:10px;}
+  .wallet-hero__grid div{padding:8px 8px;}
+  .wallet-hero__grid i{font-size:14px;}
+  .wallet-hero__grid div:last-child{grid-column:1 / -1;}
+  .wallet-payto{padding:12px; border-radius:14px;}
+  .wallet-payto__logo{width:48px; height:48px;}
+  .wallet-payto__head{padding-bottom:10px; margin-bottom:8px; gap:10px;}
+  .wallet-payto__head b{font-size:15px;}
+  .wallet-payto__row{padding:8px 0;}
   .slip-shimmer{height:180px;}
   .wallet-payto{padding:14px;}
   .wallet-payto__logo{width:60px; height:60px;}

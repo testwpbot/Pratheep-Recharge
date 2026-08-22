@@ -1,5 +1,6 @@
 @extends('layouts.dashboard')
 @section('title', 'My Recharges')
+@section('dash_compact', '1')
 
 @section('content')
 

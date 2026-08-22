@@ -1,5 +1,6 @@
 @extends(auth()->check() ? 'layouts.dashboard' : 'layouts.app')
 @section('title', "Order {$order->reference}")
+@section('dash_compact', '1')
 
 @section('content')
 

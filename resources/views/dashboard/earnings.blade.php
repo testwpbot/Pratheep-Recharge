@@ -1,5 +1,6 @@
 @extends('layouts.dashboard')
 @section('title', 'My Earnings')
+@section('dash_compact', '1')
 
 @section('content')
 
@@ -180,10 +181,13 @@
   .earn-stat:last-child{grid-column:1/-1;}
 }
 @media (max-width:560px){
-  .earn-hero{padding:18px 18px;}
-  .earn-hero__top b{font-size:26px;}
-  .earn-hero__grid{grid-template-columns:1fr;}
-  .earn-filters{grid-template-columns:1fr;}
+  .earn-hero{padding:14px 14px; border-radius:14px; margin-bottom:12px;}
+  .earn-hero__top b{font-size:22px;}
+  .earn-hero__grid{grid-template-columns:1fr 1fr; gap:8px; margin-top:12px;}
+  .earn-stat:last-child{grid-column:1 / -1;}
+  .earn-stat{padding:10px 12px;}
+  .earn-stat b{font-size:15px;}
+  .earn-filters{grid-template-columns:1fr; gap:10px;}
   .earn-filters__btns{justify-content:stretch;}
   .earn-filters__btns .btn-admin{flex:1;}
 }
