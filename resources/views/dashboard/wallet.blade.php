@@ -86,9 +86,8 @@
           <span>Account number</span>
           <div class="wallet-payto__value">
             <b>{{ $bank->account_no }}</b>
-            <button type="button" class="copy-btn" data-copy="{{ $bank->account_no }}" aria-label="Copy account number">
-              <svg class="copy-btn__ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-              <span class="copy-btn__txt">Copy</span>
+            <button type="button" class="copy-btn" data-copy="{{ $bank->account_no }}" aria-label="Copy account number" title="Copy">
+              <svg class="copy-btn__ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
             </button>
           </div>
         </div>
@@ -297,17 +296,16 @@
 }
 .wallet-payto__value b{text-align:right;}
 .copy-btn{
-  display:inline-flex; align-items:center; justify-content:center; gap:5px;
-  height:28px; padding:0 10px; border-radius:8px; border:0;
+  display:inline-flex; align-items:center; justify-content:center;
+  width:30px; height:30px; padding:0; border-radius:8px; border:0;
   background:linear-gradient(135deg,var(--gold-300),var(--gold-500));
-  color:#2a1a00; font:inherit; font-size:12px; font-weight:800;
-  letter-spacing:.01em; cursor:pointer; flex:none; line-height:1;
+  color:#2a1a00; cursor:pointer; flex:none; line-height:0;
   box-shadow:0 4px 10px rgba(232,163,23,.28);
   transition:transform .15s, box-shadow .15s, background .15s;
 }
 .copy-btn:hover{transform:translateY(-1px); box-shadow:0 6px 14px rgba(232,163,23,.38);}
 .copy-btn:active{transform:translateY(0);}
-.copy-btn__ic{flex:none;}
+.copy-btn__ic{display:block;}
 .copy-btn.is-copied{
   background:#e5f7ec; color:#15733f; box-shadow:none;
 }
@@ -465,8 +463,13 @@
     var b = e.target.closest('.copy-btn');
     if (!b || !b.dataset.copy) return;
     navigator.clipboard.writeText(b.dataset.copy).then(function(){
-      var orig = b.textContent; b.textContent = 'Copied!';
-      setTimeout(function(){ b.textContent = orig; }, 1500);
+      b.classList.add('is-copied');
+      var oldTitle = b.getAttribute('title');
+      b.setAttribute('title', 'Copied');
+      setTimeout(function(){
+        b.classList.remove('is-copied');
+        b.setAttribute('title', oldTitle || 'Copy');
+      }, 1600);
     });
   });
 
