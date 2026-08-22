@@ -722,14 +722,21 @@ textarea.hpr-input, .hpr-input--ta{
 .hpr-file__preview.is-empty{background:#eef2f8;}
 .hpr-file__ph{font-size:11px; font-weight:700; color:var(--muted); letter-spacing:.04em; text-transform:uppercase;}
 .hpr-file__side{min-width:0; flex:1; display:flex; flex-direction:column; gap:8px; align-items:flex-start;}
+.field label.hpr-file__btn,
 .hpr-file__btn{
-  display:inline-flex; align-items:center; gap:8px;
-  height:38px; padding:0 14px; border-radius:10px;
+  display:inline-flex !important; align-items:center; justify-content:center; gap:8px;
+  height:38px; padding:0 14px; margin-bottom:0; border-radius:10px; border:0;
   background:linear-gradient(135deg,var(--navy-700),var(--navy-900));
-  color:#fff; font:inherit; font-weight:700; font-size:13px;
+  color:#fff !important; font:inherit; font-weight:700; font-size:13px;
   cursor:pointer; position:relative; overflow:hidden;
 }
-.hpr-file__btn:hover{box-shadow:0 8px 16px rgba(7,27,61,.25);}
+.field label.hpr-file__btn span,
+.field label.hpr-file__btn svg,
+.hpr-file__btn span,
+.hpr-file__btn svg{
+  color:#fff !important; stroke:#fff;
+}
+.hpr-file__btn:hover{box-shadow:0 8px 16px rgba(7,27,61,.25); color:#fff;}
 .hpr-file__btn input[type=file]{position:absolute; inset:0; opacity:0; cursor:pointer;}
 .hpr-file__name{font-size:12px; color:var(--muted); font-weight:600; word-break:break-word;}
 @media (max-width:520px){
