@@ -605,7 +605,6 @@ textarea.hpr-input, .hpr-input--ta{
     transition:.2s;
   }
   .sidebar-close:hover{background:rgba(212,59,59,.35); color:#fff;}
-  .app-sidebar{padding-bottom:calc(18px + env(safe-area-inset-bottom));}
 
   /* shrink topbar title on very narrow screens */
   .app-topbar h2{font-size:16px;}

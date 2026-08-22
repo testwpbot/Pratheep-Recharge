@@ -30,6 +30,27 @@
   [data-dash-compact] .alert{margin-bottom:12px; padding:10px 12px;}
   [data-dash-compact] .wallet-notice{padding:10px 12px; margin-bottom:12px; border-radius:12px;}
 }
+/* Customer account menu on phones: no empty stretch before Sign Out. */
+@media (max-width:900px){
+  body[data-shell="app"] .app-sidebar{
+    height:100vh;
+    max-height:100vh;
+    height:100dvh;
+    max-height:100dvh;
+    overflow:hidden;
+    padding-bottom:0 !important;
+  }
+  body[data-shell="app"] .app-sidebar nav{
+    flex:none !important;
+    padding:8px 10px 4px;
+  }
+  body[data-shell="app"] .app-sidebar nav a{padding:9px 12px;}
+  body[data-shell="app"] .app-sidebar__brand{padding:16px 18px;}
+  body[data-shell="app"] .app-sidebar__footer{
+    margin-top:0 !important;
+    padding:10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+}
 </style>
 </head>
 <body data-shell="app"@if(trim($__env->yieldContent('dash_compact'))) data-dash-compact @endif>
