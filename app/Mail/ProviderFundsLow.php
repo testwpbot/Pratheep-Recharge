@@ -19,8 +19,8 @@ class ProviderFundsLow extends Mailable
     {
         $pay = $this->health['pay'][0] ?? null;
         $subject = $pay
-            ? 'Provider funds low — pay ' . $pay['currency'] . ' ' . number_format((float) $pay['amount'], 2) . ' to ' . $pay['provider']
-            : 'Provider funds low — top up API wallets';
+            ? 'Provider money is low — add ' . $pay['currency'] . ' ' . number_format((float) $pay['amount'], 2) . ' to ' . $pay['provider']
+            : 'Provider money is low — add money to the provider wallet';
 
         return new Envelope(subject: $subject);
     }

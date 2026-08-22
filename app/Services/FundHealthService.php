@@ -163,7 +163,7 @@ class FundHealthService
         $coveragePct = null;
         $status = 'unknown';
         $payCurrency = $currency;
-        $recommendation = $provider->name . ' balance is unavailable — cannot compare to customer wallets.';
+        $recommendation = 'Cannot read the ' . $provider->name . ' wallet, so we cannot compare.';
 
         if ($balance !== null) {
             if ($isLkr) {
@@ -173,8 +173,8 @@ class FundHealthService
                 $coveragePct = $userTotal <= 0 ? 100.0 : min(100.0, round(($balance / $userTotal) * 100, 1));
                 $status = $shortfall > 0.009 ? 'low' : 'healthy';
                 $recommendation = $status === 'low'
-                    ? "Pay {$currency} " . number_format($shortfall, 2) . " to {$provider->name} so API funds cover every customer wallet (LKR " . number_format($userTotal, 2) . ")."
-                    : "{$provider->name} covers all customer wallets.";
+                    ? "Add {$currency} " . number_format($shortfall, 2) . " to {$provider->name}. Provider wallet is less than customer wallets (LKR " . number_format($userTotal, 2) . ")."
+                    : "{$provider->name} has enough money for all customer wallets.";
             } else {
                 $min = (float) $cfg['min_inr'];
                 $rate = (float) $cfg['inr_to_lkr'];
@@ -187,10 +187,10 @@ class FundHealthService
                     $status = 'low';
                     $shortfall = $shortVsMin;
                     $shortfallLkr = $coverageLkr !== null ? max(0, round(($min * $rate) - $coverageLkr, 2)) : 0.0;
-                    $recommendation = "Pay {$currency} " . number_format($shortfall, 2) . " to {$provider->name} (keep at least {$currency} " . number_format($min, 2) . " for DTH).";
+                    $recommendation = "Add {$currency} " . number_format($shortfall, 2) . " to {$provider->name}. Keep at least {$currency} " . number_format($min, 2) . " for DTH.";
                 } else {
                     $status = 'healthy';
-                    $recommendation = "{$provider->name} DTH float is above the INR " . number_format($min, 2) . " minimum.";
+                    $recommendation = "{$provider->name} DTH wallet is above the INR " . number_format($min, 2) . " minimum.";
                 }
             }
         }

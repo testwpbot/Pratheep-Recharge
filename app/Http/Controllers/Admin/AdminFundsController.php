@@ -59,7 +59,7 @@ class AdminFundsController extends Controller
 
         return redirect()
             ->route('admin.funds.index')
-            ->with('status', 'Provider balances refreshed and compared to customer wallets.');
+            ->with('status', 'Checked again. Provider wallets were compared to customer wallets.');
     }
 
     public function saveSettings(Request $request): RedirectResponse
@@ -78,6 +78,6 @@ class AdminFundsController extends Controller
         Setting::set('funds', 'min_inr', (string) $data['min_inr']);
         Setting::set('funds', 'inr_to_lkr', (string) ($data['inr_to_lkr'] ?? 0));
 
-        return back()->with('status', 'Funds alert settings saved.');
+        return back()->with('status', 'Email alert settings saved.');
     }
 }

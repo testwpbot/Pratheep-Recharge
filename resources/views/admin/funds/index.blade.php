@@ -1,20 +1,28 @@
 @extends('layouts.admin')
-@section('title', 'Funds Health')
+@section('title', 'Provider Money')
+
+@php
+  $statusWord = [
+      'healthy' => 'OK',
+      'low'     => 'Not enough',
+      'unknown' => "Can't check",
+  ];
+@endphp
 
 @section('content')
 
 <div class="card">
   <div class="card__head">
     <div>
-      <h3>Funds Health</h3>
+      <h3>Provider Money</h3>
       <small style="color:var(--muted); font-weight:600;">
-        API provider wallets must stay above customer wallet balances. History below is for analysis.
+        The provider wallet should have more money than customers have in their wallets.
       </small>
     </div>
     <form method="POST" action="{{ route('admin.funds.refresh') }}">
       @csrf
-      <button class="btn-admin btn-admin--gold" type="submit" data-loading="Refreshing…">
-        <span class="btn-label"><x-icon name="bolt" :size="14"/> Refresh balances</span>
+      <button class="btn-admin btn-admin--gold" type="submit" data-loading="Checking…">
+        <span class="btn-label"><x-icon name="bolt" :size="14"/> Check again</span>
         <span class="btn-spinner" hidden></span>
       </button>
     </form>
@@ -25,7 +33,7 @@
 
 <div class="card" style="margin-top:20px;">
   <div class="card__head">
-    <h3>Full history</h3>
+    <h3>All records</h3>
     <form method="GET" action="{{ route('admin.funds.index') }}" class="toolbar" style="margin:0; gap:8px;">
       <input type="hidden" name="tab" value="{{ $tab }}">
       <select name="provider_id" onchange="this.form.submit()" style="height:40px; min-width:200px;">
@@ -38,9 +46,9 @@
   </div>
 
   <div class="cmp-tabs" style="padding-top:0; margin-bottom:12px;">
-    <a class="cmp-tab {{ $tab==='snapshots' ? 'is-active' : '' }}" href="{{ route('admin.funds.index', array_filter(['tab'=>'snapshots','provider_id'=>$providerId])) }}">Balance snapshots</a>
-    <a class="cmp-tab {{ $tab==='wallets' ? 'is-active' : '' }}" href="{{ route('admin.funds.index', array_filter(['tab'=>'wallets','provider_id'=>$providerId])) }}">Customer wallet txns</a>
-    <a class="cmp-tab {{ $tab==='orders' ? 'is-active' : '' }}" href="{{ route('admin.funds.index', array_filter(['tab'=>'orders','provider_id'=>$providerId])) }}">Provider orders</a>
+    <a class="cmp-tab {{ $tab==='snapshots' ? 'is-active' : '' }}" href="{{ route('admin.funds.index', array_filter(['tab'=>'snapshots','provider_id'=>$providerId])) }}">Provider balance history</a>
+    <a class="cmp-tab {{ $tab==='wallets' ? 'is-active' : '' }}" href="{{ route('admin.funds.index', array_filter(['tab'=>'wallets','provider_id'=>$providerId])) }}">Customer money in / out</a>
+    <a class="cmp-tab {{ $tab==='orders' ? 'is-active' : '' }}" href="{{ route('admin.funds.index', array_filter(['tab'=>'orders','provider_id'=>$providerId])) }}">Recharge orders</a>
   </div>
 
   @if($tab === 'snapshots')
@@ -50,9 +58,9 @@
           <tr>
             <th>When</th>
             <th>Provider</th>
-            <th>API balance</th>
-            <th>Customer wallets</th>
-            <th>Shortfall</th>
+            <th>Provider wallet</th>
+            <th>Customers had</th>
+            <th>Need to add</th>
             <th>Status</th>
           </tr>
         </thead>
@@ -77,12 +85,12 @@
               @endif
             </td>
             <td>
-              <span class="pill pill--{{ $s->status === 'healthy' ? 'success' : ($s->status === 'low' ? 'failed' : 'pending') }}">{{ ucfirst($s->status) }}</span>
-              @if($s->alerted) <small style="color:var(--muted);">emailed</small> @endif
+              <span class="pill pill--{{ $s->status === 'healthy' ? 'success' : ($s->status === 'low' ? 'failed' : 'pending') }}">{{ $statusWord[$s->status] ?? ucfirst($s->status) }}</span>
+              @if($s->alerted) <small style="color:var(--muted);">email sent</small> @endif
             </td>
           </tr>
         @empty
-          <tr><td colspan="6" style="text-align:center; color:var(--muted); padding:28px;">No snapshots yet. Hit Refresh balances.</td></tr>
+          <tr><td colspan="6" style="text-align:center; color:var(--muted); padding:28px;">No history yet. Click Check again.</td></tr>
         @endforelse
         </tbody>
       </table>
@@ -124,7 +132,7 @@
             <td><small>{{ $tx->description }}</small></td>
           </tr>
         @empty
-          <tr><td colspan="6" style="text-align:center; color:var(--muted); padding:28px;">No wallet movements yet.</td></tr>
+          <tr><td colspan="6" style="text-align:center; color:var(--muted); padding:28px;">No customer money changes yet.</td></tr>
         @endforelse
         </tbody>
       </table>
@@ -156,7 +164,7 @@
             <td><span class="pill pill--{{ $o->status }}">{{ ucfirst($o->status) }}</span></td>
           </tr>
         @empty
-          <tr><td colspan="7" style="text-align:center; color:var(--muted); padding:28px;">No provider orders yet.</td></tr>
+          <tr><td colspan="7" style="text-align:center; color:var(--muted); padding:28px;">No recharge orders yet.</td></tr>
         @endforelse
         </tbody>
       </table>
@@ -167,8 +175,8 @@
 
 <div class="card" style="margin-top:20px;">
   <div class="card__head">
-    <h3>Alert settings</h3>
-    <small style="color:var(--muted); font-weight:600;">A background check runs every minute. Low float emails the admin immediately (with a cooldown so it doesn't spam).</small>
+    <h3>Email alerts</h3>
+    <small style="color:var(--muted); font-weight:600;">The site checks every minute. If the provider wallet is too low, it emails you. It waits a few hours before sending the same warning again.</small>
   </div>
   <form method="POST" action="{{ route('admin.funds.settings') }}">
     @csrf
@@ -178,30 +186,30 @@
           <input type="checkbox" name="alerts_enabled" value="1" @checked($settings['alerts_enabled'])>
           <span class="sw__slider"></span>
         </label>
-        <span style="font-weight:700; color:var(--navy-800); font-size:13.5px;">Email admin when provider float is low</span>
+        <span style="font-weight:700; color:var(--navy-800); font-size:13.5px;">Email me when the provider wallet is too low</span>
       </div>
       <div class="field">
-        <label>Extra alert email</label>
-        <input type="email" name="alert_email" value="{{ old('alert_email', $settings['alert_email']) }}" placeholder="Leave blank to use support + admin emails">
+        <label>Extra email (optional)</label>
+        <input type="email" name="alert_email" value="{{ old('alert_email', $settings['alert_email']) }}" placeholder="Leave empty to use Support Email + admin login emails">
       </div>
       <div class="field">
-        <label>Re-alert cooldown (hours)</label>
+        <label>Wait this many hours before sending again</label>
         <input type="number" name="cooldown_hours" min="1" max="48" value="{{ old('cooldown_hours', $settings['cooldown_hours']) }}" required>
       </div>
       <div class="field">
-        <label>HRC / INR minimum float</label>
+        <label>Lowest HRC wallet (INR)</label>
         <input type="number" step="0.01" min="0" name="min_inr" value="{{ old('min_inr', $settings['min_inr']) }}" required>
-        <div class="hint">DTH is INR — alert if Happy Recharge Center drops below this.</div>
+        <div class="hint">DTH uses Indian rupees. Email if Happy Recharge Center goes below this.</div>
       </div>
       <div class="field">
-        <label>INR → LKR rate (optional)</label>
+        <label>INR to LKR rate (optional)</label>
         <input type="number" step="0.0001" min="0" name="inr_to_lkr" value="{{ old('inr_to_lkr', $settings['inr_to_lkr'] ?: '') }}" placeholder="e.g. 3.60">
-        <div class="hint">Only for display. Leave empty — we never treat 1 INR as 1 LKR.</div>
+        <div class="hint">Only to show a LKR number. Leave empty — 1 INR is not 1 LKR.</div>
       </div>
     </div>
     <div style="margin-top:18px; display:flex; justify-content:flex-end;">
       <button type="submit" class="btn-admin btn-admin--gold">
-        <span class="btn-label"><x-icon name="check" :size="14"/> Save alert settings</span>
+        <span class="btn-label"><x-icon name="check" :size="14"/> Save email settings</span>
         <span class="btn-spinner" hidden></span>
       </button>
     </div>

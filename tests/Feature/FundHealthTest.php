@@ -162,12 +162,13 @@ class FundHealthTest extends TestCase
 
         $this->actingAs($admin)->get(route('admin.dashboard'))
             ->assertOk()
-            ->assertSee('Funds Health');
+            ->assertSee('Provider Money');
 
         $this->actingAs($admin)->get(route('admin.funds.index'))
             ->assertOk()
-            ->assertSee('Full history')
-            ->assertSee('Alert settings');
+            ->assertSee('All records')
+            ->assertSee('Email alerts')
+            ->assertSee('Need to add');
     }
 
     public function test_artisan_command_records_snapshot(): void

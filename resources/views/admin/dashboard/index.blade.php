@@ -15,17 +15,17 @@
 <div class="card">
   <div class="card__head">
     <div>
-      <h3>Funds Health</h3>
-      <small style="color:var(--muted); font-weight:600;">Provider API wallets vs money customers hold on this site.</small>
+      <h3>Provider Money</h3>
+      <small style="color:var(--muted); font-weight:600;">Does the provider have more money than customers have in their wallets?</small>
     </div>
-    <a href="{{ route('admin.funds.index') }}" class="btn-admin btn-admin--gold btn-admin--sm">Full history</a>
+    <a href="{{ route('admin.funds.index') }}" class="btn-admin btn-admin--gold btn-admin--sm">See all records</a>
   </div>
 
   @include('admin.funds._health', ['health' => $health])
 
   <div class="fund-split" style="margin-top:18px;">
     <div>
-      <h4 class="fund-subhead">Recent wallet movements</h4>
+      <h4 class="fund-subhead">Latest customer money</h4>
       <div class="table-wrap">
         <table class="data-table">
           <thead><tr><th>When</th><th>Customer</th><th>Type</th><th>Amount</th></tr></thead>
@@ -46,7 +46,7 @@
       </div>
     </div>
     <div>
-      <h4 class="fund-subhead">Recent provider snapshots</h4>
+      <h4 class="fund-subhead">Latest provider balances</h4>
       <div class="table-wrap">
         <table class="data-table">
           <thead><tr><th>When</th><th>Provider</th><th>Balance</th><th>Status</th></tr></thead>
@@ -62,10 +62,10 @@
                   {{ $s->currency }} {{ number_format($s->balance, 2) }}
                 @endif
               </td>
-              <td><span class="pill pill--{{ $s->status === 'healthy' ? 'success' : ($s->status === 'low' ? 'failed' : 'pending') }}">{{ ucfirst($s->status) }}</span></td>
+              <td><span class="pill pill--{{ $s->status === 'healthy' ? 'success' : ($s->status === 'low' ? 'failed' : 'pending') }}">{{ $s->status === 'healthy' ? 'OK' : ($s->status === 'low' ? 'Not enough' : "Can't check") }}</span></td>
             </tr>
           @empty
-            <tr><td colspan="4" style="text-align:center; color:var(--muted); padding:20px;">No snapshots yet — open Funds Health and refresh.</td></tr>
+            <tr><td colspan="4" style="text-align:center; color:var(--muted); padding:20px;">No history yet — open Provider Money and click Check again.</td></tr>
           @endforelse
           </tbody>
         </table>
