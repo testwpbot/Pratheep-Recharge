@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\AdminServiceController;
 use App\Http\Controllers\Admin\AdminSettingsController;
 use App\Http\Controllers\Admin\AdminSpecialPricingController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Dashboard\ComplaintController;
 use App\Http\Controllers\Dashboard\DashboardController;
@@ -45,6 +46,10 @@ Route::middleware('guest')->group(function () {
     Route::post('/login',   [AuthenticatedSessionController::class, 'store']);
     Route::get('/register', [RegisteredUserController::class, 'create'])->name('register');
     Route::post('/register',[RegisteredUserController::class, 'store']);
+
+    Route::get('/verify-email',          [EmailVerificationController::class, 'show'])->name('otp.show');
+    Route::post('/verify-email',         [EmailVerificationController::class, 'store'])->middleware('throttle:10,1')->name('otp.verify');
+    Route::post('/verify-email/resend',  [EmailVerificationController::class, 'resend'])->middleware('throttle:5,1')->name('otp.resend');
 });
 Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])
     ->middleware('auth')
@@ -72,7 +77,7 @@ Route::view('/sign-in',           'auth.login')->name('sign-in');
 | Customer dashboard (auth)
 |--------------------------------------------------------------------------
 */
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'verified.otp'])->group(function () {
     Route::get('/dashboard',                              [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/plans',                                  [DashboardController::class, 'plans'])->name('dashboard.plans');
     Route::get('/wallet',                                 [WalletController::class, 'index'])->name('wallet');
@@ -98,7 +103,7 @@ Route::middleware('auth')->group(function () {
 | Admin panel (auth + admin)
 |--------------------------------------------------------------------------
 */
-Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(function () {
+Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified.otp', 'admin'])->group(function () {
     Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
 
     // Funds health (provider float vs customer wallets)

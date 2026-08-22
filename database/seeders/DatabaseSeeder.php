@@ -58,10 +58,11 @@ class DatabaseSeeder extends Seeder
 
         // Default admin account
         User::firstOrCreate(['email' => 'admin@happypratheep.lk'], [
-            'name'       => 'Admin',
-            'phone'      => '+94770000000',
-            'password'   => Hash::make('admin123'),
-            'is_admin'   => true,
+            'name'              => 'Admin',
+            'phone'             => '+94770000000',
+            'password'          => Hash::make('admin123'),
+            'is_admin'          => true,
+            'email_verified_at' => now(),
         ]);
 
         // Seed the services catalog (op_codes) from providers BEFORE plans,

@@ -3,18 +3,21 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\EmailOtp;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Services\EmailOtpService;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
 
 class RegisteredUserController extends Controller
 {
+    public function __construct(protected EmailOtpService $otp) {}
+
     /** Show the registration form. */
     public function create(): View
     {
@@ -42,13 +45,25 @@ class RegisteredUserController extends Controller
 
         event(new Registered($user));
 
-        // Auto-create a wallet for every new customer
         Wallet::firstOrCreate(['user_id' => $user->id]);
 
-        // Per request: redirect to the LOGIN page after signup (not auto-login)
+        $sent = $this->otp->issue($user, EmailOtp::PURPOSE_SIGNUP, $request, force: true);
+
+        $request->session()->put([
+            'pending_otp_user_id' => $user->id,
+            'pending_otp_purpose' => EmailOtp::PURPOSE_SIGNUP,
+            'pending_otp_reason'  => 'signup',
+        ]);
+
+        if (! $sent['ok'] && $sent['error']) {
+            return redirect()
+                ->route('otp.show')
+                ->withErrors(['code' => $sent['error']]);
+        }
+
         return redirect()
-            ->route('login')
-            ->with('status', 'Account created successfully! Please sign in.');
+            ->route('otp.show')
+            ->with('status', 'Account created. Enter the 6-digit code we sent to your email.');
     }
 
     /**

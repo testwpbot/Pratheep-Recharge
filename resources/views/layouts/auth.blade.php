@@ -24,5 +24,6 @@
 @include('partials.footer')
 
 <script src="{{ asset('js/landing.js') }}"></script>
+@stack('scripts')
 </body>
 </html>
