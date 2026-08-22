@@ -23,9 +23,9 @@
           <label id="rcAccountLabel">Mobile / Account Number <span class="req">*</span></label>
           <input type="tel" name="account_number" id="rcAccount" placeholder="e.g. 0771234567" required>
         </div>
-        <div class="field" id="rcNotifyField">
+        <div class="field" id="rcNotifyField" hidden>
           <label>Notify Number <small style="color:var(--muted);font-weight:600;">(optional)</small></label>
-          <input type="tel" name="notify_number" id="rcNotify" placeholder="Same as above if blank">
+          <input type="tel" name="notify_number" id="rcNotify" placeholder="Same as above if blank" disabled>
         </div>
         <div class="field">
           <label id="rcAmountLabel">Amount (LKR) <span class="req">*</span></label>
@@ -345,7 +345,8 @@ button.service-card{
     var cb     = card.dataset.cb;
     var mode   = card.dataset.mode || 'reload';
     currentMode = mode;
-    var hideNotify = card.dataset.hideNotify === '1';
+    var hideNotify = card.dataset.hideNotify === '1'
+      || (mode !== 'bill' && (card.dataset.category || '') === 'mobile');
     var details;
     try { details = JSON.parse(card.dataset.details || '[]'); } catch(e){ details = []; }
 
@@ -356,7 +357,10 @@ button.service-card{
       mNotify.disabled = hideNotify;
       mNotify.value = '';
     }
-    if (mNotifyField) mNotifyField.hidden = hideNotify;
+    if (mNotifyField){
+      mNotifyField.hidden = hideNotify;
+      mNotifyField.style.display = hideNotify ? 'none' : '';
+    }
     if (mConfirm) mConfirm.hidden = true;
     modal.classList.remove('is-confirming');
     if (mPlanLogo) mPlanLogo.src = logo;
@@ -475,9 +479,12 @@ button.service-card{
     var amt = parseFloat(mAmount.value || '0');
     var acc = (mAcc.value || '').trim();
     var op = (mOpName.textContent || '').trim();
+    var isBill = currentMode === 'bill';
     if (mConfirmText){
-      mConfirmText.textContent = 'Pay LKR ' + amt.toFixed(2) + ' to ' + acc + (op ? (' for ' + op) : '') + ' from your wallet?';
+      mConfirmText.textContent = (isBill ? 'Pay' : 'Recharge') + ' LKR ' + amt.toFixed(2) + ' to ' + acc + (op ? (' for ' + op) : '') + ' from your wallet?';
     }
+    var title = document.querySelector('#rcConfirm h4');
+    if (title) title.textContent = isBill ? 'Check this payment' : 'Check this recharge';
     mForm.style.display = 'none';
     if (mPlanBox) mPlanBox.style.display = 'none';
     if (mHint) mHint.hidden = true;

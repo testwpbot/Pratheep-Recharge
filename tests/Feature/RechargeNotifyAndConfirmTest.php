@@ -76,6 +76,10 @@ class RechargeNotifyAndConfirmTest extends TestCase
         $this->actingAs($user)
             ->get(route('dashboard'))
             ->assertOk()
-            ->assertSee('data-hide-notify="1"', false);
+            ->assertSee('data-hide-notify="1"', false)
+            ->assertSee('data-category="mobile"', false)
+            ->assertSee('rcNotifyField', false)
+            ->assertSee('Check this payment', false)
+            ->assertSee('Yes, pay now', false);
     }
 }

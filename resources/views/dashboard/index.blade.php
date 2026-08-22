@@ -92,6 +92,7 @@
                         data-logo="{{ $s->logoUrl }}"
                         data-op-name="{{ $s->name }}"
                         data-mode="{{ $isBill ? 'bill' : 'reload' }}"
+                        data-category="{{ $catSlug }}"
                         data-hide-notify="{{ (!$isBill && $catSlug === 'mobile') ? '1' : '0' }}">
                   @if ((float) $s->profit > 0)
                     <span class="cb-badge">
