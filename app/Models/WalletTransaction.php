@@ -37,10 +37,15 @@ class WalletTransaction extends Model
 
     /**
      * Signed delta (positive = credit, negative = debit).
+     * Admin adjustments can go either way — use before/after when present.
      */
     public function signedAmount(): float
     {
         $a = abs((float) $this->amount);
+        if ($this->balance_before !== null && $this->balance_after !== null) {
+            return ((float) $this->balance_after) >= ((float) $this->balance_before) ? $a : -$a;
+        }
+
         return in_array($this->type, [self::TYPE_DEBIT], true) ? -$a : $a;
     }
 

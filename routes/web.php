@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\AdminProviderController;
 use App\Http\Controllers\Admin\AdminServiceController;
 use App\Http\Controllers\Admin\AdminSettingsController;
 use App\Http\Controllers\Admin\AdminSpecialPricingController;
+use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\RegisteredUserController;
@@ -105,6 +106,14 @@ Route::middleware(['auth', 'verified.otp'])->group(function () {
 */
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified.otp', 'admin'])->group(function () {
     Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
+
+    // Users + wallets
+    Route::get('/users',                                  [AdminUserController::class, 'index'])->name('users.index');
+    Route::get('/users/create',                           [AdminUserController::class, 'create'])->name('users.create');
+    Route::post('/users',                                 [AdminUserController::class, 'store'])->name('users.store');
+    Route::get('/users/{user}',                           [AdminUserController::class, 'show'])->name('users.show');
+    Route::patch('/users/{user}',                         [AdminUserController::class, 'update'])->name('users.update');
+    Route::post('/users/{user}/wallet',                   [AdminUserController::class, 'adjustWallet'])->name('users.wallet');
 
     // Funds health (provider float vs customer wallets)
     Route::get('/funds',                                  [AdminFundsController::class, 'index'])->name('funds.index');

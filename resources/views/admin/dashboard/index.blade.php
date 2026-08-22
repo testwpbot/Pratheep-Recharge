@@ -4,7 +4,9 @@
 @section('content')
 
 <div class="stats-grid">
-  <div class="stat"><b>{{ number_format($stats['users']) }}</b><span>Customers</span></div>
+  <a href="{{ route('admin.users.index') }}" class="stat" style="text-decoration:none; color:inherit;">
+    <b>{{ number_format($stats['users']) }}</b><span>Customers</span>
+  </a>
   <div class="stat"><b>{{ number_format($stats['services']) }}</b><span>Active Services</span></div>
   <div class="stat"><b>{{ number_format($stats['orders_today']) }}</b><span>Orders Today</span></div>
   <div class="stat"><b>LKR {{ number_format($stats['revenue'], 2) }}</b><span>Total Processed</span></div>

@@ -2,11 +2,13 @@
 
 namespace App\Services;
 
+use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletDeposit;
 use App\Models\WalletTransaction;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 
 class WalletService
 {
@@ -75,5 +77,94 @@ class WalletService
         $deposit->save();
 
         return $deposit;
+    }
+
+    /**
+     * Admin wallet change. $mode is add | remove | set.
+     *
+     * @return array{wallet: Wallet, before: float, after: float, delta: float, mode: string}
+     */
+    public function adjust(Wallet $wallet, string $mode, float $amount, User $admin, string $note): array
+    {
+        $mode = strtolower(trim($mode));
+        if (! in_array($mode, ['add', 'remove', 'set'], true)) {
+            throw new RuntimeException('Pick add, take out, or set amount.');
+        }
+
+        $amount = round(max(0, $amount), 2);
+        $note = trim($note);
+        if ($note === '') {
+            throw new RuntimeException('Write a short reason for this wallet change.');
+        }
+
+        $result = DB::transaction(function () use ($wallet, $mode, $amount, $admin, $note) {
+            $w = Wallet::whereKey($wallet->id)->lockForUpdate()->first() ?? $wallet;
+            $before = round((float) $w->balance, 2);
+
+            if ($mode === 'add') {
+                if ($amount < 0.01) {
+                    throw new RuntimeException('Enter an amount to add.');
+                }
+                $after = round($before + $amount, 2);
+                $delta = $amount;
+                $label = 'Admin added money';
+            } elseif ($mode === 'remove') {
+                if ($amount < 0.01) {
+                    throw new RuntimeException('Enter an amount to take out.');
+                }
+                if ($amount - $before > 0.001) {
+                    throw new RuntimeException('Cannot take out more than the wallet has (LKR ' . number_format($before, 2) . ').');
+                }
+                $after = round($before - $amount, 2);
+                $delta = $amount;
+                $label = 'Admin took money out';
+            } else {
+                $after = $amount;
+                $delta = round(abs($after - $before), 2);
+                if ($delta < 0.01) {
+                    throw new RuntimeException('Wallet is already LKR ' . number_format($before, 2) . '.');
+                }
+                $label = 'Admin set wallet to LKR ' . number_format($after, 2);
+            }
+
+            $w->balance = $after;
+            $w->cashback_balance = 0;
+            $w->save();
+
+            WalletTransaction::create([
+                'wallet_id'         => $w->id,
+                'type'              => WalletTransaction::TYPE_ADJUST,
+                'amount'            => $delta,
+                'balance_before'    => $before,
+                'balance_after'     => $after,
+                'description'       => $label . ' (' . $admin->name . '): ' . $note,
+                'transactable_type' => User::class,
+                'transactable_id'   => $admin->id,
+            ]);
+
+            return [
+                'wallet' => $w,
+                'before' => $before,
+                'after'  => $after,
+                'delta'  => $delta,
+                'mode'   => $mode,
+            ];
+        });
+
+        try {
+            app(WalletBalanceNotifier::class)->syncUser((int) $wallet->user_id);
+        } catch (\Throwable $e) {
+            Log::warning('Wallet low-balance check after admin adjust failed: ' . $e->getMessage());
+        }
+
+        if (($result['after'] ?? 0) > ($result['before'] ?? 0)) {
+            try {
+                app(FundHealthService::class)->check(fresh: false, persist: true, alert: true);
+            } catch (\Throwable $e) {
+                Log::warning('Funds check after admin wallet adjust failed: ' . $e->getMessage());
+            }
+        }
+
+        return $result;
     }
 }
