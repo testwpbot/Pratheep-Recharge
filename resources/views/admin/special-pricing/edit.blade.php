@@ -17,15 +17,21 @@
     </div>
   </div>
 
-  <form method="POST" action="{{ route('admin.special-pricing.bulk', $user) }}" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding:12px 0 18px; border-bottom:1px solid var(--line); margin-bottom:18px;">
+  <form method="POST" action="{{ route('admin.special-pricing.bulk', $user) }}" class="sp-bulk">
     @csrf
-    <strong style="font-size:13px; color:var(--navy-800);">Apply to every service:</strong>
-    <select name="profit_type" style="height:36px; border-radius:9px; border:1.6px solid rgba(11,42,91,.16); padding:0 10px;">
-      <option value="FLAT">LKR (flat)</option>
-      <option value="PCT">% (percent)</option>
-    </select>
-    <input type="number" step="0.01" min="0" name="profit" required placeholder="Profit / commission"
-           style="height:36px; border-radius:9px; border:1.6px solid rgba(11,42,91,.16); padding:0 10px; width:140px;">
+    <strong style="font-size:13px; color:var(--navy-800);">Apply to every service</strong>
+    <div class="hpr-dd" data-hpr-dd>
+      <input type="hidden" name="profit_type" value="FLAT">
+      <button type="button" class="hpr-dd__btn">
+        <span class="hpr-dd__label">LKR (flat)</span>
+        <svg class="hpr-dd__caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </button>
+      <div class="hpr-dd__menu" hidden>
+        <button type="button" class="hpr-dd__item is-active" data-value="FLAT" data-label="LKR (flat)">LKR (flat)</button>
+        <button type="button" class="hpr-dd__item" data-value="PCT" data-label="% (percent)">% (percent)</button>
+      </div>
+    </div>
+    <input class="sp-amt" type="number" step="0.01" min="0" name="profit" required placeholder="Profit / commission">
     <button class="btn-admin btn-admin--primary btn-admin--sm" type="submit" data-loading="Applying…">Apply to all</button>
   </form>
 
@@ -38,10 +44,13 @@
       @continue($cat->services->isEmpty())
       <h4 style="margin:18px 0 10px; font-size:13px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);">{{ $cat->name }}</h4>
       <div class="table-wrap" style="margin-bottom:8px;">
-        <table class="data-table">
+        <table class="data-table sp-table sp-table--svc">
+          <colgroup>
+            <col class="c-on"><col class="c-svc"><col class="c-def"><col class="c-type"><col class="c-amt">
+          </colgroup>
           <thead>
             <tr>
-              <th style="width:36px;">On</th>
+              <th>On</th>
               <th>Service</th>
               <th>Default</th>
               <th>Special type</th>
@@ -50,16 +59,22 @@
           </thead>
           <tbody>
           @foreach ($cat->services as $s)
-            @php $ov = $overrides->get($s->id); @endphp
+            @php
+              $ov = $overrides->get($s->id);
+              $type = $ov->profit_type ?? 'FLAT';
+            @endphp
             <tr>
               <td>
-                <input type="checkbox" name="rows[{{ $s->id }}][enabled]" value="1" {{ $ov ? 'checked' : '' }}>
+                <label class="sw">
+                  <input type="checkbox" name="rows[{{ $s->id }}][enabled]" value="1" {{ $ov ? 'checked' : '' }}>
+                  <span class="sw__slider"></span>
+                </label>
               </td>
               <td>
-                <div style="display:flex; align-items:center; gap:10px;">
-                  <img src="{{ $s->logoUrl }}" alt="" style="width:28px; height:28px; object-fit:contain;">
+                <div class="svc-cell">
+                  <img src="{{ $s->logoUrl }}" alt="">
                   <div>
-                    <b>{{ $s->name }}</b><br>
+                    <b>{{ $s->name }}</b>
                     <small style="color:var(--muted);">{{ $s->provider->name ?? '' }} · {{ $s->op_code }}</small>
                   </div>
                 </div>
@@ -72,15 +87,21 @@
                 @endif
               </td>
               <td>
-                <select name="rows[{{ $s->id }}][profit_type]" style="height:36px; border-radius:9px; border:1.6px solid rgba(11,42,91,.16); padding:0 8px;">
-                  <option value="FLAT" {{ ($ov->profit_type ?? 'FLAT') === 'FLAT' ? 'selected' : '' }}>LKR</option>
-                  <option value="PCT" {{ ($ov->profit_type ?? '') === 'PCT' ? 'selected' : '' }}>%</option>
-                </select>
+                <div class="hpr-dd hpr-dd--sm" data-hpr-dd>
+                  <input type="hidden" name="rows[{{ $s->id }}][profit_type]" value="{{ $type }}">
+                  <button type="button" class="hpr-dd__btn">
+                    <span class="hpr-dd__label">{{ $type === 'PCT' ? '%' : 'LKR' }}</span>
+                    <svg class="hpr-dd__caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                  </button>
+                  <div class="hpr-dd__menu" hidden>
+                    <button type="button" class="hpr-dd__item {{ $type==='FLAT' ? 'is-active' : '' }}" data-value="FLAT" data-label="LKR">LKR</button>
+                    <button type="button" class="hpr-dd__item {{ $type==='PCT' ? 'is-active' : '' }}" data-value="PCT" data-label="%">%</button>
+                  </div>
+                </div>
               </td>
               <td>
-                <input type="number" step="0.01" min="0" name="rows[{{ $s->id }}][profit]"
-                       value="{{ $ov->profit ?? $s->profit }}"
-                       style="height:36px; border-radius:9px; border:1.6px solid rgba(11,42,91,.16); padding:0 10px; width:120px;">
+                <input class="sp-amt" type="number" step="0.01" min="0" name="rows[{{ $s->id }}][profit]"
+                       value="{{ $ov->profit ?? $s->profit }}">
               </td>
             </tr>
           @endforeach
@@ -103,7 +124,7 @@
 </div>
 
 <p style="margin-top:14px; color:var(--muted); font-size:13px;">
-  Tick <b>On</b> to override the default service profit for this customer only. Unticked rows keep the catalog default.
+  Turn <b>On</b> to override the default service profit for this customer only. Off rows keep the catalog default.
   This customer is marked as a retailer when you save.
 </p>
 

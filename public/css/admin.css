@@ -155,6 +155,98 @@ textarea.hpr-input, .hpr-input--ta{
 }
 .data-table .td-actions form{display:inline-flex; margin:0;}
 
+/* ----- Custom dropdown (toolbar + compact table cells) ----- */
+.hpr-dd{position:relative; display:inline-block; min-width:0; vertical-align:middle;}
+.hpr-dd__btn{
+  display:inline-flex; align-items:center; gap:8px;
+  width:100%; height:40px; padding:0 34px 0 14px;
+  border-radius:12px; border:1.6px solid rgba(11,42,91,.16); background:#fff;
+  font:inherit; font-weight:700; font-size:13.5px; color:var(--navy-800);
+  cursor:pointer; transition:.2s; text-align:left; white-space:nowrap;
+}
+.hpr-dd__btn:hover{border-color:var(--gold-500); background:#fffdf6;}
+.hpr-dd.is-open .hpr-dd__btn{
+  border-color:var(--gold-500); box-shadow:0 0 0 4px rgba(232,163,23,.18);
+}
+.hpr-dd__label{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;}
+.hpr-dd__caret{
+  position:absolute; right:12px; top:50%; transform:translateY(-50%);
+  color:var(--muted); pointer-events:none; transition:transform .2s;
+}
+.hpr-dd.is-open .hpr-dd__caret{transform:translateY(-50%) rotate(180deg); color:var(--gold-500);}
+.hpr-dd__menu{
+  position:absolute; top:calc(100% + 6px); left:0; z-index:80;
+  min-width:100%; max-height:280px; overflow-y:auto; overflow-x:hidden;
+  background:#fff; border:1px solid var(--line); border-radius:14px;
+  box-shadow:0 16px 40px rgba(7,27,61,.22);
+  padding:6px; scrollbar-width:none;
+}
+.hpr-dd__menu::-webkit-scrollbar{width:0; height:0; display:none;}
+.hpr-dd__item{
+  display:flex; align-items:center; gap:8px;
+  width:100%; padding:9px 12px; border:0; border-radius:9px;
+  background:transparent; font:inherit; font-weight:600; font-size:13.5px;
+  color:var(--navy-800); text-align:left; cursor:pointer; transition:.15s;
+}
+.hpr-dd__item:hover{background:rgba(11,42,91,.06);}
+.hpr-dd__item.is-active{
+  background:linear-gradient(135deg,var(--navy-700),var(--navy-900)); color:#fff;
+}
+.hpr-dd--sm{width:100%;}
+.hpr-dd--sm .hpr-dd__btn{
+  height:36px; padding:0 28px 0 10px; border-radius:9px; font-size:13px; font-weight:600;
+}
+.hpr-dd--sm .hpr-dd__caret{right:8px;}
+.hpr-dd--sm .hpr-dd__item{padding:7px 10px; font-size:13px;}
+
+/* Gold switch used as “On” in special-pricing tables */
+.sw{position:relative; display:inline-block; width:42px; height:24px; flex:none; vertical-align:middle;}
+.sw input{opacity:0; width:0; height:0; position:absolute;}
+.sw__slider{
+  position:absolute; inset:0; background:#d2d7e2; border-radius:999px; cursor:pointer; transition:.25s;
+}
+.sw__slider::before{
+  content:''; position:absolute; left:3px; top:3px; width:18px; height:18px;
+  border-radius:50%; background:#fff; transition:.25s; box-shadow:0 2px 4px rgba(7,27,61,.2);
+}
+.sw input:checked + .sw__slider{background:linear-gradient(135deg,var(--gold-300),var(--gold-500));}
+.sw input:checked + .sw__slider::before{transform:translateX(18px);}
+
+/* Special-pricing tables — fixed columns so every section lines up */
+.sp-table{table-layout:fixed; width:100%;}
+.sp-table th, .sp-table td{padding:13px 16px; vertical-align:middle;}
+.sp-table--users col.c-user{width:32%;}
+.sp-table--users col.c-phone{width:18%;}
+.sp-table--users col.c-role{width:14%;}
+.sp-table--users col.c-count{width:16%;}
+.sp-table--users col.c-act{width:20%;}
+.sp-table--svc col.c-on{width:64px;}
+.sp-table--svc col.c-svc{width:38%;}
+.sp-table--svc col.c-def{width:16%;}
+.sp-table--svc col.c-type{width:150px;}
+.sp-table--svc col.c-amt{width:140px;}
+.sp-table .svc-cell{display:flex; align-items:center; gap:10px; min-width:0;}
+.sp-table .svc-cell img{
+  width:32px; height:32px; object-fit:contain; padding:3px; flex:none;
+  border:1px solid var(--line); border-radius:8px; background:#fff;
+}
+.sp-table .svc-cell > div{min-width:0;}
+.sp-table .svc-cell b{display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.sp-amt{
+  width:100%; height:36px; padding:0 10px; box-sizing:border-box;
+  border:1.6px solid rgba(11,42,91,.16); border-radius:9px;
+  font:inherit; font-size:13.5px; font-weight:600; color:var(--navy-800); background:#fff;
+}
+.sp-amt:focus{outline:none; border-color:var(--gold-500); box-shadow:0 0 0 3px rgba(232,163,23,.18);}
+.sp-bulk{
+  display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+  padding:14px 0 18px; border-bottom:1px solid var(--line); margin-bottom:8px;
+}
+.sp-bulk .hpr-dd{width:160px;}
+.sp-bulk .sp-amt{width:150px; height:40px; border-radius:12px;}
+
+.toolbar .hpr-dd{min-width:200px;}
+
 /* ----- pill / chip / label (shared) ----- */
 .pill{
   display:inline-flex; align-items:center; gap:4px;

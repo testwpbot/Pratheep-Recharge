@@ -4,13 +4,27 @@
 @section('content')
 
 <div class="toolbar">
-  <form method="GET" action="{{ route('admin.special-pricing.index') }}" style="display:flex; gap:8px; flex-wrap:wrap;">
-    <input type="text" name="q" value="{{ request('q') }}" placeholder="Search name, email, phone…" style="min-width:260px;">
-    <select name="filter">
-      <option value="all" {{ $filter === 'all' ? 'selected' : '' }}>All customers</option>
-      <option value="retailers" {{ $filter === 'retailers' ? 'selected' : '' }}>Retailers only</option>
-      <option value="special" {{ $filter === 'special' ? 'selected' : '' }}>Has special pricing</option>
-    </select>
+  <form method="GET" action="{{ route('admin.special-pricing.index') }}" id="spFilterForm" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; width:100%;">
+    <input type="text" name="q" value="{{ request('q') }}" placeholder="Search name, email, phone…" style="min-width:260px; flex:1;">
+
+    <div class="hpr-dd" data-hpr-dd data-auto-submit="spFilterForm">
+      <input type="hidden" name="filter" value="{{ $filter }}">
+      <button type="button" class="hpr-dd__btn">
+        <span class="hpr-dd__label">
+          @if($filter==='retailers') Retailers only
+          @elseif($filter==='special') Has special pricing
+          @else All customers
+          @endif
+        </span>
+        <svg class="hpr-dd__caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </button>
+      <div class="hpr-dd__menu" hidden>
+        <button type="button" class="hpr-dd__item {{ $filter==='all' ? 'is-active' : '' }}" data-value="all" data-label="All customers">All customers</button>
+        <button type="button" class="hpr-dd__item {{ $filter==='retailers' ? 'is-active' : '' }}" data-value="retailers" data-label="Retailers only">Retailers only</button>
+        <button type="button" class="hpr-dd__item {{ $filter==='special' ? 'is-active' : '' }}" data-value="special" data-label="Has special pricing">Has special pricing</button>
+      </div>
+    </div>
+
     <button class="btn-admin btn-admin--primary" type="submit">Filter</button>
     <a href="{{ route('admin.special-pricing.index') }}" class="btn-admin btn-admin--ghost">Reset</a>
   </form>
@@ -23,14 +37,17 @@
   </div>
 
   <div class="table-wrap">
-    <table class="data-table">
+    <table class="data-table sp-table sp-table--users">
+      <colgroup>
+        <col class="c-user"><col class="c-phone"><col class="c-role"><col class="c-count"><col class="c-act">
+      </colgroup>
       <thead>
         <tr>
           <th>Customer</th>
           <th>Phone</th>
           <th>Role</th>
           <th>Special services</th>
-          <th style="text-align:right">Actions</th>
+          <th class="col-actions">Actions</th>
         </tr>
       </thead>
       <tbody>
