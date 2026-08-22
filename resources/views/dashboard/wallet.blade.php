@@ -84,10 +84,13 @@
         </div>
         <div class="wallet-payto__row">
           <span>Account number</span>
-          <b>
-            {{ $bank->account_no }}
-            <button type="button" class="copy-btn" data-copy="{{ $bank->account_no }}">Copy</button>
-          </b>
+          <div class="wallet-payto__value">
+            <b>{{ $bank->account_no }}</b>
+            <button type="button" class="copy-btn" data-copy="{{ $bank->account_no }}" aria-label="Copy account number">
+              <svg class="copy-btn__ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              <span class="copy-btn__txt">Copy</span>
+            </button>
+          </div>
         </div>
         @if($bank->branch)
           <div class="wallet-payto__row">
@@ -288,6 +291,26 @@
 .wallet-payto__row:last-child{border-bottom:0; padding-bottom:0;}
 .wallet-payto__row span{color:var(--muted); font-weight:600; flex:none; min-width:120px;}
 .wallet-payto__row b{color:var(--navy-900); font-weight:800; text-align:right; word-break:break-word;}
+.wallet-payto__value{
+  display:flex; align-items:center; justify-content:flex-end; gap:8px;
+  min-width:0; flex-wrap:wrap;
+}
+.wallet-payto__value b{text-align:right;}
+.copy-btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:5px;
+  height:28px; padding:0 10px; border-radius:8px; border:0;
+  background:linear-gradient(135deg,var(--gold-300),var(--gold-500));
+  color:#2a1a00; font:inherit; font-size:12px; font-weight:800;
+  letter-spacing:.01em; cursor:pointer; flex:none; line-height:1;
+  box-shadow:0 4px 10px rgba(232,163,23,.28);
+  transition:transform .15s, box-shadow .15s, background .15s;
+}
+.copy-btn:hover{transform:translateY(-1px); box-shadow:0 6px 14px rgba(232,163,23,.38);}
+.copy-btn:active{transform:translateY(0);}
+.copy-btn__ic{flex:none;}
+.copy-btn.is-copied{
+  background:#e5f7ec; color:#15733f; box-shadow:none;
+}
 .wallet-payto__note{
   margin-top:12px; padding-top:12px; border-top:1px dashed rgba(232,163,23,.28);
   font-size:13px; color:var(--navy-700); font-weight:600; line-height:1.6;
@@ -308,6 +331,7 @@
   .wallet-payto__logo{width:60px; height:60px;}
   .wallet-payto__row{flex-direction:column; gap:3px; padding:10px 0;}
   .wallet-payto__row b{text-align:left;}
+  .wallet-payto__value{justify-content:flex-start;}
 }
 
 .slip-preview-box{
