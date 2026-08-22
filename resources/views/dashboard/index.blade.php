@@ -75,7 +75,19 @@
           @if ($servicesByCategory->get($cat->slug)?->isNotEmpty())
             <div class="service-grid">
               @foreach ($servicesByCategory->get($cat->slug) as $s)
-                <a href="{{ route('recharge.form', $s) }}" class="service-card">
+                @php
+                  $svcType = strtolower((string) $s->type);
+                  $catSlug = strtolower((string) $cat->slug);
+                  $isBill = in_array($svcType, ['utility','postpaid','bill','insurance','wallet'], true)
+                    || in_array($catSlug, ['utility','insurance','wallet-topup'], true);
+                @endphp
+                <button type="button"
+                        class="service-card"
+                        data-rc-custom
+                        data-service-id="{{ $s->id }}"
+                        data-logo="{{ $s->logoUrl }}"
+                        data-op-name="{{ $s->name }}"
+                        data-mode="{{ $isBill ? 'bill' : 'reload' }}">
                   @if ((float) $s->profit > 0)
                     <span class="cb-badge">
                       @if ($s->profit_type === 'PCT') {{ number_format($s->profit, 2) }}% cashback
@@ -86,7 +98,7 @@
                        onerror="this.src='{{ asset('assets/logo-mark.png') }}'">
                   <h4>{{ $s->name }}</h4>
                   <small>{{ ucfirst($s->type) }}</small>
-                </a>
+                </button>
               @endforeach
             </div>
           @else
@@ -129,6 +141,8 @@
     </table>
   </div>
 </div>
+
+@include('partials.recharge-modal')
 
 @endsection
 
