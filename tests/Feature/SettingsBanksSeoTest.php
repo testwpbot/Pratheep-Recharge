@@ -60,6 +60,25 @@ class SettingsBanksSeoTest extends TestCase
         $this->assertStringContainsString('sampath-bank', $acc->logoUrl());
     }
 
+    public function test_can_hide_bank_account_from_customers(): void
+    {
+        $acc = BankAccount::create([
+            'bank_slug' => 'sampath-bank', 'bank_name' => 'Sampath Bank',
+            'account_name' => 'HPR', 'account_no' => '888', 'is_active' => true,
+        ]);
+
+        $this->actingAs($this->owner())
+            ->patch(route('admin.settings.banks.update', $acc), [
+                'bank_slug'    => 'sampath-bank',
+                'account_name' => 'HPR',
+                'account_no'   => '888',
+                'is_active'    => '0',
+            ])
+            ->assertRedirect();
+
+        $this->assertFalse($acc->fresh()->is_active);
+    }
+
     public function test_can_save_seo(): void
     {
         $this->actingAs($this->owner())

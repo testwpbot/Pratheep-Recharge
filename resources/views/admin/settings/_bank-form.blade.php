@@ -90,6 +90,7 @@
     </div>
     @if($account)
       <div class="field" style="display:flex; align-items:center; gap:10px; padding-top:22px;">
+        <input type="hidden" name="is_active" value="0">
         <label class="sw">
           <input type="checkbox" name="is_active" value="1" @checked($account->is_active)>
           <span class="sw__slider"></span>

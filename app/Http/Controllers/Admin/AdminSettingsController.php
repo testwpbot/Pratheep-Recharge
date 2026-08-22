@@ -114,7 +114,7 @@ class AdminSettingsController extends Controller
     public function updateBank(Request $request, BankAccount $bankAccount): RedirectResponse
     {
         $data = $this->validateBank($request);
-        $data['is_active'] = $request->boolean('is_active', true);
+        $data['is_active'] = $request->boolean('is_active');
         $bankAccount->fill($data)->save();
         $this->storeBankLogo($request, $bankAccount);
 
