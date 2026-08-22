@@ -67,12 +67,42 @@ class DashboardAlertTest extends TestCase
         $this->actingAs($customer)
             ->get(route('wallet'))
             ->assertOk()
-            ->assertSee('Wallet top-up bonus this week', false);
+            ->assertSee('Wallet top-up bonus this week', false)
+            ->assertSee('hpr-alert-pop', false);
+
+        $this->actingAs($customer)
+            ->get(route('dashboard.plans'))
+            ->assertOk()
+            ->assertSee('Wallet top-up bonus this week', false)
+            ->assertSee('hpr-alert-pop', false);
 
         $this->actingAs($customer)
             ->get(route('home'))
             ->assertOk()
             ->assertDontSee('Wallet top-up bonus this week', false);
+    }
+
+    public function test_admin_can_preview_alert_on_customer_dashboard(): void
+    {
+        $admin = $this->admin();
+        Alert::create([
+            'title'     => 'Notice',
+            'heading'   => 'Admin preview banner',
+            'theme'     => 'gold',
+            'audience'  => 'customers',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('Admin preview banner', false)
+            ->assertSee('hpr-alert-pop', false);
+
+        $this->actingAs($admin)
+            ->get(route('admin.dashboard'))
+            ->assertOk()
+            ->assertDontSee('Admin preview banner', false);
     }
 
     public function test_off_or_future_alert_is_hidden(): void

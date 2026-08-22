@@ -134,6 +134,7 @@
 
 <script src="{{ asset('js/landing.js') }}"></script>
 @include('partials.hpr-dd')
+@include('partials.dashboard-alerts')
 @stack('scripts')
 
 {{-- Global Download Receipt modal --}}

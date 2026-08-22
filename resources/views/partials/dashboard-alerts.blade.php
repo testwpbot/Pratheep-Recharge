@@ -1,5 +1,5 @@
 @if(!empty($dashboardAlerts) && $dashboardAlerts->isNotEmpty())
-  <div class="hpr-alert-pop" id="hprAlertPop" hidden>
+  <div class="hpr-alert-pop" id="hprAlertPop">
     <div class="hpr-alert-pop__backdrop" data-alert-pop-close></div>
     <div class="hpr-alert-pop__stage" role="dialog" aria-modal="true" aria-label="Notice">
       @foreach ($dashboardAlerts as $alert)

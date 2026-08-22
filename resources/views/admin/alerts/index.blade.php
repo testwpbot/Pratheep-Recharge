@@ -6,8 +6,11 @@
 <div class="toolbar">
   <div>
     <h3 style="margin:0; font-size:18px; font-weight:800; color:var(--navy-900);">Dashboard alerts</h3>
-    <small style="color:var(--muted); font-weight:600;">These open as a popup on account pages after sign-in — not on the homepage.</small>
+    <small style="color:var(--muted); font-weight:600;">These open as a popup on customer pages (Dashboard, Wallet, Plans) — not on this admin panel, and not on the homepage.</small>
   </div>
+  <a href="{{ route('dashboard') }}" class="btn-admin btn-admin--ghost" target="_blank">
+    See it now
+  </a>
   <a href="{{ route('admin.alerts.create') }}" class="btn-admin btn-admin--gold">
     <x-icon name="plus" :size="14"/> New alert
   </a>

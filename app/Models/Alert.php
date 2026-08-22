@@ -101,9 +101,14 @@ class Alert extends Model
             return false;
         }
 
+        // Admins can preview every live alert on customer account pages.
+        if ($user->isAdmin()) {
+            return true;
+        }
+
         return match ($this->audience) {
-            self::AUDIENCE_CUSTOMERS => ! $user->isAdmin(),
-            self::AUDIENCE_RETAILERS => (bool) $user->is_retailer && ! $user->isAdmin(),
+            self::AUDIENCE_CUSTOMERS => true,
+            self::AUDIENCE_RETAILERS => (bool) $user->is_retailer,
             default => true,
         };
     }
