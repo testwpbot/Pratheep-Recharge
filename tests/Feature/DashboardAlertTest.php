@@ -220,4 +220,26 @@ class DashboardAlertTest extends TestCase
             ->assertSee('<strong>LKR 1,000</strong>', false)
             ->assertDontSee('<script>', false);
     }
+
+    public function test_heading_in_message_keeps_the_other_lines_normal(): void
+    {
+        $admin = $this->admin();
+
+        $this->actingAs($admin)
+            ->post(route('admin.alerts.store'), [
+                'title'     => 'Mix',
+                'heading'   => 'Festival offer',
+                'body'      => '<h3>This week only</h3><p>Add money and get extra cashback.</p>',
+                'theme'     => 'navy',
+                'audience'  => 'all',
+                'is_active' => '1',
+            ])
+            ->assertRedirect();
+
+        $alert = Alert::where('title', 'Mix')->first();
+        $this->assertNotNull($alert);
+        $this->assertStringContainsString('<h3>This week only</h3>', (string) $alert->body);
+        $this->assertStringContainsString('<p>Add money and get extra cashback.</p>', (string) $alert->body);
+        $this->assertStringNotContainsString('<h3>This week only Add money', (string) $alert->body);
+    }
 }
