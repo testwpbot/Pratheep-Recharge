@@ -3,97 +3,179 @@
 
 @section('content')
 
-<div class="card">
-  <div class="card__head">
-    <h3>Site Settings</h3>
+<div class="set-hero">
+  <div>
+    <h3>Site settings</h3>
+    <p>Banks, SEO, email and who can run the admin panel.</p>
   </div>
+</div>
 
-  <div class="set-tabs" role="tablist">
-    <button type="button" class="set-tab active" data-set-tab="general">General</button>
-    <button type="button" class="set-tab" data-set-tab="bank">Bank Details</button>
-    <button type="button" class="set-tab" data-set-tab="smtp">SMTP / Email</button>
-    @if($isMainAdmin)
-      <button type="button" class="set-tab" data-set-tab="admins">Admins</button>
-    @endif
-  </div>
+<div class="set-tabs" role="tablist">
+  <button type="button" class="set-tab active" data-set-tab="general">General</button>
+  <button type="button" class="set-tab" data-set-tab="bank">Bank accounts</button>
+  <button type="button" class="set-tab" data-set-tab="seo">SEO</button>
+  <button type="button" class="set-tab" data-set-tab="smtp">Email / SMTP</button>
+  @if($isMainAdmin)
+    <button type="button" class="set-tab" data-set-tab="admins">Admins</button>
+  @endif
+</div>
 
-  {{-- ===== GENERAL ===== --}}
-  <div class="set-panel active" data-set-panel="general">
+{{-- ===== GENERAL ===== --}}
+<div class="set-panel active" data-set-panel="general">
+  <div class="card">
+    <div class="card__head">
+      <h3>General</h3>
+      <small style="color:var(--muted); font-weight:600;">Name and support details shown to customers.</small>
+    </div>
     <form method="POST" action="{{ route('admin.settings.general') }}" data-ajax>
       @csrf
       <div class="form-grid">
         <div class="field">
-          <label>Site Name</label>
+          <label>Site name</label>
           <input type="text" name="site_name" value="{{ old('site_name', $general['site_name'] ?? 'Happy Pratheep Recharge') }}" required>
         </div>
         <div class="field">
-          <label>Support Email</label>
+          <label>Support email</label>
           <input type="email" name="support_email" value="{{ old('support_email', $general['support_email'] ?? '') }}" placeholder="admin@happypratheep.lk">
-          <div class="hint">Deposit requests and “provider money is low” emails are sent here.</div>
+          <div class="hint">Deposit requests and “provider money is low” emails go here.</div>
         </div>
         <div class="field">
-          <label>Support Phone</label>
+          <label>Support phone</label>
           <input type="text" name="support_phone" value="{{ old('support_phone', $general['support_phone'] ?? '') }}" placeholder="+94 77 123 4567">
         </div>
         <div class="field" style="grid-column:1/-1;">
-          <label>Deposit Note (shown to customers)</label>
-          <textarea name="deposit_note" rows="3" placeholder="e.g. Please include your registered phone number in the payment reference so we can credit quickly.">{{ old('deposit_note', $general['deposit_note'] ?? '') }}</textarea>
+          <label>Deposit note (shown to customers)</label>
+          <textarea name="deposit_note" rows="3">{{ old('deposit_note', $general['deposit_note'] ?? '') }}</textarea>
         </div>
       </div>
       <div style="margin-top:18px; display:flex; justify-content:flex-end;">
         <button type="submit" class="btn-admin btn-admin--gold">
-          <span class="btn-label"><x-icon name="check" :size="14"/> Save General Settings</span>
+          <span class="btn-label"><x-icon name="check" :size="14"/> Save general</span>
           <span class="btn-spinner" hidden></span>
         </button>
       </div>
     </form>
   </div>
+</div>
 
-  {{-- ===== BANK ===== --}}
-  <div class="set-panel" data-set-panel="bank">
-    <p style="color:var(--muted); font-size:13px; font-weight:600; margin:0 0 14px;">These bank details are shown to customers on the Wallet Deposit page. Only one receiving bank account is supported at the moment.</p>
-    <form method="POST" action="{{ route('admin.settings.bank') }}" data-ajax>
+{{-- ===== BANKS ===== --}}
+<div class="set-panel" data-set-panel="bank">
+  <div class="bank-grid">
+    @forelse ($banks as $acc)
+      <div class="card bank-card">
+        <div class="bank-card__head">
+          <img src="{{ $acc->logoUrl() }}" alt="">
+          <div>
+            <b>{{ $acc->bank_name }}</b>
+            <small>{{ $acc->is_active ? 'Shown to customers' : 'Hidden' }}</small>
+          </div>
+          <form method="POST" action="{{ route('admin.settings.banks.destroy', $acc) }}" onsubmit="return confirm('Remove this bank account?');">
+            @csrf
+            @method('DELETE')
+            <button class="btn-admin btn-admin--danger btn-admin--sm" type="submit">Remove</button>
+          </form>
+        </div>
+        @include('admin.settings._bank-form', ['account' => $acc, 'bankCatalog' => $bankCatalog])
+      </div>
+    @empty
+      <div class="card">
+        <p style="margin:0; color:var(--muted); font-weight:600;">No bank accounts yet. Add one so customers know where to send money.</p>
+      </div>
+    @endforelse
+
+    <div class="card bank-card bank-card--add">
+      <div class="card__head">
+        <h3>Add another bank</h3>
+      </div>
+      @include('admin.settings._bank-form', ['account' => null, 'bankCatalog' => $bankCatalog])
+    </div>
+  </div>
+</div>
+
+{{-- ===== SEO ===== --}}
+<div class="set-panel" data-set-panel="seo">
+  <div class="card">
+    <div class="card__head">
+      <h3>SEO</h3>
+      <small style="color:var(--muted); font-weight:600;">How Google and social apps show this website.</small>
+    </div>
+    <form method="POST" action="{{ route('admin.settings.seo') }}" enctype="multipart/form-data">
       @csrf
       <div class="form-grid">
-        <div class="field">
-          <label>Bank Name <span class="req">*</span></label>
-          <input type="text" name="bank_name" value="{{ old('bank_name', $bank['bank_name'] ?? '') }}" placeholder="e.g. Commercial Bank" required>
-        </div>
-        <div class="field">
-          <label>Account Name <span class="req">*</span></label>
-          <input type="text" name="account_name" value="{{ old('account_name', $bank['account_name'] ?? '') }}" placeholder="e.g. Happy Pratheep Recharge (Pvt) Ltd" required>
-        </div>
-        <div class="field">
-          <label>Account Number <span class="req">*</span></label>
-          <input type="text" name="account_no" value="{{ old('account_no', $bank['account_no'] ?? '') }}" placeholder="e.g. 8001234567890" required>
-        </div>
-        <div class="field">
-          <label>Branch</label>
-          <input type="text" name="branch" value="{{ old('branch', $bank['branch'] ?? '') }}" placeholder="e.g. Kandy">
+        <div class="field" style="grid-column:1/-1;">
+          <label>Page title</label>
+          <input type="text" name="meta_title" maxlength="70" value="{{ old('meta_title', $seo['meta_title'] ?? '') }}" placeholder="Happy Pratheep Recharge — Mobile reloads in Sri Lanka">
+          <div class="hint">About 50–60 characters works best.</div>
         </div>
         <div class="field" style="grid-column:1/-1;">
-          <label>Transfer Instructions</label>
-          <textarea name="instructions" rows="4" placeholder="e.g. After sending the deposit, upload a clear photo/screenshot of the bank slip below. Include your registered phone number as the payment reference.">{{ old('instructions', $bank['instructions'] ?? '') }}</textarea>
+          <label>Short description</label>
+          <textarea name="meta_description" rows="3" maxlength="180">{{ old('meta_description', $seo['meta_description'] ?? '') }}</textarea>
+        </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>Keywords</label>
+          <input type="text" name="meta_keywords" value="{{ old('meta_keywords', $seo['meta_keywords'] ?? '') }}" placeholder="reload, Dialog, Mobitel, electricity bill">
+        </div>
+        <div class="field">
+          <label>Share title (Facebook / WhatsApp)</label>
+          <input type="text" name="og_title" value="{{ old('og_title', $seo['og_title'] ?? '') }}">
+        </div>
+        <div class="field">
+          <label>Show in Google?</label>
+          <div class="hpr-dd" data-hpr-dd>
+            <input type="hidden" name="robots" value="{{ old('robots', $seo['robots'] ?? 'index') }}">
+            <button type="button" class="hpr-dd__btn">
+              <span class="hpr-dd__label">{{ (old('robots', $seo['robots'] ?? 'index') === 'noindex') ? 'Hide from Google' : 'Show in Google' }}</span>
+              <svg class="hpr-dd__caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+            <div class="hpr-dd__menu" hidden>
+              <button type="button" class="hpr-dd__item {{ ($seo['robots'] ?? 'index')!=='noindex' ? 'is-active' : '' }}" data-value="index" data-label="Show in Google">Show in Google</button>
+              <button type="button" class="hpr-dd__item {{ ($seo['robots'] ?? '')==='noindex' ? 'is-active' : '' }}" data-value="noindex" data-label="Hide from Google">Hide from Google</button>
+            </div>
+          </div>
+        </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>Share description</label>
+          <textarea name="og_description" rows="2">{{ old('og_description', $seo['og_description'] ?? '') }}</textarea>
+        </div>
+        <div class="field">
+          <label>Share image URL</label>
+          <input type="url" name="og_image_url" value="{{ old('og_image_url', $seo['og_image_url'] ?? '') }}" placeholder="https://…">
+        </div>
+        <div class="field">
+          <label>Or upload share image</label>
+          <input type="file" name="og_image" accept="image/*">
+          @if(!empty($seo['og_image_path']))
+            <div class="hint">Current image is saved.</div>
+          @endif
+        </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>Google site verification code</label>
+          <input type="text" name="google_site_verification" value="{{ old('google_site_verification', $seo['google_site_verification'] ?? '') }}" placeholder="Paste the content= value from Google">
         </div>
       </div>
       <div style="margin-top:18px; display:flex; justify-content:flex-end;">
         <button type="submit" class="btn-admin btn-admin--gold">
-          <span class="btn-label"><x-icon name="check" :size="14"/> Save Bank Details</span>
+          <span class="btn-label"><x-icon name="check" :size="14"/> Save SEO</span>
           <span class="btn-spinner" hidden></span>
         </button>
       </div>
     </form>
   </div>
+</div>
 
-  {{-- ===== SMTP ===== --}}
-  <div class="set-panel" data-set-panel="smtp">
-    <p style="color:var(--muted); font-size:13px; font-weight:600; margin:0 0 14px;">Configure the outgoing email server. Deposit notifications, approval/rejection emails and other system emails use these settings. Leave the password field blank to keep the current password.</p>
+{{-- ===== SMTP ===== --}}
+<div class="set-panel" data-set-panel="smtp">
+  <div class="card">
+    <div class="card__head">
+      <h3>Email / SMTP</h3>
+      <small style="color:var(--muted); font-weight:600;">Used for OTP, deposits and alerts. Leave password blank to keep the current one.</small>
+    </div>
     <form method="POST" action="{{ route('admin.settings.smtp') }}" data-ajax id="smtpForm">
       @csrf
       <div class="form-grid">
         <div class="field" style="grid-column:span 2;">
-          <label>SMTP Host <span class="req">*</span></label>
-          <input type="text" name="host" value="{{ old('host', $smtp['host'] ?? '') }}" placeholder="smtp.gmail.com / smtp.zoho.com / mail.yourdomain.com" required>
+          <label>SMTP host <span class="req">*</span></label>
+          <input type="text" name="host" value="{{ old('host', $smtp['host'] ?? '') }}" required>
         </div>
         <div class="field">
           <label>Port <span class="req">*</span></label>
@@ -101,34 +183,41 @@
         </div>
         <div class="field">
           <label>Encryption</label>
-          <select name="encryption">
-            <option value="tls" {{ ($smtp['encryption'] ?? 'tls') === 'tls' ? 'selected' : '' }}>TLS</option>
-            <option value="ssl" {{ ($smtp['encryption'] ?? '') === 'ssl' ? 'selected' : '' }}>SSL</option>
-            <option value="none" {{ ($smtp['encryption'] ?? '') === 'none' ? 'selected' : '' }}>None</option>
-          </select>
+          <div class="hpr-dd" data-hpr-dd>
+            <input type="hidden" name="encryption" value="{{ old('encryption', $smtp['encryption'] ?? 'tls') }}">
+            <button type="button" class="hpr-dd__btn">
+              <span class="hpr-dd__label">{{ strtoupper(old('encryption', $smtp['encryption'] ?? 'tls')) }}</span>
+              <svg class="hpr-dd__caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+            <div class="hpr-dd__menu" hidden>
+              @foreach (['tls'=>'TLS','ssl'=>'SSL','none'=>'None'] as $k=>$v)
+                <button type="button" class="hpr-dd__item {{ (old('encryption', $smtp['encryption'] ?? 'tls'))===$k ? 'is-active' : '' }}" data-value="{{ $k }}" data-label="{{ $v }}">{{ $v }}</button>
+              @endforeach
+            </div>
+          </div>
         </div>
         <div class="field">
-          <label>SMTP Username</label>
+          <label>SMTP username</label>
           <input type="text" name="username" value="{{ old('username', $smtp['username'] ?? '') }}" autocomplete="off">
         </div>
         <div class="field">
-          <label>SMTP Password</label>
+          <label>SMTP password</label>
           <input type="password" name="password" placeholder="Leave blank to keep current" autocomplete="new-password">
         </div>
         <div class="field">
-          <label>From Address <span class="req">*</span></label>
+          <label>From address <span class="req">*</span></label>
           <input type="email" name="from_address" value="{{ old('from_address', $smtp['from_address'] ?? 'noreply@happypratheep.lk') }}" required>
         </div>
         <div class="field">
-          <label>From Name <span class="req">*</span></label>
+          <label>From name <span class="req">*</span></label>
           <input type="text" name="from_name" value="{{ old('from_name', $smtp['from_name'] ?? 'Happy Pratheep Recharge') }}" required>
         </div>
       </div>
 
       <div class="test-smtp-row">
-        <input type="email" id="testTo" placeholder="Send test email to…" style="height:40px; padding:0 12px; border-radius:10px; border:1.6px solid rgba(11,42,91,.16); font:inherit; font-size:14px;">
+        <input type="email" id="testTo" placeholder="Send test email to…">
         <button type="button" class="btn-admin btn-admin--ghost btn-admin--sm" id="testSmtpBtn">
-          <span class="btn-label"><x-icon name="mail" :size="13"/> Send Test</span>
+          <span class="btn-label"><x-icon name="mail" :size="13"/> Send test</span>
           <span class="btn-spinner" hidden></span>
         </button>
       </div>
@@ -136,21 +225,23 @@
 
       <div style="margin-top:18px; display:flex; justify-content:flex-end;">
         <button type="submit" class="btn-admin btn-admin--gold">
-          <span class="btn-label"><x-icon name="check" :size="14"/> Save SMTP Settings</span>
+          <span class="btn-label"><x-icon name="check" :size="14"/> Save email settings</span>
           <span class="btn-spinner" hidden></span>
         </button>
       </div>
     </form>
   </div>
+</div>
 
-  @if($isMainAdmin)
-  <div class="set-panel" data-set-panel="admins">
-    <p style="color:var(--muted); font-size:13px; font-weight:600; margin:0 0 16px;">
-      Main admin can add people who can open the admin panel. <b>Main admin</b> can add or remove admins.
-      <b>Admin</b> can run the site, but cannot add other admins.
-    </p>
+@if($isMainAdmin)
+<div class="set-panel" data-set-panel="admins">
+  <div class="card">
+    <div class="card__head">
+      <h3>Admins</h3>
+      <small style="color:var(--muted); font-weight:600;">Main admin can add people. Admin can run the site but cannot add other admins.</small>
+    </div>
 
-    <form method="POST" action="{{ route('admin.settings.admins.store') }}" style="margin-bottom:22px; padding:16px; border:1px solid var(--line); border-radius:14px; background:#f7f9fd;">
+    <form method="POST" action="{{ route('admin.settings.admins.store') }}" class="admin-add">
       @csrf
       <div class="form-grid">
         <div class="field">
@@ -168,14 +259,20 @@
         <div class="field">
           <label>Password</label>
           <input type="password" name="password" minlength="8" autocomplete="new-password" placeholder="Needed for a new person">
-          <div class="hint">If this email already has a customer account, we promote them and password can stay empty.</div>
         </div>
         <div class="field">
           <label>Role <span class="req">*</span></label>
-          <select name="role" required>
-            <option value="admin" @selected(old('role','admin')==='admin')>Admin</option>
-            <option value="main" @selected(old('role')==='main')>Main admin</option>
-          </select>
+          <div class="hpr-dd" data-hpr-dd>
+            <input type="hidden" name="role" value="{{ old('role', 'admin') }}">
+            <button type="button" class="hpr-dd__btn">
+              <span class="hpr-dd__label">{{ old('role','admin')==='main' ? 'Main admin' : 'Admin' }}</span>
+              <svg class="hpr-dd__caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+            <div class="hpr-dd__menu" hidden>
+              <button type="button" class="hpr-dd__item {{ old('role','admin')==='admin' ? 'is-active' : '' }}" data-value="admin" data-label="Admin">Admin</button>
+              <button type="button" class="hpr-dd__item {{ old('role')==='main' ? 'is-active' : '' }}" data-value="main" data-label="Main admin">Main admin</button>
+            </div>
+          </div>
         </div>
       </div>
       <div style="margin-top:16px; display:flex; justify-content:flex-end;">
@@ -186,7 +283,7 @@
       </div>
     </form>
 
-    <div class="table-wrap">
+    <div class="table-wrap" style="margin-top:20px;">
       <table class="data-table">
         <thead>
           <tr>
@@ -210,16 +307,23 @@
               <form method="POST" action="{{ route('admin.settings.admins.update', $a) }}">
                 @csrf
                 @method('PATCH')
-                <select name="role" onchange="this.form.submit()" style="height:36px; padding:0 10px; border-radius:9px; border:1.6px solid rgba(11,42,91,.16); font:inherit; font-weight:700; font-size:13px;">
-                  <option value="admin" @selected(!$a->isMainAdmin())>Admin</option>
-                  <option value="main" @selected($a->isMainAdmin())>Main admin</option>
-                </select>
+                <div class="hpr-dd hpr-dd--sm" data-hpr-dd data-auto-submit="1">
+                  <input type="hidden" name="role" value="{{ $a->isMainAdmin() ? 'main' : 'admin' }}">
+                  <button type="button" class="hpr-dd__btn">
+                    <span class="hpr-dd__label">{{ $a->adminRoleLabel() }}</span>
+                    <svg class="hpr-dd__caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                  </button>
+                  <div class="hpr-dd__menu" hidden>
+                    <button type="button" class="hpr-dd__item {{ !$a->isMainAdmin() ? 'is-active' : '' }}" data-value="admin" data-label="Admin">Admin</button>
+                    <button type="button" class="hpr-dd__item {{ $a->isMainAdmin() ? 'is-active' : '' }}" data-value="main" data-label="Main admin">Main admin</button>
+                  </div>
+                </div>
               </form>
             </td>
             <td class="col-actions">
               <div class="td-actions">
                 @if($a->id !== auth()->id())
-                  <form method="POST" action="{{ route('admin.settings.admins.destroy', $a) }}" onsubmit="return confirm('Remove admin access for {{ addslashes($a->name) }}? They can still sign in as a customer.');">
+                  <form method="POST" action="{{ route('admin.settings.admins.destroy', $a) }}" onsubmit="return confirm('Remove admin access for {{ addslashes($a->name) }}?');">
                     @csrf
                     @method('DELETE')
                     <button type="submit" class="btn-admin btn-admin--danger btn-admin--sm">Remove</button>
@@ -237,15 +341,14 @@
       </table>
     </div>
   </div>
-  @endif
 </div>
+@endif
 
 @endsection
 
 @push('scripts')
 <script>
 (function(){
-  // Tab switching
   var tabs = document.querySelectorAll('.set-tab');
   var panels = document.querySelectorAll('.set-panel');
   function openTab(key){
@@ -258,13 +361,33 @@
     if (!found) return;
     panels.forEach(function(p){ p.classList.toggle('active', p.dataset.setPanel === key); });
   }
-  tabs.forEach(function(t){
-    t.addEventListener('click', function(){ openTab(t.dataset.setTab); });
-  });
+  tabs.forEach(function(t){ t.addEventListener('click', function(){ openTab(t.dataset.setTab); }); });
   var q = new URLSearchParams(window.location.search).get('tab');
   if (q) openTab(q);
 
-  // SMTP test
+  document.querySelectorAll('[data-bank-picker]').forEach(function(dd){
+    dd.addEventListener('click', function(e){
+      var item = e.target.closest('.hpr-dd__item');
+      if (!item) return;
+      var form = dd.closest('form');
+      if (!form) return;
+      var slug = item.getAttribute('data-value');
+      var name = item.getAttribute('data-bank-name') || '';
+      var hiddenName = form.querySelector('.bank-name-hidden');
+      var visName = form.querySelector('.bank-custom-name input[name=bank_name]');
+      form.querySelectorAll('.bank-custom-name, .bank-custom-logo').forEach(function(el){
+        el.style.display = slug === 'custom' ? '' : 'none';
+      });
+      if (slug === 'custom'){
+        if (hiddenName) hiddenName.disabled = true;
+        if (visName) visName.disabled = false;
+      } else {
+        if (hiddenName){ hiddenName.disabled = false; hiddenName.value = name; }
+        if (visName) visName.disabled = true;
+      }
+    });
+  });
+
   var testBtn = document.getElementById('testSmtpBtn');
   var testTo  = document.getElementById('testTo');
   var result  = document.getElementById('testSmtpResult');
@@ -275,41 +398,26 @@
       var form = document.getElementById('smtpForm');
       var fd = new FormData(form);
       fd.append('to', to);
-
       var started = performance.now();
       var MIN_MS = 2200;
       if (typeof setBtnLoading === 'function') setBtnLoading(testBtn, true);
-      else { testBtn.disabled = true; testBtn.classList.add('is-loading'); var sp0=testBtn.querySelector('.btn-spinner'); if(sp0) sp0.hidden=false; }
       result.textContent = 'Sending…'; result.style.color = 'var(--muted)';
-
       fetch('{{ route('admin.settings.test-smtp') }}', {
         method:'POST', body:fd, headers:{'X-Requested-With':'XMLHttpRequest','Accept':'application/json'}, credentials:'same-origin'
       })
       .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, d:d}; }); })
       .then(function(res){
-        var elapsed = performance.now() - started;
-        var wait = Math.max(0, MIN_MS - elapsed);
         setTimeout(function(){
           if (typeof setBtnLoading === 'function') setBtnLoading(testBtn, false);
-          else { testBtn.disabled = false; testBtn.classList.remove('is-loading'); var sp1=testBtn.querySelector('.btn-spinner'); if(sp1) sp1.hidden=true; }
-          if (res.ok && res.d.ok){
-            result.textContent = '✅ ' + (res.d.message || 'Test email sent.');
-            result.style.color = '#1c7a49';
-          } else {
-            result.textContent = '❌ ' + (res.d.message || 'Test failed.');
-            result.style.color = '#b42f2f';
-          }
-        }, wait);
+          if (res.ok && res.d.ok){ result.textContent = res.d.message || 'Test email sent.'; result.style.color = '#1c7a49'; }
+          else { result.textContent = (res.d && res.d.message) || 'Test failed.'; result.style.color = '#b42f2f'; }
+        }, Math.max(0, MIN_MS - (performance.now() - started)));
       })
       .catch(function(e){
-        var elapsed = performance.now() - started;
-        var wait = Math.max(0, MIN_MS - elapsed);
         setTimeout(function(){
           if (typeof setBtnLoading === 'function') setBtnLoading(testBtn, false);
-          else { testBtn.disabled = false; testBtn.classList.remove('is-loading'); var sp2=testBtn.querySelector('.btn-spinner'); if(sp2) sp2.hidden=true; }
-          result.textContent = '❌ ' + e.message;
-          result.style.color = '#b42f2f';
-        }, wait);
+          result.textContent = e.message; result.style.color = '#b42f2f';
+        }, Math.max(0, MIN_MS - (performance.now() - started)));
       });
     });
   }

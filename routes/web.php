@@ -162,9 +162,12 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified.otp', 'adm
     // Settings
     Route::get('/settings',                               [AdminSettingsController::class, 'index'])->name('settings.index');
     Route::post('/settings/smtp',                         [AdminSettingsController::class, 'saveSmtp'])->name('settings.smtp');
-    Route::post('/settings/bank',                         [AdminSettingsController::class, 'saveBank'])->name('settings.bank');
     Route::post('/settings/general',                      [AdminSettingsController::class, 'saveGeneral'])->name('settings.general');
     Route::post('/settings/test-smtp',                    [AdminSettingsController::class, 'testSmtp'])->name('settings.test-smtp');
+    Route::post('/settings/seo',                          [AdminSettingsController::class, 'saveSeo'])->name('settings.seo');
+    Route::post('/settings/banks',                        [AdminSettingsController::class, 'storeBank'])->name('settings.banks.store');
+    Route::patch('/settings/banks/{bankAccount}',         [AdminSettingsController::class, 'updateBank'])->name('settings.banks.update');
+    Route::delete('/settings/banks/{bankAccount}',        [AdminSettingsController::class, 'destroyBank'])->name('settings.banks.destroy');
     Route::post('/settings/admins',                       [AdminSettingsController::class, 'storeAdmin'])->name('settings.admins.store');
     Route::patch('/settings/admins/{user}',               [AdminSettingsController::class, 'updateAdmin'])->name('settings.admins.update');
     Route::delete('/settings/admins/{user}',              [AdminSettingsController::class, 'destroyAdmin'])->name('settings.admins.destroy');

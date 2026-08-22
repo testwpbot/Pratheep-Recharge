@@ -574,6 +574,34 @@ textarea.hpr-input, .hpr-input--ta{
 }
 
 /* ----- settings tabs ----- */
+.set-hero{
+  background:linear-gradient(135deg,#0b2a5b,#071b3d); color:#fff;
+  border-radius:18px; padding:22px 24px; margin-bottom:18px;
+}
+.set-hero h3{margin:0; font-size:20px; font-weight:800;}
+.set-hero p{margin:6px 0 0; color:rgba(255,255,255,.7); font-weight:600; font-size:13.5px;}
+.bank-grid{display:grid; gap:16px; grid-template-columns:repeat(auto-fit,minmax(320px,1fr));}
+.bank-card__head{
+  display:flex; align-items:center; gap:12px; margin-bottom:16px;
+  padding-bottom:14px; border-bottom:1px solid var(--line);
+}
+.bank-card__head img{
+  width:44px; height:44px; object-fit:contain; background:#fff;
+  border:1px solid var(--line); border-radius:10px; padding:4px;
+}
+.bank-card__head > div{flex:1; min-width:0;}
+.bank-card__head b{display:block; color:var(--navy-900);}
+.bank-card__head small{color:var(--muted); font-weight:600;}
+.bank-dd-preview{display:inline-flex; align-items:center; gap:8px; min-width:0;}
+.bank-dd-preview img{width:22px; height:22px; object-fit:contain; flex:none;}
+.bank-dd-fallback{
+  width:22px; height:22px; border-radius:6px; background:#0b2a5b; color:#fff;
+  display:inline-flex; align-items:center; justify-content:center;
+  font-size:9px; font-weight:800; flex:none;
+}
+.hpr-dd__item .bank-dd-preview{width:100%;}
+.admin-add{padding:16px; border:1px solid var(--line); border-radius:14px; background:#f7f9fd;}
+
 .set-tabs{display:flex; gap:6px; margin-bottom:20px; border-bottom:2px solid var(--line); flex-wrap:wrap;}
 .set-tab{
   padding:12px 18px; border:0; background:transparent; font:inherit; font-weight:700;

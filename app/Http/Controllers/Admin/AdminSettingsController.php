@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\BankAccount;
 use App\Models\Setting;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Support\SriLankanBanks;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -15,8 +17,10 @@ class AdminSettingsController extends Controller
     public function index()
     {
         $smtp = Setting::forGroup('smtp');
-        $bank = Setting::forGroup('bank');
         $general = Setting::forGroup('general');
+        $seo = Setting::forGroup('seo');
+        $banks = BankAccount::query()->orderBy('sort_order')->orderBy('id')->get();
+        $bankCatalog = SriLankanBanks::all();
         $isMainAdmin = auth()->user()?->isMainAdmin() ?? false;
         $admins = $isMainAdmin
             ? User::query()
@@ -26,7 +30,9 @@ class AdminSettingsController extends Controller
                 ->get()
             : collect();
 
-        return view('admin.settings.index', compact('smtp', 'bank', 'general', 'admins', 'isMainAdmin'));
+        return view('admin.settings.index', compact(
+            'smtp', 'general', 'seo', 'banks', 'bankCatalog', 'admins', 'isMainAdmin'
+        ));
     }
 
     public function saveSmtp(Request $request)
@@ -52,24 +58,105 @@ class AdminSettingsController extends Controller
         return back()->with('success', 'SMTP settings saved.');
     }
 
-    public function saveBank(Request $request)
+    public function saveSeo(Request $request)
     {
         $data = $request->validate([
+            'meta_title'              => 'nullable|string|max:70',
+            'meta_description'        => 'nullable|string|max:180',
+            'meta_keywords'           => 'nullable|string|max:255',
+            'og_title'                => 'nullable|string|max:70',
+            'og_description'          => 'nullable|string|max:180',
+            'og_image_url'            => 'nullable|url|max:500',
+            'og_image'                => 'nullable|image|max:2048',
+            'robots'                  => 'nullable|in:index,noindex',
+            'google_site_verification'=> 'nullable|string|max:120',
+        ]);
+
+        foreach (['meta_title', 'meta_description', 'meta_keywords', 'og_title', 'og_description', 'og_image_url', 'robots', 'google_site_verification'] as $k) {
+            if (array_key_exists($k, $data)) {
+                Setting::set('seo', $k, (string) ($data[$k] ?? ''));
+            }
+        }
+
+        if ($request->hasFile('og_image')) {
+            $dir = public_path('uploads/seo');
+            if (! is_dir($dir)) {
+                mkdir($dir, 0755, true);
+            }
+            $name = 'og-' . time() . '.' . $request->file('og_image')->getClientOriginalExtension();
+            $request->file('og_image')->move($dir, $name);
+            Setting::set('seo', 'og_image_path', 'uploads/seo/' . $name);
+        }
+
+        return redirect()->route('admin.settings.index', ['tab' => 'seo'])
+            ->with('success', 'SEO settings saved.');
+    }
+
+    public function storeBank(Request $request): RedirectResponse
+    {
+        $data = $this->validateBank($request);
+        $data['sort_order'] = (int) BankAccount::max('sort_order') + 1;
+        $data['is_active'] = true;
+        $account = BankAccount::create($data);
+        $this->storeBankLogo($request, $account);
+
+        return redirect()->route('admin.settings.index', ['tab' => 'bank'])
+            ->with('success', 'Bank account added.');
+    }
+
+    public function updateBank(Request $request, BankAccount $bankAccount): RedirectResponse
+    {
+        $data = $this->validateBank($request);
+        $data['is_active'] = $request->boolean('is_active', true);
+        $bankAccount->fill($data)->save();
+        $this->storeBankLogo($request, $bankAccount);
+
+        return redirect()->route('admin.settings.index', ['tab' => 'bank'])
+            ->with('success', 'Bank account updated.');
+    }
+
+    public function destroyBank(BankAccount $bankAccount): RedirectResponse
+    {
+        $bankAccount->delete();
+
+        return redirect()->route('admin.settings.index', ['tab' => 'bank'])
+            ->with('success', 'Bank account removed.');
+    }
+
+    protected function validateBank(Request $request): array
+    {
+        $data = $request->validate([
+            'bank_slug'    => 'required|string|max:80',
             'bank_name'    => 'required|string|max:160',
             'account_name' => 'required|string|max:160',
             'account_no'   => 'required|string|max:80',
             'branch'       => 'nullable|string|max:160',
             'instructions' => 'nullable|string|max:2000',
+            'logo_url'     => 'nullable|url|max:500',
+            'logo'         => 'nullable|image|max:2048',
         ]);
+        unset($data['logo']);
 
-        foreach ($data as $k => $v) {
-            Setting::set('bank', $k, $v);
+        $cat = SriLankanBanks::find($data['bank_slug']);
+        if ($cat && $data['bank_slug'] !== 'custom' && empty($data['bank_name'])) {
+            $data['bank_name'] = $cat['name'];
         }
 
-        if ($request->ajax()) {
-            return response()->json(['ok' => true, 'message' => 'Bank details saved.']);
+        return $data;
+    }
+
+    protected function storeBankLogo(Request $request, BankAccount $account): void
+    {
+        if (! $request->hasFile('logo')) {
+            return;
         }
-        return back()->with('success', 'Bank details saved.');
+        $dir = public_path('uploads/banks');
+        if (! is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+        $name = 'bank-' . $account->id . '-' . time() . '.' . $request->file('logo')->getClientOriginalExtension();
+        $request->file('logo')->move($dir, $name);
+        $account->forceFill(['logo_path' => 'uploads/banks/' . $name])->save();
     }
 
     public function saveGeneral(Request $request)

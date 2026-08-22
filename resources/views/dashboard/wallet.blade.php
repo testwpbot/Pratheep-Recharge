@@ -25,23 +25,30 @@
     <h3>Top Up Wallet (Bank Transfer)</h3>
   </div>
 
-  @if(empty($bank['bank_name']))
+  @if($banks->isEmpty())
     <div class="alert alert--error" style="margin:0;">
       Bank details aren't configured yet. Please contact admin.
     </div>
   @else
+    @foreach ($banks as $bank)
     <div class="bank-box">
-      <h5>Send payment to</h5>
-      <div class="bank-row"><span>Bank</span><b>{{ $bank['bank_name'] }}</b></div>
-      <div class="bank-row"><span>Account Name</span><b>{{ $bank['account_name'] }}</b></div>
-      <div class="bank-row"><span>Account No</span><b>{{ $bank['account_no'] }} <button type="button" class="copy-btn" data-copy="{{ $bank['account_no'] }}">Copy</button></b></div>
-      @if(!empty($bank['branch']))
-        <div class="bank-row"><span>Branch</span><b>{{ $bank['branch'] }}</b></div>
+      <h5>
+        <span style="display:inline-flex; align-items:center; gap:8px;">
+          <img src="{{ $bank->logoUrl() }}" alt="" style="height:22px; width:auto; object-fit:contain;">
+          Send payment to {{ $bank->bank_name }}
+        </span>
+      </h5>
+      <div class="bank-row"><span>Bank</span><b>{{ $bank->bank_name }}</b></div>
+      <div class="bank-row"><span>Account Name</span><b>{{ $bank->account_name }}</b></div>
+      <div class="bank-row"><span>Account No</span><b>{{ $bank->account_no }} <button type="button" class="copy-btn" data-copy="{{ $bank->account_no }}">Copy</button></b></div>
+      @if($bank->branch)
+        <div class="bank-row"><span>Branch</span><b>{{ $bank->branch }}</b></div>
       @endif
-      @if(!empty($bank['instructions']))
-        <div class="instructions">{!! nl2br(e($bank['instructions'])) !!}</div>
+      @if($bank->instructions)
+        <div class="instructions">{!! nl2br(e($bank->instructions)) !!}</div>
       @endif
     </div>
+    @endforeach
 
     @if(!empty($general['deposit_note']))
       <div class="cashback-note" style="margin-bottom:18px;">

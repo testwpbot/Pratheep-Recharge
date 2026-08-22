@@ -169,12 +169,17 @@
       var hidden = dd.querySelector('input[type=hidden]');
       if (hidden) hidden.value = val;
       var lab = dd.querySelector('.hpr-dd__label');
-      if (lab) lab.textContent = label;
+      var preview = item.querySelector('[data-dd-preview]');
+      if (lab){
+        if (preview) lab.innerHTML = preview.innerHTML;
+        else lab.textContent = label;
+      }
       dd.querySelectorAll('.hpr-dd__item').forEach(function(i){ i.classList.toggle('is-active', i === item); });
+      if (hidden) hidden.dispatchEvent(new Event('change', {bubbles:true}));
       closeAll();
       var formId = dd.getAttribute('data-auto-submit');
       if (formId){
-        var form = document.getElementById(formId);
+        var form = document.getElementById(formId) || dd.closest('form');
         if (form) form.submit();
       }
       return;

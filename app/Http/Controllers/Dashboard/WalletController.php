@@ -25,9 +25,9 @@ class WalletController extends Controller
             ->limit(30)
             ->get();
 
-        $bank = Setting::forGroup('bank');
+        $banks = \App\Models\BankAccount::active()->get();
         $general = Setting::forGroup('general');
 
-        return view('dashboard.wallet', compact('wallet', 'deposits', 'transactions', 'bank', 'general'));
+        return view('dashboard.wallet', compact('wallet', 'deposits', 'transactions', 'banks', 'general'));
     }
 }
