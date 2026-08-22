@@ -36,7 +36,8 @@
         </div>
         <div class="field" style="grid-column:1/-1;">
           <label>Message</label>
-          <textarea name="body" id="alertBody" rows="4" placeholder="Short message customers will read.">{{ old('body', $alert->body) }}</textarea>
+          <textarea name="body" id="alertBody" rows="8" placeholder="Write the message. You can make text bold, add lists and links.">{{ old('body', $alert->body) }}</textarea>
+          <div class="hint">Use the toolbar to style the text — bold, colour, lists, links.</div>
         </div>
         <div class="field" style="grid-column:1/-1;">
           <label>Picture</label>
@@ -163,31 +164,50 @@
 @media (max-width:960px){
   .alert-admin-grid{grid-template-columns:1fr;}
 }
+.tox-tinymce{
+  border:1.6px solid rgba(11,42,91,.16) !important;
+  border-radius:12px !important;
+  overflow:hidden;
+}
+.tox .tox-toolbar, .tox .tox-toolbar__overflow, .tox .tox-toolbar__primary{
+  background:#f7f9fd !important;
+}
+.tox .tox-edit-area__iframe{background:#fff !important;}
 </style>
 @endpush
 
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/tinymce@7.6.1/tinymce.min.js" referrerpolicy="origin"></script>
 <script>
 (function(){
   var form = document.getElementById('alertForm');
   if (!form) return;
   var banner = document.querySelector('#alertPreviewWrap .hpr-alert');
   if (!banner) return;
+  var editor = null;
 
   function val(name){
     var el = form.querySelector('[name="'+name+'"]');
     return el ? (el.value || '').trim() : '';
   }
-  function setText(sel, text, hideIfEmpty){
+  function bodyHtml(){
+    if (editor) return (editor.getContent() || '').trim();
+    return val('body');
+  }
+  function setText(sel, text){
     var el = banner.querySelector(sel);
     if (!el) return;
     el.textContent = text;
-    if (hideIfEmpty) el.hidden = !text;
   }
   function paint(){
-    setText('[data-pv=eyebrow]', val('eyebrow') || 'Notice', false);
-    setText('[data-pv=heading]', val('heading') || 'Your heading', false);
-    setText('[data-pv=body]', val('body') || 'Your message will show here.', false);
+    setText('[data-pv=eyebrow]', val('eyebrow') || 'Notice');
+    setText('[data-pv=heading]', val('heading') || 'Your heading');
+    var bodyEl = banner.querySelector('[data-pv=body]');
+    if (bodyEl){
+      var html = bodyHtml();
+      bodyEl.innerHTML = html || 'Your message will show here.';
+      bodyEl.hidden = false;
+    }
     var b1 = banner.querySelector('[data-pv=btn1]');
     var b2 = banner.querySelector('[data-pv=btn2]');
     if (b1){ b1.textContent = val('button_label') || 'Button'; b1.hidden = !val('button_label'); }
@@ -196,6 +216,37 @@
     banner.classList.toggle('hpr-alert--gold', theme === 'gold');
     banner.classList.toggle('hpr-alert--navy', theme !== 'gold');
   }
+
+  if (window.tinymce){
+    tinymce.init({
+      selector: '#alertBody',
+      license_key: 'gpl',
+      base_url: 'https://cdn.jsdelivr.net/npm/tinymce@7.6.1',
+      suffix: '.min',
+      menubar: false,
+      branding: false,
+      promotion: false,
+      height: 260,
+      plugins: 'lists link autolink',
+      toolbar: 'undo redo | blocks | bold italic underline | forecolor | alignleft aligncenter alignright | bullist numlist | link | removeformat',
+      block_formats: 'Paragraph=p; Heading=h3; Small heading=h4',
+      convert_urls: false,
+      link_default_target: '_blank',
+      link_assume_external_targets: true,
+      content_style: 'body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;font-size:14.5px;line-height:1.55;color:#182033;padding:8px 4px;} p{margin:0 0 .7em;} p:last-child{margin-bottom:0;}',
+      setup: function(ed){
+        editor = ed;
+        ed.on('change keyup undo redo SetContent', function(){
+          ed.save();
+          paint();
+        });
+      }
+    });
+  }
+
+  form.addEventListener('submit', function(){
+    if (window.tinymce) tinymce.triggerSave();
+  });
   form.addEventListener('input', paint);
   form.addEventListener('change', paint);
   document.querySelectorAll('#alertForm .hpr-dd__item').forEach(function(item){

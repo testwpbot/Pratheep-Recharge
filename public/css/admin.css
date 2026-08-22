@@ -888,8 +888,14 @@ textarea.hpr-input, .hpr-input--ta{
 .hpr-alert--gold .hpr-alert__heading{color:#1a1200;}
 .hpr-alert__text{
   margin:0 0 16px; font-size:14.5px; font-weight:600; line-height:1.55; max-width:46rem;
-  white-space:pre-line;
 }
+.hpr-alert__text p{margin:0 0 .55em;}
+.hpr-alert__text p:last-child{margin-bottom:0;}
+.hpr-alert__text ul,.hpr-alert__text ol{margin:.35em 0 .6em 1.2em; padding:0;}
+.hpr-alert__text li{margin:.15em 0;}
+.hpr-alert__text a{color:inherit; text-decoration:underline; font-weight:800;}
+.hpr-alert__text strong,.hpr-alert__text b{font-weight:800;}
+.hpr-alert__text h3,.hpr-alert__text h4,.hpr-alert__text h5{margin:0 0 .4em; font-size:1.05em; font-weight:800; line-height:1.3;}
 .hpr-alert--navy .hpr-alert__text{color:rgba(255,255,255,.82);}
 .hpr-alert--gold .hpr-alert__text{color:#4a3200;}
 .hpr-alert__actions{display:flex; flex-wrap:wrap; gap:10px;}

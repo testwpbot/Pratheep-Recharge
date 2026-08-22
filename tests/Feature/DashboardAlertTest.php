@@ -186,4 +186,32 @@ class DashboardAlertTest extends TestCase
         $this->assertFileExists(public_path($alert->image_path));
         @unlink(public_path($alert->image_path));
     }
+
+    public function test_message_html_is_cleaned_and_shown(): void
+    {
+        $admin = $this->admin();
+        $customer = User::factory()->create();
+
+        $this->actingAs($admin)
+            ->post(route('admin.alerts.store'), [
+                'title'     => 'Rich',
+                'heading'   => 'Festival offer',
+                'body'      => '<p>Add <strong>LKR 1,000</strong> today.</p><script>alert(1)</script>',
+                'theme'     => 'navy',
+                'audience'  => 'all',
+                'is_active' => '1',
+            ])
+            ->assertRedirect();
+
+        $alert = Alert::where('heading', 'Festival offer')->first();
+        $this->assertNotNull($alert);
+        $this->assertStringContainsString('<strong>LKR 1,000</strong>', (string) $alert->body);
+        $this->assertStringNotContainsString('<script>', (string) $alert->body);
+
+        $this->actingAs($customer)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('<strong>LKR 1,000</strong>', false)
+            ->assertDontSee('<script>', false);
+    }
 }

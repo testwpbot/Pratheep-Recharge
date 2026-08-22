@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Alert;
+use App\Support\SafeHtml;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -86,7 +87,7 @@ class AdminAlertController extends Controller
             'title'          => 'required|string|max:160',
             'eyebrow'        => 'nullable|string|max:80',
             'heading'        => 'required|string|max:180',
-            'body'           => 'nullable|string|max:2000',
+            'body'           => 'nullable|string|max:8000',
             'image'          => 'nullable|image|max:2048',
             'button_label'   => 'nullable|string|max:80',
             'button_url'     => 'nullable|string|max:500',
@@ -107,7 +108,8 @@ class AdminAlertController extends Controller
         $data['button_url'] = Alert::safeUrl($data['button_url'] ?? null);
         $data['button2_url'] = Alert::safeUrl($data['button2_url'] ?? null);
         $data['eyebrow'] = trim((string) ($data['eyebrow'] ?? '')) ?: null;
-        $data['body'] = trim((string) ($data['body'] ?? '')) ?: null;
+        $body = SafeHtml::clean((string) ($data['body'] ?? ''));
+        $data['body'] = $body !== '' ? $body : null;
         $data['button_label'] = trim((string) ($data['button_label'] ?? '')) ?: null;
         $data['button2_label'] = trim((string) ($data['button2_label'] ?? '')) ?: null;
 

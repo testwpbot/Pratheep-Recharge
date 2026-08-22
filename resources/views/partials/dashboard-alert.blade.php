@@ -17,7 +17,7 @@
     <p class="hpr-alert__eyebrow" data-pv="eyebrow">{{ $alert->eyebrow ?: 'Notice' }}</p>
     <h3 class="hpr-alert__heading" data-pv="heading">{{ $alert->heading ?: 'Your heading' }}</h3>
     @if($alert->body || $preview)
-      <p class="hpr-alert__text" data-pv="body">{{ $alert->body ?: 'Your message will show here.' }}</p>
+      <div class="hpr-alert__text" data-pv="body">{!! $alert->body ? \App\Support\SafeHtml::display($alert->body) : 'Your message will show here.' !!}</div>
     @endif
     @if($btn1 || $btn2 || $preview)
       <div class="hpr-alert__actions">
