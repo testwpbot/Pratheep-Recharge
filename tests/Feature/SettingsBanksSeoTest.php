@@ -123,6 +123,8 @@ class SettingsBanksSeoTest extends TestCase
         $this->actingAs($user)->get(route('wallet'))
             ->assertOk()
             ->assertSee('Bank of Ceylon')
-            ->assertSee('Sampath Bank');
+            ->assertSee('Sampath Bank')
+            ->assertSee('Pick an account', false)
+            ->assertSee('Send money to this account', false);
     }
 }
