@@ -183,6 +183,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified.otp', 'adm
     Route::get('/settings',                               [AdminSettingsController::class, 'index'])->name('settings.index');
     Route::post('/settings/smtp',                         [AdminSettingsController::class, 'saveSmtp'])->name('settings.smtp');
     Route::post('/settings/general',                      [AdminSettingsController::class, 'saveGeneral'])->name('settings.general');
+    Route::post('/settings/whatsapp',                     [AdminSettingsController::class, 'saveWhatsapp'])->name('settings.whatsapp');
     Route::post('/settings/test-smtp',                    [AdminSettingsController::class, 'testSmtp'])->name('settings.test-smtp');
     Route::post('/settings/seo',                          [AdminSettingsController::class, 'saveSeo'])->name('settings.seo');
     Route::post('/settings/banks',                        [AdminSettingsController::class, 'storeBank'])->name('settings.banks.store');

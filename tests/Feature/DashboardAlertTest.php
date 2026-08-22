@@ -62,7 +62,8 @@ class DashboardAlertTest extends TestCase
             ->get(route('dashboard'))
             ->assertOk()
             ->assertSee('Wallet top-up bonus this week', false)
-            ->assertSee('hpr-alert-pop', false);
+            ->assertSee('hpr-alert-pop', false)
+            ->assertSee('lockScroll', false);
 
         $this->actingAs($customer)
             ->get(route('wallet'))

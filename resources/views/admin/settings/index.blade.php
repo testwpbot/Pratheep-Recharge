@@ -6,12 +6,13 @@
 <div class="set-hero">
   <div>
     <h3>Site settings</h3>
-    <p>Banks, SEO, email and who can run the admin panel.</p>
+    <p>Banks, SEO, WhatsApp, email and who can run the admin panel.</p>
   </div>
 </div>
 
 <div class="set-tabs" role="tablist">
   <button type="button" class="set-tab active" data-set-tab="general">General</button>
+  <button type="button" class="set-tab" data-set-tab="whatsapp">WhatsApp</button>
   <button type="button" class="set-tab" data-set-tab="bank">Bank accounts</button>
   <button type="button" class="set-tab" data-set-tab="seo">SEO</button>
   <button type="button" class="set-tab" data-set-tab="smtp">Email / SMTP</button>
@@ -57,6 +58,46 @@
       <div style="margin-top:18px; display:flex; justify-content:flex-end;">
         <button type="submit" class="btn-admin btn-admin--gold">
           <span class="btn-label"><x-icon name="check" :size="14"/> Save general</span>
+          <span class="btn-spinner" hidden></span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{{-- ===== WHATSAPP ===== --}}
+<div class="set-panel" data-set-panel="whatsapp">
+  <div class="card">
+    <div class="card__head">
+      <h3>WhatsApp button</h3>
+      <small style="color:var(--muted); font-weight:600;">Green chat button on the bottom-right of the website. Not on this admin panel.</small>
+    </div>
+    <form method="POST" action="{{ route('admin.settings.whatsapp') }}">
+      @csrf
+      <div class="form-grid">
+        <div class="field">
+          <label>Show the button?</label>
+          <label class="sw" style="margin-top:8px;">
+            <input type="hidden" name="enabled" value="0">
+            <input type="checkbox" name="enabled" value="1" {{ old('enabled', $whatsapp['enabled'] ?? false) ? 'checked' : '' }}>
+            <span class="sw__slider"></span>
+          </label>
+          <div class="hint">Turn off to hide it from customers.</div>
+        </div>
+        <div class="field">
+          <label>WhatsApp number</label>
+          <input type="text" name="phone" value="{{ old('phone', $whatsapp['phone'] ?? '') }}" placeholder="0771234567">
+          <div class="hint">Sri Lanka numbers can start with 07. Or type the full number with country code, like 94771234567.</div>
+        </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>First message</label>
+          <textarea name="message" rows="3" maxlength="500" placeholder="Hi Happy Pratheep, I need help with a recharge.">{{ old('message', $whatsapp['message'] ?? '') }}</textarea>
+          <div class="hint">This text is already typed when they open the chat. They can still edit it.</div>
+        </div>
+      </div>
+      <div style="margin-top:18px; display:flex; justify-content:flex-end;">
+        <button type="submit" class="btn-admin btn-admin--gold">
+          <span class="btn-label"><x-icon name="check" :size="14"/> Save WhatsApp</span>
           <span class="btn-spinner" hidden></span>
         </button>
       </div>

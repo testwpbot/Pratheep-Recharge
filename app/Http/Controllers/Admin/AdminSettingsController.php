@@ -18,6 +18,7 @@ class AdminSettingsController extends Controller
     {
         $smtp = Setting::forGroup('smtp');
         $general = Setting::forGroup('general');
+        $whatsapp = Setting::whatsapp();
         $seo = Setting::seo();
         $banks = BankAccount::query()->orderBy('sort_order')->orderBy('id')->get();
         $bankCatalog = SriLankanBanks::all();
@@ -31,7 +32,7 @@ class AdminSettingsController extends Controller
             : collect();
 
         return view('admin.settings.index', compact(
-            'smtp', 'general', 'seo', 'banks', 'bankCatalog', 'admins', 'isMainAdmin'
+            'smtp', 'general', 'whatsapp', 'seo', 'banks', 'bankCatalog', 'admins', 'isMainAdmin'
         ));
     }
 
@@ -195,6 +196,33 @@ class AdminSettingsController extends Controller
             return response()->json(['ok' => true, 'message' => 'General settings saved.']);
         }
         return back()->with('success', 'General settings saved.');
+    }
+
+    public function saveWhatsapp(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'phone'   => ['nullable', 'string', 'max:30', 'regex:/^[0-9+\s()-]*$/'],
+            'message' => 'nullable|string|max:500',
+        ], [
+            'phone.regex' => 'Type a phone number only — digits, spaces or +.',
+        ]);
+
+        $enabled = $request->boolean('enabled');
+        $phone = trim((string) ($data['phone'] ?? ''));
+        $message = trim((string) ($data['message'] ?? ''));
+
+        if ($enabled && Setting::whatsappDigits($phone) === '') {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'phone' => 'Add a WhatsApp number before turning the button on.',
+            ]);
+        }
+
+        Setting::set('whatsapp', 'enabled', $enabled ? '1' : '0');
+        Setting::set('whatsapp', 'phone', $phone);
+        Setting::set('whatsapp', 'message', $message);
+
+        return redirect()->route('admin.settings.index', ['tab' => 'whatsapp'])
+            ->with('success', 'WhatsApp button saved.');
     }
 
     /**

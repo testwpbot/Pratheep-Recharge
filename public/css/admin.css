@@ -953,6 +953,21 @@ textarea.hpr-input, .hpr-input--ta{
   padding:18px;
 }
 .hpr-alert-pop[hidden]{display:none !important;}
+html.hpr-pop-lock{
+  overflow:hidden !important;
+  overscroll-behavior:none;
+}
+html.hpr-pop-lock body{
+  overflow:hidden !important;
+  position:fixed;
+  width:100%;
+  left:0; right:0;
+  overscroll-behavior:none;
+}
+html.hpr-pop-lock .hpr-alert-pop__stage{
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+}
 .hpr-alert-pop__backdrop{
   position:absolute; inset:0;
   background:rgba(7,27,61,.58);

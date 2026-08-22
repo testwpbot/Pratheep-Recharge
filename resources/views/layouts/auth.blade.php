@@ -21,6 +21,7 @@
 </main>
 
 @include('partials.footer')
+@include('partials.whatsapp-float')
 
 <script src="{{ asset('js/landing.js') }}"></script>
 @stack('scripts')

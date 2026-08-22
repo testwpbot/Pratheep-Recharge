@@ -72,6 +72,48 @@ class Setting extends Model
     }
 
     /**
+     * WhatsApp chat button. Hidden until admin turns it on and sets a number.
+     *
+     * @return array{enabled:bool,phone:string,message:string,href:?string}
+     */
+    public static function whatsapp(): array
+    {
+        $saved = static::forGroup('whatsapp');
+        $phone = trim((string) ($saved['phone'] ?? ''));
+        $message = trim((string) ($saved['message'] ?? ''));
+        if ($message === '') {
+            $message = 'Hi Happy Pratheep, I need help with a recharge.';
+        }
+        $enabled = (($saved['enabled'] ?? '0') === '1');
+        $digits = static::whatsappDigits($phone);
+
+        return [
+            'enabled' => $enabled,
+            'phone'   => $phone,
+            'message' => $message,
+            'href'    => ($enabled && $digits !== '')
+                ? 'https://wa.me/' . $digits . '?text=' . rawurlencode($message)
+                : null,
+        ];
+    }
+
+    /** Turn 0771234567 / +94 77 123 4567 into digits WhatsApp accepts. */
+    public static function whatsappDigits(?string $phone): string
+    {
+        $raw = preg_replace('/[^\d+]/', '', (string) $phone);
+        $raw = ltrim((string) $raw, '+');
+        $raw = preg_replace('/\D/', '', (string) $raw) ?: '';
+        if ($raw === '') {
+            return '';
+        }
+        if (preg_match('/^0[1-9]\d{8}$/', $raw)) {
+            return '94' . substr($raw, 1);
+        }
+
+        return $raw;
+    }
+
+    /**
      * Boot SMTP config into the mailer at runtime (called from a service provider).
      */
     public static function bootMailConfig(): void

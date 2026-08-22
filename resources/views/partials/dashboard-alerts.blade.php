@@ -18,12 +18,40 @@
 
     var slides = Array.prototype.slice.call(pop.querySelectorAll('[data-alert-slide]'));
     var i = 0;
+    var scrollY = 0;
+    var locked = false;
+
+    function blockPageScroll(e){
+      if (e.target && e.target.closest && e.target.closest('.hpr-alert-pop__stage')) return;
+      e.preventDefault();
+    }
+    function lockScroll(){
+      if (locked) return;
+      locked = true;
+      scrollY = window.scrollY || window.pageYOffset || 0;
+      document.documentElement.classList.add('hpr-pop-lock');
+      document.body.classList.add('hpr-pop-lock');
+      document.body.style.top = '-' + scrollY + 'px';
+      window.addEventListener('wheel', blockPageScroll, {passive:false, capture:true});
+      window.addEventListener('touchmove', blockPageScroll, {passive:false, capture:true});
+    }
+    function unlockScroll(){
+      if (!locked) return;
+      locked = false;
+      document.documentElement.classList.remove('hpr-pop-lock');
+      document.body.classList.remove('hpr-pop-lock');
+      document.body.style.top = '';
+      window.removeEventListener('wheel', blockPageScroll, {capture:true});
+      window.removeEventListener('touchmove', blockPageScroll, {capture:true});
+      window.scrollTo(0, scrollY);
+    }
 
     function show(n){
       slides.forEach(function(s, idx){ s.hidden = idx !== n; });
       i = n;
       pop.hidden = false;
       pop.setAttribute('aria-hidden', 'false');
+      lockScroll();
     }
     function closeCurrent(persistForm){
       if (persistForm){
@@ -39,6 +67,7 @@
       else {
         pop.hidden = true;
         pop.setAttribute('aria-hidden', 'true');
+        unlockScroll();
       }
     }
 
