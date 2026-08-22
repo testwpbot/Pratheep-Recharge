@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+@include('partials.app-vh')
 <title>@yield('title', 'Admin Panel') — {{ config('app.name') }}</title>
 @include('partials.favicon')
 <link rel="stylesheet" href="{{ asset('css/landing.css') }}">
@@ -171,6 +172,7 @@
   }
 
   function set(open){
+    if (open && window.hprSetVvh) window.hprSetVvh();
     sidebar.classList.toggle('is-open', open);
     scrim.classList.toggle('is-open', open);
     openBtn.setAttribute('aria-expanded', open ? 'true' : 'false');

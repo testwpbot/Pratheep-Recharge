@@ -545,8 +545,13 @@ textarea.hpr-input, .hpr-input--ta{
 
 @media (max-width:900px){
   .app-sidebar{
-    position:fixed; left:-280px; top:0; bottom:0; z-index:210;
-    height:auto; max-height:none;
+    position:fixed; left:-280px; top:0; bottom:auto; z-index:210;
+    /* Fit the visible phone screen. 100vh / top+bottom stretch is taller
+       than the real screen (browser bar) and hid Sign Out. */
+    height:100vh; max-height:100vh;
+    height:100dvh; max-height:100dvh;
+    height:100svh; max-height:100svh;
+    height:var(--hpr-vvh, 100svh); max-height:var(--hpr-vvh, 100svh);
     overflow:hidden;
     box-sizing:border-box;
     transition:left .35s cubic-bezier(.6,.05,.2,1);
