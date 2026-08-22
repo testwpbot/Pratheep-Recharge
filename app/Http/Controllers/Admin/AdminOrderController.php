@@ -53,9 +53,12 @@ class AdminOrderController extends Controller
             if ($status === 'success') {
                 $svc->markSuccess($order);
                 $message = "Order {$order->reference} marked as success — cashback credited.";
-            } elseif ($status === 'failed' || $status === 'refund') {
+            } elseif (in_array($status, ['failed', 'refund', 'cancelled'], true) && ! $order->isFailedLike()) {
                 $svc->markFailed($order, $resp['message'] ?? null);
-                $message = "Order {$order->reference} marked as failed.";
+                $fresh = $order->fresh();
+                $message = $fresh && $fresh->isRefunded()
+                    ? "Order {$order->reference} failed. Money was put back in the wallet."
+                    : "Order {$order->reference} marked as failed.";
             } else {
                 $order->save();
                 $message = "Order still {$status}.";

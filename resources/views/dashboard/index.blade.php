@@ -137,7 +137,7 @@
             <td>{{ $o->account_number }}</td>
             <td><b>LKR {{ number_format($o->amount, 2) }}</b></td>
             <td>LKR {{ number_format($o->profit, 2) }}</td>
-            <td><span class="pill pill--{{ $o->status }}">{{ ucfirst($o->status) }}</span></td>
+            <td><span class="pill pill--{{ $o->status }}">{{ $o->statusLabel() }}</span></td>
             <td><small>{{ $o->created_at->format('Y-m-d H:i') }}</small></td>
           </tr>
         @empty

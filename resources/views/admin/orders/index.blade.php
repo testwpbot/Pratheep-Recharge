@@ -38,7 +38,7 @@
           <td><b>LKR {{ number_format($o->amount, 2) }}</b></td>
           <td>LKR {{ number_format($o->profit, 2) }}</td>
           <td><code style="font-size:12px;">{{ $o->provider_txn_id ?: '—' }}</code></td>
-          <td><span class="pill pill--{{ $o->status }}">{{ ucfirst($o->status) }}</span></td>
+          <td><span class="pill pill--{{ $o->status }}">{{ $o->statusLabel() }}</span></td>
           <td><small>{{ $o->created_at->format('Y-m-d H:i') }}<br>{{ $o->created_at->diffForHumans() }}</small></td>
           <td class="col-actions">
             <div class="td-actions">

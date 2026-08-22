@@ -142,7 +142,7 @@
           <td>{{ $o->service->name }}<br><small style="color:var(--muted)">{{ $o->account_number }}</small></td>
           <td><b>LKR {{ number_format($o->amount, 2) }}</b></td>
           <td>LKR {{ number_format($o->profit, 2) }}</td>
-          <td><span class="pill pill--{{ $o->status }}">{{ ucfirst($o->status) }}</span></td>
+          <td><span class="pill pill--{{ $o->status }}">{{ $o->statusLabel() }}</span></td>
           <td><small>{{ $o->created_at->diffForHumans() }}</small></td>
         </tr>
       @empty

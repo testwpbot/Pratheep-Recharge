@@ -86,7 +86,7 @@
                 <span style="color:var(--muted); font-weight:600; font-size:12.5px;">—</span>
               @endif
             </td>
-            <td><span class="pill pill--{{ $o->status }}">{{ ucfirst($o->status) }}</span></td>
+            <td><span class="pill pill--{{ $o->status }}">{{ $o->statusLabel() }}</span></td>
             <td><small>{{ $o->created_at->format('Y-m-d H:i') }}<br>{{ $o->created_at->diffForHumans() }}</small></td>
             <td data-label="Receipt">
               @if ($o->status === 'success' && $o->invoice_path)

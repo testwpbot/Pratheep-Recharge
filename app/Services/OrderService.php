@@ -146,10 +146,8 @@ class OrderService
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
-            // Code error before a provider decision — refund wallet immediately
-            // because nothing was sent to the carrier.
-            try { $this->refundWallet($order, 'Recharge failed (provider error) — refunded to wallet'); }
-            catch (\Throwable $re) { Log::error('Refund after provider exception failed: ' . $re->getMessage()); }
+            // Code error before a provider decision — refund happens in the
+            // hard-fail branch below (idempotent).
             $resp = ['status' => 'failed', 'message' => 'Provider error: ' . $e->getMessage()];
         }
 
@@ -183,13 +181,10 @@ class OrderService
         } else {
             // Explicit failure response from provider (e.g. "Insufficient balance",
             // "Invalid mobile number", "Below minimum amount"). Provider rejected
-            // immediately — refund the wallet debit we did upfront.
-            try {
-                $this->refundWallet($order, 'Recharge failed — refunded to wallet');
-            } catch (\Throwable $re) {
-                Log::error('Refund after hard failure failed: ' . $re->getMessage());
-            }
-            $order->status = 'failed';
+            // immediately — refund the wallet debit we did upfront, then show
+            // the order as Refunded so customer + admin can see the money is back.
+            $refunded = $this->tryRefundWallet($order, 'Recharge failed — refunded to wallet');
+            $order->status = $refunded ? Order::STATUS_REFUNDED : Order::STATUS_FAILED;
             $order->provider_status = $status;
             $order->completed_at = now();
             $order->save();
@@ -262,15 +257,18 @@ class OrderService
         $this->syncWalletNotice((int) $order->user_id);
     }
 
-    /** Mark order failed. Idempotent. Refunds the wallet debit if one exists. */
+    /**
+     * Mark order failed and put the wallet debit back. Idempotent.
+     * After a successful wallet credit the order status is "refunded"
+     * (not "failed") so lists show Refunded.
+     */
     public function markFailed(Order $order, ?string $message = null): void
     {
         DB::transaction(function () use ($order, $message) {
             $locked = Order::whereKey($order->id)->lockForUpdate()->first();
             if (! $locked) return;
-            if ($locked->status === 'failed') return;
+            if ($locked->status === Order::STATUS_REFUNDED) return;
 
-            $locked->status = 'failed';
             $locked->provider_status = 'failed';
             if ($message) {
                 $locked->message = $locked->message
@@ -278,15 +276,10 @@ class OrderService
                     : $message;
             }
             if (! $locked->completed_at) $locked->completed_at = now();
-            $locked->save();
 
-            // Refund any wallet debit for this order (idempotent — refundWallet
-            // checks for an existing refund transaction before crediting).
-            try {
-                $this->refundWallet($locked, 'Recharge failed — refunded to wallet');
-            } catch (\Throwable $e) {
-                Log::error('Auto-refund during markFailed failed for ' . $locked->reference . ': ' . $e->getMessage());
-            }
+            $refunded = $this->tryRefundWallet($locked, 'Recharge failed — refunded to wallet');
+            $locked->status = $refunded ? Order::STATUS_REFUNDED : Order::STATUS_FAILED;
+            $locked->save();
         });
 
         $order->refresh();
@@ -297,10 +290,12 @@ class OrderService
      * Refund the wallet for an order's debit. Idempotent — if a refund
      * transaction already exists for the order, this is a no-op.
      * Creates a "refund" WalletTransaction and credits the balance back.
+     *
+     * @return bool true when a refund row exists for this order (new or already there)
      */
-    public function refundWallet(Order $order, ?string $note = null): void
+    public function refundWallet(Order $order, ?string $note = null): bool
     {
-        DB::transaction(function () use ($order, $note) {
+        return (bool) DB::transaction(function () use ($order, $note) {
             $wallet = Wallet::firstOrCreate(['user_id' => $order->user_id]);
             $wallet = Wallet::whereKey($wallet->id)->lockForUpdate()->first() ?? $wallet;
 
@@ -312,7 +307,7 @@ class OrderService
                 ->first();
 
             if (! $debitTx) {
-                return; // nothing to refund
+                return false; // nothing to refund
             }
 
             // Idempotency: if a refund already exists for this order, skip
@@ -321,7 +316,7 @@ class OrderService
                 ->where('transactable_id', $order->id)
                 ->where('type', 'refund')
                 ->exists();
-            if ($alreadyRefunded) return;
+            if ($alreadyRefunded) return true;
 
             $amount = (float) $debitTx->amount;
             $before = (float) $wallet->balance;
@@ -339,7 +334,20 @@ class OrderService
                 'balance_after'     => (float) $wallet->balance,
                 'description'       => $note ?: ('Refund for order ' . $order->reference),
             ]);
+
+            return true;
         });
+    }
+
+    /** Refund without throwing — logs and returns false on error. */
+    protected function tryRefundWallet(Order $order, ?string $note = null): bool
+    {
+        try {
+            return $this->refundWallet($order, $note);
+        } catch (\Throwable $e) {
+            Log::error('Wallet refund failed for ' . $order->reference . ': ' . $e->getMessage());
+            return false;
+        }
     }
 
     /**
@@ -714,10 +722,11 @@ class OrderService
                     $turnedSuccess = true;
                     $count++;
                     Log::info("Order {$order->reference} reconciled to SUCCESS by cron");
-                } elseif (($status === 'failed' || $status === 'refund' || $status === 'cancelled') && $order->status !== 'failed') {
+                } elseif (($status === 'failed' || $status === 'refund' || $status === 'cancelled')
+                    && ! $order->isFailedLike()) {
                     $this->markFailed($order, $resp['message'] ?? null);
                     $count++;
-                    Log::info("Order {$order->reference} reconciled to FAILED by cron");
+                    Log::info("Order {$order->reference} reconciled to {$order->fresh()->status} by cron");
                 } else {
                     $order->save();
                 }

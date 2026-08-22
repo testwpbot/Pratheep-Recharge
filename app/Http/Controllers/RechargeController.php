@@ -133,6 +133,8 @@ class RechargeController extends Controller
             $msg = 'Recharge successful! Your ' . $order->service->name . ' of LKR ' . number_format((float) $order->amount, 2) . ' has been processed.' . $cashbackNote;
         } elseif ($order->status === 'pending') {
             $msg = 'Your recharge request has been sent and is being processed. You can track its status on the order details page.';
+        } elseif ($order->status === 'refunded') {
+            $msg = 'This recharge did not go through. LKR ' . number_format((float) $order->amount, 2) . ' was put back in your wallet.';
         } else {
             $msg = 'Order failed: ' . ($order->message ?? 'Unknown error.');
         }
@@ -141,7 +143,7 @@ class RechargeController extends Controller
             $hasInvoice = $order->status === 'success' && (bool) $order->invoice_path;
             $invoiceUrl = $hasInvoice ? asset('storage/' . $order->invoice_path) : null;
             return response()->json([
-                'ok'          => $order->status !== 'failed',
+                'ok'          => ! $order->isFailedLike(),
                 'status'      => $order->status,
                 'message'     => $msg,
                 'has_invoice' => $hasInvoice,

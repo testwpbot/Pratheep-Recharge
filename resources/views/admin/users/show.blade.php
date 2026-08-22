@@ -191,7 +191,7 @@
             <td><a href="{{ route('admin.orders.show', $o) }}" style="color:var(--gold-500); font-weight:700;">{{ $o->reference }}</a></td>
             <td>{{ $o->service->name ?? '—' }}</td>
             <td>LKR {{ number_format((float) $o->amount, 2) }}</td>
-            <td><span class="pill pill--{{ $o->status }}">{{ ucfirst($o->status) }}</span></td>
+            <td><span class="pill pill--{{ $o->status }}">{{ $o->statusLabel() }}</span></td>
           </tr>
         @empty
           <tr><td colspan="4" style="text-align:center; padding:20px; color:var(--muted);">No orders yet.</td></tr>

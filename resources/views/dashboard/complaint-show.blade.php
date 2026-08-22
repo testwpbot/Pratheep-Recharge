@@ -49,7 +49,7 @@
       </div>
       <div class="cmp-kv">
         <span>Order Status</span>
-        <b><span class="pill pill--{{ $complaint->order->status }}">{{ ucfirst($complaint->order->status) }}</span></b>
+        <b><span class="pill pill--{{ $complaint->order->status }}">{{ $complaint->order->statusLabel() }}</span></b>
       </div>
     @endif
   </div>

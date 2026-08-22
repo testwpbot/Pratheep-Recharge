@@ -49,6 +49,35 @@ class Order extends Model
         return $this->hasMany(Complaint::class)->latest();
     }
 
+    public const STATUS_PENDING    = 'pending';
+    public const STATUS_PROCESSING = 'processing';
+    public const STATUS_SUCCESS    = 'success';
+    public const STATUS_FAILED     = 'failed';
+    public const STATUS_REFUNDED   = 'refunded';
+
+    public function isRefunded(): bool
+    {
+        return $this->status === self::STATUS_REFUNDED;
+    }
+
+    public function isFailedLike(): bool
+    {
+        return in_array($this->status, [self::STATUS_FAILED, self::STATUS_REFUNDED], true);
+    }
+
+    /** Simple English label for customer + admin pills. */
+    public function statusLabel(): string
+    {
+        return match ($this->status) {
+            self::STATUS_REFUNDED   => 'Refunded',
+            self::STATUS_SUCCESS    => 'Success',
+            self::STATUS_PENDING    => 'Pending',
+            self::STATUS_PROCESSING => 'Processing',
+            self::STATUS_FAILED     => 'Failed',
+            default                 => ucfirst((string) $this->status),
+        };
+    }
+
     /**
      * Reference we send to the provider. After an admin switches Dialog ↔ Dialog API
      * this becomes the original ref plus -T1 / -T2 so status checks follow the new request.

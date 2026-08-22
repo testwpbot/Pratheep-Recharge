@@ -16,7 +16,7 @@
 <div class="card">
   <div class="card__head">
     <h3>Order #{{ $order->reference }}</h3>
-    <span class="pill pill--{{ $order->status }}">{{ ucfirst($order->status) }}</span>
+    <span class="pill pill--{{ $order->status }}">{{ $order->statusLabel() }}</span>
     @if ($failedOver)
       <span class="pill pill--pending" title="Re-sent via Topup Mart after HRC pending">Failed over</span>
     @endif
@@ -39,6 +39,12 @@
     <dt>Completed at</dt><dd>{{ $order->completed_at?->format('Y-m-d H:i:s') ?? '—' }}</dd>
     <dt>Message</dt><dd style="white-space:pre-wrap;">{{ $order->message ?: '—' }}</dd>
   </dl>
+
+  @if ($order->isRefunded())
+    <div class="alert alert--success" style="margin-top:16px; margin-bottom:0;">
+      This recharge did not go through. LKR {{ number_format((float) $order->amount, 2) }} was put back in the customer wallet.
+    </div>
+  @endif
 
   @if (in_array($order->status, ['pending','processing']))
     <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:18px;">

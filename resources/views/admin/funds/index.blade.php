@@ -161,7 +161,7 @@
             <td>{{ $o->provider->name ?? '—' }}</td>
             <td>{{ $o->service->name ?? '—' }}</td>
             <td><b>LKR {{ number_format($o->amount, 2) }}</b></td>
-            <td><span class="pill pill--{{ $o->status }}">{{ ucfirst($o->status) }}</span></td>
+            <td><span class="pill pill--{{ $o->status }}">{{ $o->statusLabel() }}</span></td>
           </tr>
         @empty
           <tr><td colspan="7" style="text-align:center; color:var(--muted); padding:28px;">No recharge orders yet.</td></tr>

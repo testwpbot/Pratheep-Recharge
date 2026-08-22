@@ -18,7 +18,7 @@
     </div>
     <div class="order-status order-status--{{ $order->status }}">
       <span class="dot"></span>
-      {{ ucfirst($order->status) }}
+      {{ $order->statusLabel() }}
     </div>
   </div>
 
@@ -32,8 +32,15 @@
     <span style="margin-left:auto; font-size:22px; font-weight:800; color:var(--navy-900);">LKR {{ number_format($order->amount, 2) }}</span>
   </div>
 
-  @if ($order->message)
-    <div class="alert alert--{{ $order->status === 'failed' ? 'error' : 'success' }}">
+  @if ($order->isRefunded())
+    <div class="alert alert--success">
+      This recharge did not go through. LKR {{ number_format((float) $order->amount, 2) }} was put back in your wallet.
+      @if ($order->message)
+        <div style="margin-top:6px; font-weight:600;">{{ $order->message }}</div>
+      @endif
+    </div>
+  @elseif ($order->message)
+    <div class="alert alert--{{ $order->isFailedLike() ? 'error' : 'success' }}">
       {{ $order->message }}
     </div>
   @endif
