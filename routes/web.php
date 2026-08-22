@@ -32,10 +32,10 @@ use Illuminate\Support\Facades\Route;
 */
 Route::get('/', [PageController::class, 'home'])->name('home');
 
-Route::view('/support',       'pages.placeholder', ['section' => 'Support'])->name('support');
-Route::view('/privacy',       'pages.placeholder', ['section' => 'Privacy Policy'])->name('privacy');
-Route::view('/terms',         'pages.placeholder', ['section' => 'Terms of Service'])->name('terms');
-Route::view('/refund',        'pages.placeholder', ['section' => 'Refund Policy'])->name('refund');
+Route::get('/support', [PageController::class, 'support'])->name('support');
+Route::get('/privacy', [PageController::class, 'privacy'])->name('privacy');
+Route::get('/terms',   [PageController::class, 'terms'])->name('terms');
+Route::get('/refund',  [PageController::class, 'refund'])->name('refund');
 Route::view('/gift-cards',    'pages.placeholder', ['section' => 'Gift Cards'])->name('gift-cards');
 
 /*

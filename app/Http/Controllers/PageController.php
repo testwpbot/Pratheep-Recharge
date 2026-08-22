@@ -116,4 +116,44 @@ class PageController extends Controller
             'providers', 'services', 'steps', 'features', 'stats', 'contact'
         ));
     }
+
+    public function support(): View
+    {
+        return view('pages.support', ['contact' => $this->publicContact()]);
+    }
+
+    public function privacy(): View
+    {
+        return view('pages.privacy', ['contact' => $this->publicContact()]);
+    }
+
+    public function terms(): View
+    {
+        return view('pages.terms', ['contact' => $this->publicContact()]);
+    }
+
+    public function refund(): View
+    {
+        return view('pages.refund', ['contact' => $this->publicContact()]);
+    }
+
+    /** Footer / legal pages — settings if the table exists, else the usual defaults. */
+    protected function publicContact(): array
+    {
+        $phone = '+94 77 123 4567';
+        $email = 'hello@happypratheep.lk';
+        try {
+            $phone = \App\Models\Setting::get('general', 'support_phone', $phone) ?: $phone;
+            $email = \App\Models\Setting::get('general', 'support_email', $email) ?: $email;
+        } catch (\Throwable $e) {
+            // Settings table may not be ready yet.
+        }
+
+        return [
+            'phone'   => $phone,
+            'email'   => $email,
+            'address' => 'Main Street, Negombo, Western Province, Sri Lanka',
+            'hours'   => 'Open 24 hours · 7 days',
+        ];
+    }
 }
