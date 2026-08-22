@@ -34,6 +34,9 @@
       <a href="{{ route('admin.users.index') }}" class="{{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
         <x-icon name="users" :size="18" /> Users
       </a>
+      <a href="{{ route('admin.alerts.index') }}" class="{{ request()->routeIs('admin.alerts.*') ? 'active' : '' }}">
+        <x-icon name="alert" :size="18" /> Alerts
+      </a>
       <a href="{{ route('admin.funds.index') }}" class="{{ request()->routeIs('admin.funds.*') ? 'active' : '' }}">
         <x-icon name="wallet" :size="18" /> Provider Money
         @php $fundLow = \Illuminate\Support\Facades\Cache::get('funds:overall_status') === 'low'; @endphp

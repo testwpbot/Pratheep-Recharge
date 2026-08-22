@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
+use App\Models\Alert;
 use App\Models\Category;
 use App\Models\Order;
 use App\Models\Plan;
 use App\Models\Service;
 use App\Models\Wallet;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
@@ -53,10 +55,24 @@ class DashboardController extends Controller
             return [$cat->slug => $cat->services];
         });
 
+        $dashboardAlerts = Alert::forDashboard($user);
+
         return view('dashboard.index', compact(
             'user', 'wallet', 'orders', 'stats',
-            'categories', 'activeCategory', 'servicesByCategory'
+            'categories', 'activeCategory', 'servicesByCategory',
+            'dashboardAlerts'
         ));
+    }
+
+    public function dismissAlert(Request $request, Alert $alert)
+    {
+        $alert->dismissFor($request->user());
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['ok' => true]);
+        }
+
+        return back();
     }
 
     /**

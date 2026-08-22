@@ -4,6 +4,8 @@
 
 @section('content')
 
+@include('partials.dashboard-alerts')
+
 {{-- WELCOME + WALLET ROW --}}
 <div class="dash-hero">
   <div class="dash-hero__greet">

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AdminAlertController;
 use App\Http\Controllers\Admin\AdminComplaintController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminDepositController;
@@ -80,6 +81,7 @@ Route::view('/sign-in',           'auth.login')->name('sign-in');
 */
 Route::middleware(['auth', 'verified.otp'])->group(function () {
     Route::get('/dashboard',                              [DashboardController::class, 'index'])->name('dashboard');
+    Route::post('/dashboard/alerts/{alert}/dismiss',      [DashboardController::class, 'dismissAlert'])->name('dashboard.alerts.dismiss');
     Route::get('/plans',                                  [DashboardController::class, 'plans'])->name('dashboard.plans');
     Route::get('/wallet',                                 [WalletController::class, 'index'])->name('wallet');
     Route::get('/earnings',                               [EarningsController::class, 'index'])->name('earnings');
@@ -114,6 +116,15 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified.otp', 'adm
     Route::get('/users/{user}',                           [AdminUserController::class, 'show'])->name('users.show');
     Route::patch('/users/{user}',                         [AdminUserController::class, 'update'])->name('users.update');
     Route::post('/users/{user}/wallet',                   [AdminUserController::class, 'adjustWallet'])->name('users.wallet');
+
+    // Dashboard alerts
+    Route::get('/alerts',                                 [AdminAlertController::class, 'index'])->name('alerts.index');
+    Route::get('/alerts/create',                          [AdminAlertController::class, 'create'])->name('alerts.create');
+    Route::post('/alerts',                                [AdminAlertController::class, 'store'])->name('alerts.store');
+    Route::get('/alerts/{alert}/edit',                    [AdminAlertController::class, 'edit'])->name('alerts.edit');
+    Route::patch('/alerts/{alert}',                       [AdminAlertController::class, 'update'])->name('alerts.update');
+    Route::delete('/alerts/{alert}',                      [AdminAlertController::class, 'destroy'])->name('alerts.destroy');
+    Route::post('/alerts/{alert}/toggle',                 [AdminAlertController::class, 'toggle'])->name('alerts.toggle');
 
     // Funds health (provider float vs customer wallets)
     Route::get('/funds',                                  [AdminFundsController::class, 'index'])->name('funds.index');

@@ -29,6 +29,9 @@
   [data-dash-compact] .stat span{font-size:10px;}
   [data-dash-compact] .alert{margin-bottom:12px; padding:10px 12px;}
   [data-dash-compact] .wallet-notice{padding:10px 12px; margin-bottom:12px; border-radius:12px;}
+  [data-dash-compact] .hpr-alerts{margin-bottom:12px; gap:10px;}
+  [data-dash-compact] .hpr-alert{border-radius:16px;}
+  [data-dash-compact] .hpr-alert__media{min-height:132px; max-height:160px;}
 }
 </style>
 </head>

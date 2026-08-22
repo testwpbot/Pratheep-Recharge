@@ -33,3 +33,5 @@ yarn-error.log
 /.idea
 /.vscode
 image-search/
+/public/uploads/alerts/*
+!/public/uploads/alerts/.gitkeep

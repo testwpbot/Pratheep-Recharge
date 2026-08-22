@@ -388,6 +388,7 @@ textarea.hpr-input, .hpr-input--ta{
 .field input[type=number],
 .field input[type=password],
 .field input[type=url],
+.field input[type=datetime-local],
 .field select,
 .field textarea{
   width:100%; height:44px; padding:0 14px; border-radius:10px;
@@ -831,4 +832,102 @@ textarea.hpr-input, .hpr-input--ta{
   .rc-modal__dialog{padding:18px 16px 14px; border-radius:16px;}
   .test-smtp-row{flex-direction:column; align-items:stretch;}
   .test-smtp-row .btn-admin{height:44px;}
+}
+
+/* ----- Dashboard promo / notice banners ----- */
+.hpr-alerts{display:flex; flex-direction:column; gap:14px; margin-bottom:20px;}
+.hpr-alert{
+  position:relative;
+  display:grid;
+  grid-template-columns:minmax(140px,220px) 1fr;
+  gap:0;
+  overflow:hidden;
+  border-radius:22px;
+  min-height:168px;
+  box-shadow:0 16px 40px rgba(7,27,61,.16);
+}
+.hpr-alert:not(:has(.hpr-alert__media:not([hidden]))){
+  grid-template-columns:1fr;
+}
+.hpr-alert--navy{
+  background:linear-gradient(135deg,#0b2a5b 0%,#123a7a 48%,#071b3d 100%);
+  color:#fff;
+}
+.hpr-alert--gold{
+  background:linear-gradient(135deg,#ffe7a3 0%,#e8a317 55%,#c8890d 100%);
+  color:#2a1a00;
+}
+.hpr-alert__media{
+  min-height:168px;
+  background:rgba(255,255,255,.06);
+}
+.hpr-alert__media img{
+  width:100%; height:100%; object-fit:cover; display:block;
+}
+.hpr-alert__body{
+  position:relative;
+  padding:22px 28px 22px 24px;
+  display:flex; flex-direction:column; justify-content:center;
+  min-width:0;
+}
+.hpr-alert--navy .hpr-alert__body::before{
+  content:""; position:absolute; right:-50px; top:-60px; width:180px; height:180px;
+  border-radius:50%; background:radial-gradient(circle,rgba(232,163,23,.35),transparent 68%);
+  pointer-events:none;
+}
+.hpr-alert__eyebrow{
+  margin:0 0 6px;
+  font-size:11px; font-weight:800; letter-spacing:.16em; text-transform:uppercase;
+}
+.hpr-alert--navy .hpr-alert__eyebrow{color:var(--gold-300);}
+.hpr-alert--gold .hpr-alert__eyebrow{color:#6a4300;}
+.hpr-alert__heading{
+  margin:0 0 8px; font-size:22px; font-weight:800; letter-spacing:-.02em; line-height:1.25;
+}
+.hpr-alert--navy .hpr-alert__heading{color:#fff;}
+.hpr-alert--gold .hpr-alert__heading{color:#1a1200;}
+.hpr-alert__text{
+  margin:0 0 16px; font-size:14.5px; font-weight:600; line-height:1.55; max-width:46rem;
+  white-space:pre-line;
+}
+.hpr-alert--navy .hpr-alert__text{color:rgba(255,255,255,.82);}
+.hpr-alert--gold .hpr-alert__text{color:#4a3200;}
+.hpr-alert__actions{display:flex; flex-wrap:wrap; gap:10px;}
+.hpr-alert__btn{
+  display:inline-flex; align-items:center; justify-content:center;
+  height:40px; padding:0 18px; border-radius:11px;
+  font-weight:800; font-size:13.5px; text-decoration:none;
+  transition:transform .15s, box-shadow .15s;
+}
+.hpr-alert__btn:hover{transform:translateY(-1px);}
+.hpr-alert--navy .hpr-alert__btn--main{
+  background:linear-gradient(135deg,var(--gold-300),var(--gold-500)); color:#2a1a00;
+  box-shadow:0 8px 18px rgba(232,163,23,.35);
+}
+.hpr-alert--navy .hpr-alert__btn--ghost{
+  background:rgba(255,255,255,.1); color:#fff; border:1.5px solid rgba(255,255,255,.28);
+}
+.hpr-alert--gold .hpr-alert__btn--main{
+  background:linear-gradient(135deg,#0b2a5b,#071b3d); color:#fff;
+  box-shadow:0 8px 18px rgba(7,27,61,.28);
+}
+.hpr-alert--gold .hpr-alert__btn--ghost{
+  background:rgba(255,255,255,.35); color:#2a1a00; border:1.5px solid rgba(42,26,0,.15);
+}
+.hpr-alert__close-form{position:absolute; top:10px; right:10px; margin:0; z-index:2;}
+.hpr-alert__close{
+  width:32px; height:32px; border:0; border-radius:10px; cursor:pointer;
+  display:grid; place-items:center;
+}
+.hpr-alert--navy .hpr-alert__close{background:rgba(255,255,255,.12); color:#fff;}
+.hpr-alert--gold .hpr-alert__close{background:rgba(42,26,0,.1); color:#2a1a00;}
+.hpr-alert__close:hover{opacity:.85;}
+.hpr-alert.is-hiding{opacity:0; transform:translateY(-6px); transition:.22s ease;}
+@media (max-width:720px){
+  .hpr-alert{grid-template-columns:1fr; min-height:0; border-radius:18px;}
+  .hpr-alert__media{min-height:150px; max-height:190px;}
+  .hpr-alert__body{padding:16px 16px 18px;}
+  .hpr-alert__heading{font-size:18px;}
+  .hpr-alert__text{font-size:13.5px; margin-bottom:14px;}
+  .hpr-alert__btn{flex:1 1 auto; height:42px;}
 }
