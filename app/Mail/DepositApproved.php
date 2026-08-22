@@ -23,7 +23,8 @@ class DepositApproved extends Mailable
     public function content(): Content
     {
         return new Content(
-            view: 'emails.deposit_approved',
+            html: 'emails.deposit_approved',
+            text: 'emails.text.deposit_approved',
             with: ['d' => $this->deposit],
         );
     }

@@ -18,14 +18,15 @@ class ComplaintSubmitted extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'New Complaint: ' . $this->complaint->reference . ' — ' . $this->complaint->subject,
+            subject: 'New complaint ' . $this->complaint->reference . ' — ' . $this->complaint->subject,
         );
     }
 
     public function content(): Content
     {
         return new Content(
-            view: 'emails.complaint_submitted',
+            html: 'emails.complaint_submitted',
+            text: 'emails.text.complaint_submitted',
             with: ['c' => $this->complaint->load('user', 'order')],
         );
     }

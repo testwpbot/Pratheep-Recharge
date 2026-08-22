@@ -28,7 +28,8 @@ class ProviderFundsLow extends Mailable
     public function content(): Content
     {
         return new Content(
-            view: 'emails.provider_funds_low',
+            html: 'emails.provider_funds_low',
+            text: 'emails.text.provider_funds_low',
             with: ['h' => $this->health],
         );
     }

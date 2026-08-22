@@ -18,7 +18,7 @@ class ComplaintStatusUpdated extends Mailable
     public function envelope(): Envelope
     {
         $subject = match ($this->complaint->status) {
-            'resolved'    => 'Your complaint ' . $this->complaint->reference . ' has been resolved ✅',
+            'resolved'    => 'Your complaint ' . $this->complaint->reference . ' is resolved',
             'rejected'    => 'Update on your complaint ' . $this->complaint->reference,
             'in_progress' => 'Your complaint ' . $this->complaint->reference . ' is being reviewed',
             default       => 'Update on your complaint ' . $this->complaint->reference,
@@ -29,7 +29,8 @@ class ComplaintStatusUpdated extends Mailable
     public function content(): Content
     {
         return new Content(
-            view: 'emails.complaint_status_updated',
+            html: 'emails.complaint_status_updated',
+            text: 'emails.text.complaint_status_updated',
             with: ['c' => $this->complaint->load('user', 'order', 'handler')],
         );
     }
