@@ -210,16 +210,27 @@
   .cat-tab{flex:1 1 calc(50% - 6px); padding:11px 8px; font-size:13px;}
 }
 @media (max-width:540px){
-  .wallet-cards{flex-direction:column;}
-  .service-grid{grid-template-columns:repeat(2,1fr); gap:14px;}
+  .dash-hero{margin-bottom:12px; gap:10px;}
+  .dash-hero__greet{padding:16px 16px; border-radius:16px;}
+  .dash-hero__greet h2{font-size:20px; margin-bottom:4px;}
+  .dash-hero__greet p{font-size:13.5px;}
+  .wallet-cards{flex-direction:row; gap:8px;}
+  .wcard{padding:12px 12px; border-radius:14px; min-width:0;}
+  .wcard b{font-size:16px;}
+  .wcard small{font-size:10px;}
+  .wcard span{font-size:11px;}
+  .stats-grid{gap:8px; margin-bottom:12px;}
+  .stat{padding:12px 10px;}
+  .stat b{font-size:18px;}
+  .service-grid{grid-template-columns:repeat(2,1fr); gap:10px;}
   .service-card{
-    padding:22px 14px;
-    border-radius:16px;
-    min-height:170px;
-    gap:10px;
+    padding:16px 10px;
+    border-radius:14px;
+    min-height:140px;
+    gap:8px;
   }
-  .service-card img{width:64px; height:64px;}
-  .service-card h4{font-size:14px; margin:0;}
+  .service-card img{width:52px; height:52px;}
+  .service-card h4{font-size:13.5px; margin:0;}
   .service-card small{font-size:11px;}
   .service-card .cb-badge{font-size:9px; padding:3px 7px; top:8px; right:8px;}
 }
