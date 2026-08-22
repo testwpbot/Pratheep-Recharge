@@ -23,7 +23,10 @@
     <thead><tr><th>Provider</th><th>Country</th><th>Status</th><th>Wallet Balance</th><th>Actions</th></tr></thead>
     <tbody>
     @foreach ($providers as $p)
-      @php $bal = $p->is_active && $p->api_key ? $p->fetchBalance() : null; @endphp
+      @php
+        $info = $p->is_active && $p->api_key ? $p->fetchBalanceInfo() : ['balance' => null, 'error' => null];
+        $bal = $info['balance'];
+      @endphp
       <tr>
         <td><b>{{ $p->name }}</b><br><small style="color:var(--muted)">{{ $p->base_url ?: '(no URL configured)' }}</small></td>
         <td>{{ strtoupper($p->country) }}</td>
@@ -36,17 +39,20 @@
           @elseif (!$p->api_key)
             <em style="color:var(--muted)">no API key</em>
           @elseif ($bal === null)
-            <span class="pill pill--failed" title="Could not reach provider">Unavailable</span>
+            <span class="pill pill--failed" title="{{ $info['error'] }}">{{ \App\Models\Provider::balanceErrorLabel($info['error']) }}</span>
           @else
-            <b style="color:var(--gold-600); font-size:15px;">LKR {{ number_format($bal, 2) }}</b>
+            @php $cur = strtoupper($p->country) === 'IN' ? 'INR' : 'LKR'; @endphp
+            <b style="color:var(--gold-600); font-size:15px;">{{ $cur }} {{ number_format($bal, 2) }}</b>
           @endif
         </td>
-        <td style="display:flex; gap:6px;">
-          <a href="{{ route('admin.providers.edit', $p) }}" class="btn-admin btn-admin--ghost btn-admin--sm">Configure</a>
-          <form method="POST" action="{{ route('admin.providers.import', $p) }}">
-            @csrf
-            <button class="btn-admin btn-admin--primary btn-admin--sm" type="submit">Import Services</button>
-          </form>
+        <td class="col-actions">
+          <div class="td-actions">
+            <a href="{{ route('admin.providers.edit', $p) }}" class="btn-admin btn-admin--ghost btn-admin--sm">Configure</a>
+            <form method="POST" action="{{ route('admin.providers.import', $p) }}">
+              @csrf
+              <button class="btn-admin btn-admin--primary btn-admin--sm" type="submit">Import Services</button>
+            </form>
+          </div>
         </td>
       </tr>
     @endforeach

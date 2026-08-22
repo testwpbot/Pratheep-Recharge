@@ -145,6 +145,16 @@ textarea.hpr-input, .hpr-input--ta{
 }
 .data-table tr:hover td{background:#f9fbff;}
 
+/* Never put display:flex on a <td> — it drops table-cell layout so the
+   last column's bottom border sits higher than the rest of the row.
+   Wrap action buttons in .td-actions instead. */
+.data-table td.col-actions{text-align:right; white-space:nowrap;}
+.data-table .td-actions{
+  display:inline-flex; align-items:center; justify-content:flex-end;
+  gap:6px; flex-wrap:wrap; vertical-align:middle;
+}
+.data-table .td-actions form{display:inline-flex; margin:0;}
+
 /* ----- pill / chip / label (shared) ----- */
 .pill{
   display:inline-flex; align-items:center; gap:4px;

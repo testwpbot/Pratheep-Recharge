@@ -14,7 +14,9 @@ return [
     ],
 
     'happy_recharge_center' => [
-        'base_url' => env('HRC_BASE_URL', 'http://happyrechargecenter.com/RechargeApi'),
-        'api_key'  => env('HRC_API_KEY', '334d7b447e9459fcbafe9441a'),
+        'base_url'    => env('HRC_BASE_URL', 'http://happyrechargecenter.com/RechargeApi'),
+        'api_key'     => env('HRC_API_KEY', '334d7b447e9459fcbafe9441a'),
+        // Optional. HRC public docs have no cancel endpoint; leave empty unless they give you one.
+        'cancel_path' => env('HRC_CANCEL_PATH', ''),
     ],
 ];

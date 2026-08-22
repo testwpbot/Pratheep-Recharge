@@ -69,11 +69,13 @@ class TopupMart implements ProviderInterface
             ['op_code' => '133', 'name' => 'HNB Assurance',      'type' => 'insurance', 'category_slug' => 'insurance', 'logo' => 'assets/logos/hnbassu.png'],
             ['op_code' => '134', 'name' => 'Sri Lanka Insurance','type' => 'insurance', 'category_slug' => 'insurance', 'logo' => 'assets/logos/srilankains.png'],
 
-            ['op_code' => '120', 'name' => 'Airtel DTH',   'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/airtel.png'],
-            ['op_code' => '121', 'name' => 'DishTV',       'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/dishtv.png'],
-            ['op_code' => '122', 'name' => 'Sun Direct',   'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/sundirect.png'],
-            ['op_code' => '123', 'name' => 'Tata Play',    'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/tataplay.png'],
-            ['op_code' => '124', 'name' => 'Videocon d2h', 'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/d2h.png'],
+            // DTH is routed through Happy Recharge Center. These rows exist only
+            // so admin failover can re-send a stuck HRC order via Topup Mart.
+            ['op_code' => '120', 'name' => 'Airtel DTH',   'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/airtel.png',    'is_active' => false],
+            ['op_code' => '121', 'name' => 'DishTV',       'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/dishtv.png',    'is_active' => false],
+            ['op_code' => '122', 'name' => 'Sun Direct',   'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/sundirect.png', 'is_active' => false],
+            ['op_code' => '123', 'name' => 'Tata Play',    'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/tataplay.png',  'is_active' => false],
+            ['op_code' => '124', 'name' => 'Videocon d2h', 'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/d2h.png',       'is_active' => false],
 
             ['op_code' => '104', 'name' => 'PickMe',    'type' => 'wallet', 'category_slug' => 'wallet-topup', 'logo' => 'assets/logos/pickme.png'],
             ['op_code' => '105', 'name' => 'Uber Eats', 'type' => 'wallet', 'category_slug' => 'wallet-topup', 'logo' => 'assets/logos/ubereats.png'],

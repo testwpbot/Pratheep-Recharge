@@ -35,9 +35,17 @@ class DashboardController extends Controller
 
         // Load ALL active categories with their active services + plans (one query)
         $categories = Category::where('is_active', true)
-            ->withWhereHas('services', fn ($q) => $q->where('is_active', true)->with('plans')->orderBy('name'))
+            ->withWhereHas('services', fn ($q) => $q->where('is_active', true)
+                ->with(['plans', 'specialPrices' => fn ($sp) => $sp->where('user_id', $user->id)])
+                ->orderBy('name'))
             ->orderBy('sort_order')
             ->get();
+
+        foreach ($categories as $cat) {
+            foreach ($cat->services as $svc) {
+                $svc->applyEffectivePricing($user);
+            }
+        }
 
         $activeCategory = $categories->first();
 
@@ -212,26 +220,42 @@ class DashboardController extends Controller
             (object) ['key' => 'pickme', 'label' => 'PickMe',    'logo' => 'assets/logos/pickme.png',   'primary_op' => null, 'bill_ops' => ['104'], 'category' => 'wallet-topup', 'is_bill_only' => true, 'bill_label' => 'Top up PickMe wallet'],
             (object) ['key' => 'uber',   'label' => 'Uber Eats', 'logo' => 'assets/logos/ubereats.png', 'primary_op' => null, 'bill_ops' => ['105'], 'category' => 'wallet-topup', 'is_bill_only' => true, 'bill_label' => 'Top up Uber Eats'],
 
-            // ===== INDIAN DTH =====
-            // IMPORTANT: DTH TV recharges are ALWAYS routed through Happy Recharge Center
-            // (see OrderService::resolveProvider) regardless of which provider the Service row
-            // belongs to. The op_codes below (120-124) match the TopupMart placeholder services
-            // that are seeded by default. ONCE the admin imports DTH from HRC with the REAL
-            // operator codes, these primary_op values must be updated to the HRC op_codes so
-            // customers see the real services. Until then DTH recharges use these placeholders
-            // and will fail if the op_code doesn't exist on HRC — admin should disable the
-            // DTH category or keep it hidden until op_codes are confirmed.
-            (object) ['key' => 'airtel-dth','label' => 'Airtel DTH',   'logo' => 'assets/logos/airtel.png',  'primary_op' => '120', 'bill_ops' => [], 'category' => 'dth', 'is_bill_only' => false, 'bill_label' => null],
-            (object) ['key' => 'dishtv',    'label' => 'DishTV',      'logo' => 'assets/logos/dishtv.png',  'primary_op' => '121', 'bill_ops' => [], 'category' => 'dth', 'is_bill_only' => false, 'bill_label' => null],
-            (object) ['key' => 'sundirect', 'label' => 'Sun Direct',  'logo' => 'assets/logos/sundirect.png','primary_op' => '122', 'bill_ops' => [], 'category' => 'dth', 'is_bill_only' => false, 'bill_label' => null],
-            (object) ['key' => 'tataplay',  'label' => 'Tata Play',   'logo' => 'assets/logos/tataplay.png','primary_op' => '123', 'bill_ops' => [], 'category' => 'dth', 'is_bill_only' => false, 'bill_label' => null],
-            (object) ['key' => 'videocon',  'label' => 'Videocon d2h','logo' => 'assets/logos/d2h.png',     'primary_op' => '124', 'bill_ops' => [], 'category' => 'dth', 'is_bill_only' => false, 'bill_label' => null],
         ];
 
+        // ===== INDIAN DTH (Happy Recharge Center) =====
+        // Built from live active DTH services so operator-code edits in admin
+        // are reflected here. Topup Mart DTH rows are inactive (failover only).
+        $dthServices = Service::where('is_active', true)
+            ->where(function ($q) {
+                $q->where('type', 'dth')
+                  ->orWhereHas('category', fn ($c) => $c->where('slug', 'dth'));
+            })
+            ->whereHas('provider', function ($q) {
+                $q->where('slug', 'happy-recharge-center')
+                  ->orWhere('api_class', 'happy_recharge_center');
+            })
+            ->orderBy('name')
+            ->get();
+        foreach ($dthServices as $svc) {
+            $groups[] = (object) [
+                'key'          => 'dth-' . $svc->id,
+                'label'        => $svc->name,
+                'logo'         => $svc->logo ?: null,
+                'primary_op'   => $svc->op_code,
+                'bill_ops'     => [],
+                'other_ops'    => [],
+                'category'     => 'dth',
+                'is_bill_only' => false,
+                'bill_label'   => null,
+            ];
+        }
+
         // Load ALL services keyed by op_code for fast lookup
+        $viewer = auth()->user();
         $allServices = Service::where('is_active', true)
-            ->with('plans')
+            ->with(['plans', 'specialPrices' => fn ($sp) => $sp->where('user_id', $viewer?->id)])
             ->get()
+            ->each(fn (Service $s) => $s->applyEffectivePricing($viewer))
             ->keyBy(fn (Service $s) => $s->op_code);
 
         // Build categories collection keyed by slug (same structure as before)

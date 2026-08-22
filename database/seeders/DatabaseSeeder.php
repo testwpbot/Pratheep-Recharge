@@ -21,14 +21,22 @@ class DatabaseSeeder extends Seeder
             'api_key'    => '',
             'is_active'  => true,
         ]);
-        Provider::firstOrCreate(['slug' => 'happy-recharge-center'], [
-            'name'       => 'Happy Recharge Center',
-            'country'    => 'IN',
-            'api_class'  => 'happy_recharge_center',
-            'base_url'   => 'http://happyrechargecenter.com/RechargeApi',
-            'api_key'    => '334d7b447e9459fcbafe9441a',
-            'is_active'  => false,
+
+        $hrc = Provider::firstOrNew(['slug' => 'happy-recharge-center']);
+        $missingKey = ! filled($hrc->api_key);
+        $hrc->fill([
+            'name'      => $hrc->name ?: 'Happy Recharge Center',
+            'country'   => $hrc->country ?: 'IN',
+            'api_class' => 'happy_recharge_center',
         ]);
+        if (! filled($hrc->base_url)) {
+            $hrc->base_url = env('HRC_BASE_URL', 'http://happyrechargecenter.com/RechargeApi');
+        }
+        if ($missingKey) {
+            $hrc->api_key   = env('HRC_API_KEY', '334d7b447e9459fcbafe9441a');
+            $hrc->is_active = true;
+        }
+        $hrc->save();
 
         // Categories
         foreach ([

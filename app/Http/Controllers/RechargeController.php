@@ -53,7 +53,8 @@ class RechargeController extends Controller
     public function form(Service $service): View
     {
         abort_unless($service->is_active, 404);
-        $service->load('plans');
+        $service->load(['plans', 'specialPrices' => fn ($sp) => $sp->where('user_id', auth()->id())]);
+        $service->applyEffectivePricing(auth()->user());
         return view('recharge.form', compact('service'));
     }
 

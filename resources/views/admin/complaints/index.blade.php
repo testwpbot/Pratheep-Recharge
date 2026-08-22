@@ -47,8 +47,8 @@
           <td>{{ $c->mobile ?: '—' }}</td>
           <td><span class="pill {{ $c->statusBadgeClass() }}">{{ $c->statusLabel() }}</span></td>
           <td><small>{{ $c->created_at->format('Y-m-d H:i') }}<br>{{ $c->created_at->diffForHumans() }}</small></td>
-          <td style="text-align:right;">
-            <div style="display:flex; gap:6px; justify-content:flex-end;">
+          <td class="col-actions">
+            <div class="td-actions">
               <a href="{{ route('admin.complaints.show', $c) }}" class="btn-admin btn-admin--ghost btn-admin--sm">
                 {{ in_array($c->status, ['open','in_progress']) ? 'Reply' : 'View' }}
               </a>

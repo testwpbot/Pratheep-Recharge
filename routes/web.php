@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\AdminPlanController;
 use App\Http\Controllers\Admin\AdminProviderController;
 use App\Http\Controllers\Admin\AdminServiceController;
 use App\Http\Controllers\Admin\AdminSettingsController;
+use App\Http\Controllers\Admin\AdminSpecialPricingController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Dashboard\ComplaintController;
@@ -112,6 +113,14 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::patch('/services/{service}',                   [AdminServiceController::class, 'update'])->name('services.update');
     Route::post('/services/{service}/toggle',             [AdminServiceController::class, 'toggle'])->name('services.toggle');
     Route::post('/services/bulk-profit',                  [AdminServiceController::class, 'bulkProfit'])->name('services.bulk');
+
+    // Special pricing (per-retailer commission)
+    Route::get('/special-pricing',                        [AdminSpecialPricingController::class, 'index'])->name('special-pricing.index');
+    Route::get('/special-pricing/{user}',                 [AdminSpecialPricingController::class, 'edit'])->name('special-pricing.edit');
+    Route::patch('/special-pricing/{user}',               [AdminSpecialPricingController::class, 'update'])->name('special-pricing.update');
+    Route::post('/special-pricing/{user}/bulk',           [AdminSpecialPricingController::class, 'bulk'])->name('special-pricing.bulk');
+    Route::post('/special-pricing/{user}/clear',          [AdminSpecialPricingController::class, 'clear'])->name('special-pricing.clear');
+    Route::post('/special-pricing/{user}/retailer',       [AdminSpecialPricingController::class, 'toggleRetailer'])->name('special-pricing.retailer');
 
     // Orders
     Route::get('/orders',                                 [AdminOrderController::class, 'index'])->name('orders.index');

@@ -34,10 +34,13 @@ class OrderService
         $isDth   = ($type === 'dth' || $catSlug === 'dth');
 
         if ($isDth) {
-            $hrc = Provider::where('slug', 'happy-recharge-center')
-                ->orWhere('api_class', 'happy_recharge_center')
+            $hrc = Provider::query()
+                ->where(function ($q) {
+                    $q->where('slug', 'happy-recharge-center')
+                      ->orWhere('api_class', 'happy_recharge_center');
+                })
                 ->first();
-            if ($hrc && $hrc->is_active && $hrc->base_url && $hrc->api_key) {
+            if ($hrc && $hrc->is_active && $hrc->hasCredentials()) {
                 return $hrc;
             }
         }
@@ -71,7 +74,7 @@ class OrderService
         }
 
         // Cashback (profit) amount per this order — credited ONLY after order success.
-        $profit = $service->calculateCashback($amount);
+        $profit = $service->calculateCashback($amount, $user);
 
         // Atomically create order + debit wallet + write debit transaction
         // record in ONE DB transaction so they can never go out of sync.
@@ -341,97 +344,189 @@ class OrderService
     /**
      * Admin failover for a PENDING HRC DTH order.
      *
-     * Business rule: when a DTH order is stuck pending on Happy Recharge Center,
-     * admin can re-send the same recharge through Topup Mart. HRC has NO cancel
-     * endpoint, so we simply mark the HRC order failed locally (refunding the
-     * wallet debit via markFailed) and create a fresh order against Topup Mart
-     * via the normal placeOrder flow. A note is appended to both orders so
-     * everyone can see what happened; if HRC later completes the original
-     * transaction the admin can spot it in the raw response and review.
-     *
-     * @param  Order  $order  the stuck pending HRC order
-     * @param  User   $admin  the admin performing the failover
-     * @param  string|null $note optional admin note
-     * @return Order  the new Topup Mart order
+     * Re-sends THE SAME order through Topup Mart. Wallet is not refunded or
+     * re-debited. We probe HRC for a cancel endpoint (their public docs do not
+     * include one); if cancel is unsupported the original HRC request may still
+     * complete later and must be reconciled manually.
      */
     public function failoverToTopupMart(Order $order, User $admin, ?string $note = null): Order
     {
+        $order->loadMissing(['provider', 'service', 'user']);
+
         if ($order->status !== 'pending' && $order->status !== 'processing') {
             throw new \RuntimeException('Only pending/processing orders can be failed over.');
         }
 
         $hrc = $order->provider;
-        $isHrc = $hrc
-            && (str_contains((string) $hrc->api_class, 'HappyRechargeCenter')
-                || $hrc->slug === 'happy-recharge-center');
-        if (! $isHrc) {
+        if (! $hrc || ! $hrc->isHappyRechargeCenter()) {
             throw new \RuntimeException('Failover is only supported for Happy Recharge Center orders.');
         }
 
-        // Find Topup Mart provider
-        $topup = Provider::where('slug', 'topup-mart')
-            ->orWhere('api_class', 'topup_mart')
+        $topup = Provider::query()
+            ->where(function ($q) {
+                $q->where('slug', 'topup-mart')->orWhere('api_class', 'topup_mart');
+            })
             ->first();
         if (! $topup || ! $topup->is_active) {
             throw new \RuntimeException('Topup Mart provider is not active — cannot fail over.');
         }
 
-        // Find a Topup Mart equivalent service with the same op_code so we can
-        // route through TopupMart. If none exists with the same op_code, fall
-        // back to the originally-linked service (which may have a different
-        // op_code; admin can adjust before retrying if needed).
-        $fallbackService = Service::where('provider_id', $topup->id)
-            ->where('op_code', $order->service->op_code)
-            ->where('is_active', true)
-            ->first();
-
+        $fallbackService = $this->findTopupMartDthEquivalent($order->service, $topup);
         if (! $fallbackService) {
-            // Look up by category + type match on TopupMart
-            $fallbackService = Service::where('provider_id', $topup->id)
-                ->where('category_id', $order->service->category_id)
-                ->where('is_active', true)
-                ->first();
+            throw new \RuntimeException('No matching Topup Mart DTH service found for this operator — import Topup Mart services first (DTH rows can stay hidden from customers).');
         }
 
-        if (! $fallbackService) {
-            throw new \RuntimeException('No matching Topup Mart service found for this operator — please import DTH services on Topup Mart first.');
+        $cancelResult = ['status' => 'unsupported', 'message' => 'Cancel not attempted'];
+        try {
+            $hrcClient = ProviderFactory::make($hrc);
+            if (method_exists($hrcClient, 'cancel')) {
+                $cancelResult = $hrcClient->cancel($order);
+            }
+        } catch (\Throwable $e) {
+            $cancelResult = ['status' => 'error', 'message' => $e->getMessage()];
+            Log::warning('HRC cancel during failover failed', [
+                'order' => $order->reference,
+                'error' => $e->getMessage(),
+            ]);
         }
 
-        // 1. Refund the HRC order wallet + mark failed with an admin note.
-        $noteText = '[ADMIN FAILOVER ' . now()->timezone('Asia/Colombo')->format('Y-m-d H:i') . ' by ' . $admin->name . '] '
-                 . 'Order was stuck pending on Happy Recharge Center and has been re-sent via Topup Mart. '
-                 . 'Note: HRC has no cancel API — if HRC later completes the original transaction, manual reconciliation may be needed.';
+        $stamp = now()->timezone('Asia/Colombo')->format('Y-m-d H:i');
+        $noteText = "[ADMIN FAILOVER {$stamp} by {$admin->name}] "
+            . "Same order re-sent via Topup Mart. "
+            . "HRC cancel: " . ($cancelResult['status'] ?? 'unknown')
+            . ' — ' . ($cancelResult['message'] ?? 'n/a')
+            . ' If HRC later completes the original transaction, reconcile manually.';
         if ($note) {
             $noteText .= ' Admin note: ' . $note;
         }
 
-        $existingMsg = $order->message ? ($order->message . "\n\n" . $noteText) : $noteText;
-        $this->markFailed($order, $existingMsg);
-        $order->refresh();
+        $prevResp = is_array($order->provider_response) ? $order->provider_response : [];
+        $originalProviderId = $order->provider_id;
+        $originalServiceId  = $order->service_id;
+        $originalTxn        = $order->provider_txn_id;
 
-        // 2. Create a fresh order through TopupMart via the normal placeOrder flow
-        // (debits wallet, calls TopupMart API, credits cashback on success, etc.).
-        // We place it on the order owner's behalf with the same details.
-        $newOrder = $this->placeOrder(
-            user:          $order->user,
-            serviceId:     $fallbackService->id,
-            accountNumber: $order->account_number,
-            amount:        (float) $order->amount,
-            notifyNumber:  $order->notify_number,
-        );
-
-        // Append cross-reference to both orders' messages for visibility.
-        $xref = "\n\n[CROSS-REF] Failover new order: {$newOrder->reference} via Topup Mart.";
-        $order->message = ($order->message ?? '') . $xref;
+        $order->provider_id     = $topup->id;
+        $order->service_id      = $fallbackService->id;
+        $order->provider_txn_id = null;
+        $order->status          = 'processing';
+        $order->provider_status = 'failover_processing';
+        $order->processed_at    = now();
+        $order->completed_at    = null;
+        $order->message         = trim(($order->message ? $order->message . "\n\n" : '') . $noteText);
+        $order->provider_response = array_merge($prevResp, [
+            '_failover' => [
+                'at'               => now()->toDateTimeString(),
+                'by_admin_id'      => $admin->id,
+                'from_provider_id' => $originalProviderId,
+                'from_service_id'  => $originalServiceId,
+                'from_txn'         => $originalTxn,
+                'to_provider_id'   => $topup->id,
+                'to_service_id'    => $fallbackService->id,
+                'cancel'           => $cancelResult,
+            ],
+        ]);
         $order->save();
+        $order->setRelation('provider', $topup);
+        $order->setRelation('service', $fallbackService);
 
-        $newOrder->message = ($newOrder->message ? $newOrder->message . "\n\n" : '')
-            . "[FAILOVER SOURCE] Resent from HRC order {$order->reference} by admin {$admin->name}.";
-        $newOrder->save();
+        $resp = null;
+        $timedOut = false;
+        try {
+            $resp = ProviderFactory::make($topup)->recharge($order);
+        } catch (ConnectionException $e) {
+            $timedOut = true;
+            $resp = ['status' => 'pending', 'message' => 'Failover sent to Topup Mart — waiting for confirmation…'];
+            Log::warning('TopupMart failover TIMEOUT', [
+                'order' => $order->reference,
+                'error' => $e->getMessage(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('TopupMart failover exception', [
+                'order' => $order->reference,
+                'error' => $e->getMessage(),
+            ]);
+            $resp = ['status' => 'failed', 'message' => 'Failover provider error: ' . $e->getMessage()];
+        }
 
-        Log::info("Admin failover: {$order->reference} (HRC) → {$newOrder->reference} (TopupMart) by admin {$admin->id}");
+        $merged = is_array($order->provider_response) ? $order->provider_response : [];
+        $order->provider_response = array_merge($merged, ['_failover_response' => $resp, '_timed_out' => $timedOut]);
+        if (! empty($resp['transaction_id'])) {
+            $order->provider_txn_id = $resp['transaction_id'];
+        }
+        if (! empty($resp['message'])) {
+            $order->message = ($order->message ? $order->message . "\n\n" : '') . $resp['message'];
+        }
 
-        return $newOrder;
+        $status = strtolower((string) ($resp['status'] ?? 'failed'));
+        if ($status === 'success') {
+            $order->save();
+            $this->markSuccess($order);
+        } elseif ($status === 'pending' || $timedOut) {
+            $order->status = 'pending';
+            $order->provider_status = $timedOut ? 'awaiting_confirmation' : 'pending';
+            $order->save();
+        } else {
+            $order->save();
+            $this->markFailed($order, $resp['message'] ?? 'Topup Mart rejected the failover recharge');
+        }
+
+        Log::info("Admin failover: {$order->reference} HRC → TopupMart by admin {$admin->id}", [
+            'status' => $order->fresh()->status,
+            'cancel' => $cancelResult['status'] ?? null,
+        ]);
+
+        return $order->fresh(['provider', 'service', 'user']);
+    }
+
+    /** Match an HRC DTH service to the hidden Topup Mart DTH equivalent (by opcode map / name). */
+    protected function findTopupMartDthEquivalent(?Service $hrcService, Provider $topup): ?Service
+    {
+        if (! $hrcService) {
+            return null;
+        }
+
+        $metaOp = $hrcService->meta['failover_op_code'] ?? null;
+        if ($metaOp) {
+            $found = Service::where('provider_id', $topup->id)->where('op_code', (string) $metaOp)->first();
+            if ($found) return $found;
+        }
+
+        foreach (\App\Services\Providers\HappyRechargeCenter::dthCatalog() as $row) {
+            $sameCode = (string) $row['op_code'] === (string) $hrcService->op_code;
+            $sameName = strcasecmp((string) $row['name'], (string) $hrcService->name) === 0;
+            if ($sameCode || $sameName) {
+                $found = Service::where('provider_id', $topup->id)
+                    ->where('op_code', (string) $row['failover_op_code'])
+                    ->first();
+                if ($found) return $found;
+            }
+        }
+
+        $name = strtolower((string) $hrcService->name);
+        $needles = [
+            'airtel'   => '120',
+            'dish'     => '121',
+            'sun'      => '122',
+            'tata'     => '123',
+            'play'     => '123',
+            'videocon' => '124',
+            'd2h'      => '124',
+        ];
+        foreach ($needles as $needle => $op) {
+            if (str_contains($name, $needle)) {
+                $found = Service::where('provider_id', $topup->id)->where('op_code', $op)->first();
+                if ($found) return $found;
+            }
+        }
+
+        return Service::where('provider_id', $topup->id)
+            ->where(function ($q) use ($hrcService) {
+                $q->where('type', 'dth');
+                if ($hrcService->category_id) {
+                    $q->orWhere('category_id', $hrcService->category_id);
+                }
+            })
+            ->first();
     }
 
     /**

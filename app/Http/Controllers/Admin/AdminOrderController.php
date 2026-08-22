@@ -84,19 +84,19 @@ class AdminOrderController extends Controller
         $note  = trim((string) $request->input('note', ''));
 
         try {
-            $newOrder = $svc->failoverToTopupMart($order, $admin, $note !== '' ? $note : null);
-            $message = "Failover complete. New Topup Mart order: {$newOrder->reference} (status: {$newOrder->status}).";
+            $updated = $svc->failoverToTopupMart($order, $admin, $note !== '' ? $note : null);
+            $message = "Failover complete. Order {$updated->reference} re-sent via Topup Mart (status: {$updated->status}).";
             if ($request->wantsJson()) {
                 return response()->json([
                     'ok'               => true,
                     'message'          => $message,
-                    'new_order_id'     => $newOrder->id,
-                    'new_order_ref'    => $newOrder->reference,
-                    'new_order_status' => $newOrder->status,
-                    'redirect'         => route('admin.orders.show', $newOrder),
+                    'new_order_id'     => $updated->id,
+                    'new_order_ref'    => $updated->reference,
+                    'new_order_status' => $updated->status,
+                    'redirect'         => route('admin.orders.show', $updated),
                 ]);
             }
-            return redirect()->route('admin.orders.show', $newOrder)->with('status', $message);
+            return redirect()->route('admin.orders.show', $updated)->with('status', $message);
         } catch (\Throwable $e) {
             $message = 'Failover failed: ' . $e->getMessage();
             if ($request->wantsJson()) {

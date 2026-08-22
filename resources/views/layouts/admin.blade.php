@@ -34,6 +34,9 @@
       <a href="{{ route('admin.services.index') }}" class="{{ request()->routeIs('admin.services.*') ? 'active' : '' }}">
         <x-icon name="phone-menu" :size="18" /> Services &amp; Pricing
       </a>
+      <a href="{{ route('admin.special-pricing.index') }}" class="{{ request()->routeIs('admin.special-pricing.*') ? 'active' : '' }}">
+        <x-icon name="users" :size="18" /> Special Pricing
+      </a>
       <a href="{{ route('admin.plans.index') }}" class="{{ request()->routeIs('admin.plans.*') ? 'active' : '' }}">
         <x-icon name="gift" :size="18" /> Plans / Packages
       </a>

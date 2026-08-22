@@ -2,7 +2,8 @@
 @section('title', "Order {$order->reference}")
 
 @php
-  $isHrc = $order->provider && (str_contains($order->provider->api_class, 'HappyRechargeCenter') || $order->provider->slug === 'happy-recharge-center');
+  $isHrc = $order->provider && $order->provider->isHappyRechargeCenter();
+  $failedOver = is_array($order->provider_response) && !empty($order->provider_response['_failover']);
   $canFailover = $isHrc && in_array($order->status, ['pending','processing']);
 @endphp
 
@@ -12,6 +13,9 @@
   <div class="card__head">
     <h3>Order #{{ $order->reference }}</h3>
     <span class="pill pill--{{ $order->status }}">{{ ucfirst($order->status) }}</span>
+    @if ($failedOver)
+      <span class="pill pill--pending" title="Re-sent via Topup Mart after HRC pending">Failed over</span>
+    @endif
   </div>
 
   <dl class="kv">
@@ -66,15 +70,15 @@
     </div>
     <div style="color:var(--navy-800); font-weight:600; font-size:14px; line-height:1.6;">
       <p style="margin:0 0 10px;">
-        This will:
+        This will re-send <b>the same order</b> ({{ $order->reference }}) through Topup Mart:
       </p>
       <ul style="margin:0 0 12px; padding-left:20px;">
-        <li>Mark this Happy Recharge Center order as <b>failed</b> and auto-refund the wallet (LKR <b>{{ number_format($order->amount, 2) }}</b>).</li>
-        <li>Create a <b>new order</b> through Topup Mart for the same number & amount (debits wallet again).</li>
-        <li>Add notes to both orders referencing each other.</li>
+        <li>Attempt to cancel the pending request at Happy Recharge Center (their public API has no cancel endpoint — this is best-effort).</li>
+        <li>Keep the original wallet debit (no extra charge / no refund).</li>
+        <li>Submit the same number &amp; amount via Topup Mart and record the result on this order.</li>
       </ul>
       <div class="alert alert--error" style="margin-bottom:14px;">
-        ⚠ Happy Recharge Center has <b>no cancel API</b>. If they later complete this transaction you may need to reconcile manually.
+        ⚠ If Happy Recharge Center later completes the original transaction you may need to reconcile manually.
       </div>
     </div>
     <form method="POST" action="{{ route('admin.orders.failover', $order) }}" id="failoverForm" data-ajax>

@@ -26,35 +26,120 @@ class HappyRechargeCenter implements ProviderInterface
 {
     protected string $baseUrl;
     protected string $apiKey;
+    protected ?string $lastError = null;
 
     public function __construct(?string $baseUrl = null, ?string $apiKey = null)
     {
-        $this->baseUrl = rtrim($baseUrl ?? config('services.happy_recharge_center.base_url', 'http://happyrechargecenter.com/RechargeApi'), '/');
-        $this->apiKey  = (string) ($apiKey ?? config('services.happy_recharge_center.api_key', ''));
+        $this->baseUrl = rtrim(
+            ($baseUrl !== null && $baseUrl !== '')
+                ? $baseUrl
+                : (string) config('services.happy_recharge_center.base_url', 'http://happyrechargecenter.com/RechargeApi'),
+            '/'
+        );
+        $this->apiKey = (string) (
+            ($apiKey !== null && $apiKey !== '')
+                ? $apiKey
+                : config('services.happy_recharge_center.api_key', '')
+        );
     }
 
-    /* ---------- catalog (admin "Import") ---------- */
+    /**
+     * DTH-only catalog. HRC is never used for mobile / utility / SL TV.
+     *
+     * OperatorCode 1 is Airtel *mobile prepaid* (per HRC docs). DTH codes sit in
+     * the standard RechargeApi DTH block used by this ASP.NET software family:
+     *   16 Dish TV · 17 Tata Sky/Tata Play · 18 Videocon d2h · 19 Sun Direct · 20 Airtel Digital TV
+     *
+     * Admin can override each service's op_code after import (Services → Edit)
+     * if the operator-list page shows different numbers. Ctrl+F "DTH" / "Dish"
+     * on http://happyrechargecenter.com/apiuser/api_operator.aspx (login required).
+     *
+     * failover_op_code maps to the matching Topup Mart DTH placeholder so admin
+     * can re-send a stuck pending order through provider #1.
+     */
+    public static function dthCatalog(): array
+    {
+        // Only Airtel DTH is sold through this provider. Other Indian DTH brands
+        // stay off the catalog. Topup Mart keeps a hidden Airtel DTH row (op 120)
+        // so admin can fail a pending HRC order over to provider #1.
+        return [
+            ['op_code' => '20', 'name' => 'Airtel DTH', 'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/airtel.png', 'failover_op_code' => '120'],
+        ];
+    }
+
+    public function lastError(): ?string
+    {
+        return $this->lastError;
+    }
+
+    /* ---------- catalog (admin "Import") — DTH TV only ---------- */
     public function fetchServices(): array
     {
-        // TODO: DTH operator codes for HRC were not available in the operator-list page
-        // when this integration was added (page too long). Once the admin provides the
-        // correct OperatorCode values for Airtel DTH / DishTV / Sun Direct / Tata Play /
-        // Videocon d2h, fill them in below and click "Import Services" in the admin
-        // panel. The existing TopupMart placeholder DTH services (op_codes 120–124)
-        // should then be re-pointed to this provider (or deleted and re-imported).
+        return static::dthCatalog();
+    }
+
+    /**
+     * HRC's published API has Recharge / Balance / Status only — no cancel.
+     * We still expose this so failover can record a best-effort attempt.
+     */
+    public function cancel(Order $order): array
+    {
+        $custom = trim((string) config('services.happy_recharge_center.cancel_path', ''));
+        $paths  = array_values(array_filter([
+            $custom,
+            'CancelRecharge.aspx',
+            'RechargeCancel.aspx',
+        ]));
+
+        foreach ($paths as $path) {
+            try {
+                $res = Http::timeout(8)->connectTimeout(4)->get($this->baseUrl . '/' . ltrim($path, '/'), [
+                    'Apitoken' => $this->apiKey,
+                    'ClientId' => $order->reference,
+                ]);
+                if ($res->status() === 404) {
+                    continue;
+                }
+                $data = $res->json();
+                Log::info('HappyRechargeCenter cancel response', [
+                    'order' => $order->reference,
+                    'path'  => $path,
+                    'http'  => $res->status(),
+                    'body'  => is_array($data) ? $data : mb_substr($res->body(), 0, 400),
+                ]);
+                $raw = strtoupper(trim((string) (is_array($data) ? ($data['STATUS'] ?? $data['RECHARGESTATUS'] ?? '') : '')));
+                if (in_array($raw, ['SUCCESS', 'CANCELLED', 'CANCELED', 'FAILURE', 'REFUND'], true)) {
+                    return [
+                        'status'  => in_array($raw, ['SUCCESS', 'CANCELLED', 'CANCELED', 'REFUND'], true) ? 'cancelled' : 'failed',
+                        'message' => is_array($data) ? ($data['MESSAGE'] ?? $raw) : $raw,
+                        '_raw'    => $data,
+                    ];
+                }
+            } catch (\Throwable $e) {
+                Log::warning('HappyRechargeCenter cancel probe failed', [
+                    'order' => $order->reference,
+                    'path'  => $path,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        Log::info('HappyRechargeCenter has no cancel API — failover will resend via Topup Mart', [
+            'order' => $order->reference,
+        ]);
+
         return [
-            // ['op_code' => '?', 'name' => 'Airtel DTH',    'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/airtel.png'],
-            // ['op_code' => '?', 'name' => 'DishTV',        'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/dishtv.png'],
-            // ['op_code' => '?', 'name' => 'Sun Direct',    'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/sundirect.png'],
-            // ['op_code' => '?', 'name' => 'Tata Play',     'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/tataplay.png'],
-            // ['op_code' => '?', 'name' => 'Videocon d2h',  'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/d2h.png'],
+            'status'  => 'unsupported',
+            'message' => 'Happy Recharge Center does not provide a cancel API. The original request may still complete on their side — check the HRC panel.',
         ];
     }
 
     /* ---------- balance ---------- */
     public function balance(): ?float
     {
+        $this->lastError = null;
         if (! $this->apiKey) {
+            $this->lastError = 'No API token configured';
             return null;
         }
         try {
@@ -62,19 +147,28 @@ class HappyRechargeCenter implements ProviderInterface
                 'Apitoken' => $this->apiKey,
             ]);
             if (! $res->successful()) {
+                $this->lastError = "HTTP {$res->status()}";
                 Log::warning("HappyRechargeCenter balance HTTP {$res->status()}: {$res->body()}");
                 return null;
             }
-            $data = $res->json() ?? [];
-            $raw  = (string) ($data['MESSAGE'] ?? '');
+            $data   = $res->json() ?? [];
+            $status = strtoupper(trim((string) ($data['STATUS'] ?? '')));
+            $raw    = (string) ($data['MESSAGE'] ?? '');
+            if ($status !== '' && $status !== 'SUCCESS') {
+                $this->lastError = $raw !== '' ? $raw : "Balance STATUS={$status}";
+                Log::warning('HappyRechargeCenter balance rejected: ' . $this->lastError);
+                return null;
+            }
             // Balance comes back as a comma-formatted string like "1,970.10"
             $clean = str_replace([',', ' '], '', $raw);
             if ($clean === '' || ! is_numeric($clean)) {
+                $this->lastError = $raw !== '' ? $raw : 'Balance response was not a number';
                 Log::warning('HappyRechargeCenter balance parse error: ' . $res->body());
                 return null;
             }
             return (float) $clean;
         } catch (\Throwable $e) {
+            $this->lastError = $e->getMessage();
             Log::warning('HappyRechargeCenter balance exception: ' . $e->getMessage());
             return null;
         }

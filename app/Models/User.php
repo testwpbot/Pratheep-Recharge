@@ -12,7 +12,7 @@ class User extends Authenticatable
 {
     use HasFactory, Notifiable;
 
-    protected $fillable = ['name', 'email', 'phone', 'avatar', 'password'];
+    protected $fillable = ['name', 'email', 'phone', 'avatar', 'password', 'is_admin', 'is_retailer'];
     protected $hidden   = ['password', 'remember_token'];
 
     protected function casts(): array
@@ -21,6 +21,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password'          => 'hashed',
             'is_admin'          => 'boolean',
+            'is_retailer'       => 'boolean',
         ];
     }
 
@@ -37,6 +38,11 @@ class User extends Authenticatable
     public function complaints(): HasMany
     {
         return $this->hasMany(Complaint::class)->latest();
+    }
+
+    public function specialPrices(): HasMany
+    {
+        return $this->hasMany(SpecialPrice::class);
     }
 
     /** Avatar URL (uploaded or generated initials) */

@@ -22,8 +22,9 @@
       </div>
 
       <div class="field">
-        <label>Operator code (read-only)</label>
-        <input type="text" value="{{ $service->op_code }}" disabled>
+        <label>Operator code</label>
+        <input type="text" name="op_code" value="{{ old('op_code', $service->op_code) }}" required maxlength="20">
+        <div class="hint">Sent to the provider as OperatorCode / op_code. Edit this if HRC’s operator-list page uses a different number.</div>
       </div>
 
       <div class="field">

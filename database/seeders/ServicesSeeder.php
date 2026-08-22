@@ -32,7 +32,14 @@ class ServicesSeeder extends Seeder
             ));
         }
 
-        // Happy Recharge Center (India) is inactive until the admin supplies
-        // API credentials — skip its catalog for now.
+        $hrc = Provider::where('slug', 'happy-recharge-center')->first();
+        if ($hrc) {
+            $res = $importer->importFromProvider($hrc);
+            $this->command?->info(sprintf(
+                '[ServicesSeeder] Happy Recharge Center (DTH only): %d imported, %d updated.',
+                $res['imported'],
+                $res['skipped']
+            ));
+        }
     }
 }

@@ -34,6 +34,47 @@ class Service extends Model
         return $this->hasMany(Plan::class)->where('is_active', true)->orderBy('sort_order')->orderBy('amount');
     }
 
+    public function specialPrices(): HasMany
+    {
+        return $this->hasMany(SpecialPrice::class);
+    }
+
+    /**
+     * Default catalog profit vs this user's special commission.
+     *
+     * @return array{profit: float, type: string, special: bool}
+     */
+    public function effectivePricing(?User $user = null): array
+    {
+        $attrs  = $this->getAttributes();
+        $profit = (float) ($attrs['profit'] ?? 0);
+        $type   = (string) ($attrs['profit_type'] ?? 'FLAT');
+        $special = false;
+
+        if ($user) {
+            $row = $this->relationLoaded('specialPrices')
+                ? $this->specialPrices->firstWhere('user_id', $user->id)
+                : SpecialPrice::where('user_id', $user->id)->where('service_id', $this->id)->first();
+            if ($row) {
+                $profit  = (float) $row->profit;
+                $type    = (string) $row->profit_type;
+                $special = true;
+            }
+        }
+
+        return compact('profit', 'type', 'special');
+    }
+
+    /** Mutate this instance's profit fields for display (does not persist). */
+    public function applyEffectivePricing(?User $user): self
+    {
+        $eff = $this->effectivePricing($user);
+        $this->setAttribute('profit', $eff['profit']);
+        $this->setAttribute('profit_type', $eff['type']);
+        $this->setAttribute('has_special_price', $eff['special']);
+        return $this;
+    }
+
     /**
      * Default logo map by op_code so services that were imported before logos
      * were added to the catalog still get a proper brand logo without re-seeding.
@@ -51,7 +92,8 @@ class Service extends Model
         '198' => 'assets/logos/sltmobitel.png',
         // Airtel
         '180' => 'assets/logos/airtel.png', '170' => 'assets/logos/airtel.png',
-        '120' => 'assets/logos/airtel.png', // Airtel DTH (India placeholder)
+        '120' => 'assets/logos/airtel.png', // Airtel DTH (TopupMart failover)
+        '20'  => 'assets/logos/airtel.png', // Airtel DTH (HRC)
         // Hutch
         '182' => 'assets/logos/hutch.png', '172' => 'assets/logos/hutch.png',
         // Utilities
@@ -67,11 +109,16 @@ class Service extends Model
         '132' => 'assets/logos/ceylinco.png',
         '133' => 'assets/logos/hnbassu.png',
         '134' => 'assets/logos/srilankains.png',
-        // India DTH (placeholder)
+        // India DTH — TopupMart failover placeholders
         '121' => 'assets/logos/dishtv.png',
         '122' => 'assets/logos/sundirect.png',
         '123' => 'assets/logos/tataplay.png',
         '124' => 'assets/logos/d2h.png',
+        // India DTH — Happy Recharge Center operator codes
+        '16'  => 'assets/logos/dishtv.png',
+        '17'  => 'assets/logos/tataplay.png',
+        '18'  => 'assets/logos/d2h.png',
+        '19'  => 'assets/logos/sundirect.png',
         // Wallet / Driver payments
         '104' => 'assets/logos/pickme.png',
         '105' => 'assets/logos/ubereats.png',
@@ -104,12 +151,13 @@ class Service extends Model
      * profit_type = FLAT => fixed LKR.
      * profit_type = PCT  => percentage of amount.
      */
-    public function calculateCashback(float $amount): float
+    public function calculateCashback(float $amount, ?User $user = null): float
     {
-        $profit = (float) $this->profit;
+        $eff    = $this->effectivePricing($user);
+        $profit = $eff['profit'];
         if ($profit <= 0) return 0;
 
-        if ($this->profit_type === 'PCT') {
+        if ($eff['type'] === 'PCT') {
             return round(($amount * $profit) / 100, 2);
         }
         return round($profit, 2);

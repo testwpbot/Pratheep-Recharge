@@ -22,7 +22,9 @@ class AdminServiceController extends Controller
         if ($categoryId = $request->input('category_id')) {
             $query->where('category_id', $categoryId);
         }
-        if ($status = $request->input('status')) {
+        // Default to Active so hidden Topup Mart DTH failover rows stay out of the list.
+        $status = $request->input('status', 'active');
+        if ($status === 'active' || $status === 'inactive') {
             $query->where('is_active', $status === 'active');
         }
         if ($search = $request->input('q')) {
@@ -50,6 +52,12 @@ class AdminServiceController extends Controller
     {
         $data = $request->validate([
             'name'        => 'required|string|max:120',
+            'op_code'     => [
+                'required', 'string', 'max:20',
+                \Illuminate\Validation\Rule::unique('services', 'op_code')
+                    ->ignore($service->id)
+                    ->where(fn ($q) => $q->where('provider_id', $service->provider_id)),
+            ],
             'category_id' => 'nullable|exists:categories,id',
             'type'        => 'required|in:prepaid,postpaid,broadband,utility,tv,insurance,dth,wallet,api',
             'logo'        => 'nullable|string|max:255',
