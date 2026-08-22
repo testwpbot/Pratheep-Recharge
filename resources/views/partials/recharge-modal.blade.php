@@ -23,7 +23,7 @@
           <label id="rcAccountLabel">Mobile / Account Number <span class="req">*</span></label>
           <input type="tel" name="account_number" id="rcAccount" placeholder="e.g. 0771234567" required>
         </div>
-        <div class="field">
+        <div class="field" id="rcNotifyField">
           <label>Notify Number <small style="color:var(--muted);font-weight:600;">(optional)</small></label>
           <input type="tel" name="notify_number" id="rcNotify" placeholder="Same as above if blank">
         </div>
@@ -38,6 +38,15 @@
         <span class="btn-spinner" hidden></span>
       </button>
     </form>
+
+    <div class="rc-modal__confirm" id="rcConfirm" hidden>
+      <h4>Check this payment</h4>
+      <p id="rcConfirmText">Please confirm this bill payment.</p>
+      <div class="rc-modal__confirm-actions">
+        <button type="button" class="btn-admin btn-admin--ghost" id="rcConfirmBack">Go back</button>
+        <button type="button" class="btn-admin btn-admin--gold" id="rcConfirmYes">Yes, pay now</button>
+      </div>
+    </div>
 
     <div class="rc-modal__plan" id="rcPlanBox">
       <div class="rc-modal__plan-label">Selected plan</div>
@@ -208,6 +217,13 @@
 }
 .rc-modal__hint p{margin:0; font-size:13px; font-weight:600; color:var(--navy-800); line-height:1.5;}
 .rc-modal__form input[readonly]{background:#f7f9fd; color:var(--navy-800); font-weight:700; cursor:default;}
+.rc-modal__confirm{text-align:center; padding:8px 4px 2px;}
+.rc-modal__confirm h4{margin:0 0 8px; font-size:18px; font-weight:800; color:var(--navy-900);}
+.rc-modal__confirm p{margin:0 0 16px; font-size:14px; font-weight:600; color:var(--navy-800); line-height:1.55;}
+.rc-modal__confirm-actions{display:flex; gap:10px; justify-content:center; flex-wrap:wrap;}
+.rc-modal.is-confirming .rc-modal__form,
+.rc-modal.is-confirming .rc-modal__plan,
+.rc-modal.is-confirming .rc-modal__hint{display:none;}
 button.service-card{
   font:inherit; color:inherit; text-align:center;
   width:100%; -webkit-appearance:none; appearance:none;
@@ -254,6 +270,12 @@ button.service-card{
   var mSvcId   = document.getElementById('rcServiceId');
   var mAcc     = document.getElementById('rcAccount');
   var mNotify  = document.getElementById('rcNotify');
+  var mNotifyField = document.getElementById('rcNotifyField');
+  var mConfirm = document.getElementById('rcConfirm');
+  var mConfirmText = document.getElementById('rcConfirmText');
+  var mConfirmBack = document.getElementById('rcConfirmBack');
+  var mConfirmYes = document.getElementById('rcConfirmYes');
+  var currentMode = 'reload';
   var mAmount  = document.getElementById('rcAmount');
   var mSubmit  = document.getElementById('rcSubmit');
   var mSpinner = mSubmit.querySelector('.btn-spinner');
@@ -322,12 +344,21 @@ button.service-card{
     var op     = card.dataset.opName;
     var cb     = card.dataset.cb;
     var mode   = card.dataset.mode || 'reload';
+    currentMode = mode;
+    var hideNotify = card.dataset.hideNotify === '1';
     var details;
     try { details = JSON.parse(card.dataset.details || '[]'); } catch(e){ details = []; }
 
     mSvcId.value  = svcId;
     mAcc.value = '';
     mNotify.value = '';
+    if (mNotify){
+      mNotify.disabled = hideNotify;
+      mNotify.value = '';
+    }
+    if (mNotifyField) mNotifyField.hidden = hideNotify;
+    if (mConfirm) mConfirm.hidden = true;
+    modal.classList.remove('is-confirming');
     if (mPlanLogo) mPlanLogo.src = logo;
     mLogo.src = logo;
     mOpName.textContent = op;
@@ -404,7 +435,8 @@ button.service-card{
   function closeModal(){
     modal.hidden = true;
     modal.setAttribute('aria-hidden','true');
-    modal.classList.remove('is-success', 'is-generating');
+    modal.classList.remove('is-success', 'is-generating', 'is-confirming');
+    if (mConfirm) mConfirm.hidden = true;
     unlockBodyScroll();
     mSubmit.disabled = false;
     mSubmit.classList.remove('is-loading');
@@ -434,9 +466,49 @@ button.service-card{
     if (e.key === 'Escape' && !modal.hidden) closeModal();
   });
 
+  function hideConfirm(){
+    if (mConfirm) mConfirm.hidden = true;
+    modal.classList.remove('is-confirming');
+    mForm.style.display = '';
+  }
+  function showBillConfirm(){
+    var amt = parseFloat(mAmount.value || '0');
+    var acc = (mAcc.value || '').trim();
+    var op = (mOpName.textContent || '').trim();
+    if (mConfirmText){
+      mConfirmText.textContent = 'Pay LKR ' + amt.toFixed(2) + ' to ' + acc + (op ? (' for ' + op) : '') + ' from your wallet?';
+    }
+    mForm.style.display = 'none';
+    if (mPlanBox) mPlanBox.style.display = 'none';
+    if (mHint) mHint.hidden = true;
+    if (mConfirm) mConfirm.hidden = false;
+    modal.classList.add('is-confirming');
+  }
+  if (mConfirmBack){
+    mConfirmBack.addEventListener('click', function(){
+      hideConfirm();
+      if (currentMode !== 'plan' && mHint) mHint.hidden = false;
+    });
+  }
+  if (mConfirmYes){
+    mConfirmYes.addEventListener('click', function(){
+      hideConfirm();
+      sendOrder();
+    });
+  }
+
   mForm.addEventListener('submit', function(e){
     e.preventDefault();
     if (mSubmit.disabled) return;
+    if (!mForm.reportValidity()) return;
+    if (currentMode === 'bill'){
+      showBillConfirm();
+      return;
+    }
+    sendOrder();
+  });
+
+  function sendOrder(){
     var fd = new FormData(mForm);
     var started = performance.now();
     var MIN_SPIN = 2200;
@@ -522,7 +594,7 @@ button.service-card{
         else alert(err.message || 'Something went wrong.');
       });
     });
-  });
+  }
 })();
 </script>
 @endonce

@@ -40,10 +40,12 @@
           <div class="hint">The number you want to recharge or pay the bill for.</div>
         </div>
 
+        @unless($service->hidesNotifyNumber())
         <div class="field">
           <label>Notify number (optional)</label>
           <input type="tel" name="notify_number" value="{{ old('notify_number') }}" placeholder="SMS confirmation number">
         </div>
+        @endunless
 
         <div class="field">
           <label>Amount (LKR) <span class="req">*</span></label>
@@ -86,13 +88,27 @@
       </div>
 
       <div style="margin-top:22px; display:flex; gap:10px; flex-wrap:wrap;">
-        <button type="submit" class="btn-admin btn-admin--gold" data-loading="Processing…">
-          <x-icon name="bolt-nav" :size="18"/>
-          Place Order
+        <button type="submit" class="btn-admin btn-admin--gold" data-loading="Processing…" id="rechargeSubmit">
+          <x-icon name="{{ $service->isBillLike() ? 'bill' : 'bolt-nav' }}" :size="18"/>
+          {{ $service->isBillLike() ? 'Pay Bill Now' : 'Place Order' }}
         </button>
         <a href="{{ route('dashboard') }}" class="btn-admin btn-admin--ghost">Cancel</a>
       </div>
     </form>
+
+    @if($service->isBillLike())
+    <div class="rc-modal" id="billConfirm" hidden>
+      <div class="rc-modal__backdrop" data-bill-back></div>
+      <div class="rc-modal__dialog" role="dialog" aria-modal="true" style="max-width:400px; text-align:center;">
+        <h3 style="margin:0 0 8px; font-size:18px; font-weight:800; color:var(--navy-900);">Check this payment</h3>
+        <p id="billConfirmText" style="margin:0 0 18px; font-size:14px; font-weight:600; color:var(--navy-800); line-height:1.55;"></p>
+        <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+          <button type="button" class="btn-admin btn-admin--ghost" data-bill-back>Go back</button>
+          <button type="button" class="btn-admin btn-admin--gold" id="billConfirmYes">Yes, pay now</button>
+        </div>
+      </div>
+    </div>
+    @endif
   @else
     <p style="color:var(--muted); line-height:1.7;">
       You need to sign in before you can place a recharge. It only takes a moment and
@@ -204,6 +220,34 @@
     const cb = profitType === 'PCT' ? (amt*profit/100) : profit;
     txt.textContent = `You'll earn LKR ${cb.toFixed(2)} cashback on a successful order.`;
     note.style.display='flex';
+  }
+
+  var form = document.querySelector('form[action="{{ route('recharge.confirm') }}"]');
+  var confirmBox = document.getElementById('billConfirm');
+  if (form && confirmBox){
+    var acc = form.querySelector('[name=account_number]');
+    var confirmText = document.getElementById('billConfirmText');
+    var allowSubmit = false;
+    form.addEventListener('submit', function(e){
+      if (allowSubmit) return;
+      e.preventDefault();
+      if (!form.reportValidity()) return;
+      var amt = parseFloat(input.value || '0');
+      var num = (acc && acc.value) ? acc.value.trim() : '';
+      confirmText.textContent = 'Pay LKR ' + amt.toFixed(2) + ' to ' + num + ' for {{ addslashes($service->name) }} from your wallet?';
+      confirmBox.hidden = false;
+    });
+    confirmBox.querySelectorAll('[data-bill-back]').forEach(function(btn){
+      btn.addEventListener('click', function(){ confirmBox.hidden = true; });
+    });
+    var yes = document.getElementById('billConfirmYes');
+    if (yes){
+      yes.addEventListener('click', function(){
+        allowSubmit = true;
+        confirmBox.hidden = true;
+        form.submit();
+      });
+    }
   }
 })();
 </script>

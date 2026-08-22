@@ -124,6 +124,23 @@ class Service extends Model
         '105' => 'assets/logos/ubereats.png',
     ];
 
+    public function isBillLike(): bool
+    {
+        $type = strtolower((string) $this->type);
+        $slug = strtolower((string) ($this->category?->slug ?? ''));
+
+        return in_array($type, ['utility', 'postpaid', 'bill', 'insurance', 'wallet'], true)
+            || in_array($slug, ['utility', 'insurance', 'wallet-topup'], true);
+    }
+
+    /** Mobile reload does not use a separate SMS notify number. */
+    public function hidesNotifyNumber(): bool
+    {
+        $slug = strtolower((string) ($this->category?->slug ?? ''));
+
+        return $slug === 'mobile' && ! $this->isBillLike();
+    }
+
     /** Public URL for the operator logo */
     public function getLogoUrlAttribute(): string
     {

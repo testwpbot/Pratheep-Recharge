@@ -53,7 +53,7 @@ class RechargeController extends Controller
     public function form(Service $service): View
     {
         abort_unless($service->is_active, 404);
-        $service->load(['plans', 'specialPrices' => fn ($sp) => $sp->where('user_id', auth()->id())]);
+        $service->load(['category', 'plans', 'specialPrices' => fn ($sp) => $sp->where('user_id', auth()->id())]);
         $service->applyEffectivePricing(auth()->user());
         return view('recharge.form', compact('service'));
     }
@@ -69,7 +69,10 @@ class RechargeController extends Controller
         ]);
 
         $user = $request->user();
-        $service = Service::where('is_active', true)->findOrFail($data['service_id']);
+        $service = Service::where('is_active', true)->with('category')->findOrFail($data['service_id']);
+        if ($service->hidesNotifyNumber()) {
+            $data['notify_number'] = null;
+        }
 
         // Per-type minimum amount (LK market reality):
         // Mobile prepaid/reload generally starts at LKR 50;
