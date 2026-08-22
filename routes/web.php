@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\AdminSpecialPricingController;
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\EmailVerificationController;
+use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Dashboard\ComplaintController;
 use App\Http\Controllers\Dashboard\DashboardController;
@@ -48,6 +49,11 @@ Route::middleware('guest')->group(function () {
     Route::post('/login',   [AuthenticatedSessionController::class, 'store']);
     Route::get('/register', [RegisteredUserController::class, 'create'])->name('register');
     Route::post('/register',[RegisteredUserController::class, 'store']);
+
+    Route::get('/forgot-password',                [PasswordResetController::class, 'create'])->name('password.request');
+    Route::post('/forgot-password',               [PasswordResetController::class, 'store'])->middleware('throttle:5,1')->name('password.email');
+    Route::get('/reset-password/{token}',         [PasswordResetController::class, 'edit'])->name('password.reset');
+    Route::post('/reset-password',                [PasswordResetController::class, 'update'])->middleware('throttle:10,1')->name('password.update');
 
     Route::get('/verify-email',          [EmailVerificationController::class, 'show'])->name('otp.show');
     Route::post('/verify-email',         [EmailVerificationController::class, 'store'])->middleware('throttle:10,1')->name('otp.verify');
