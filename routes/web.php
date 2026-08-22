@@ -165,4 +165,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified.otp', 'adm
     Route::post('/settings/bank',                         [AdminSettingsController::class, 'saveBank'])->name('settings.bank');
     Route::post('/settings/general',                      [AdminSettingsController::class, 'saveGeneral'])->name('settings.general');
     Route::post('/settings/test-smtp',                    [AdminSettingsController::class, 'testSmtp'])->name('settings.test-smtp');
+    Route::post('/settings/admins',                       [AdminSettingsController::class, 'storeAdmin'])->name('settings.admins.store');
+    Route::patch('/settings/admins/{user}',               [AdminSettingsController::class, 'updateAdmin'])->name('settings.admins.update');
+    Route::delete('/settings/admins/{user}',              [AdminSettingsController::class, 'destroyAdmin'])->name('settings.admins.destroy');
 });

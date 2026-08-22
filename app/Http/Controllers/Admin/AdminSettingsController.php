@@ -4,6 +4,9 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Setting;
+use App\Models\User;
+use App\Models\Wallet;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 
@@ -14,8 +17,16 @@ class AdminSettingsController extends Controller
         $smtp = Setting::forGroup('smtp');
         $bank = Setting::forGroup('bank');
         $general = Setting::forGroup('general');
+        $isMainAdmin = auth()->user()?->isMainAdmin() ?? false;
+        $admins = $isMainAdmin
+            ? User::query()
+                ->where('is_admin', true)
+                ->orderByRaw("CASE WHEN admin_role = 'main' THEN 0 ELSE 1 END")
+                ->orderBy('name')
+                ->get()
+            : collect();
 
-        return view('admin.settings.index', compact('smtp', 'bank', 'general'));
+        return view('admin.settings.index', compact('smtp', 'bank', 'general', 'admins', 'isMainAdmin'));
     }
 
     public function saveSmtp(Request $request)
@@ -107,5 +118,135 @@ class AdminSettingsController extends Controller
         } catch (\Throwable $e) {
             return response()->json(['ok' => false, 'message' => 'SMTP error: ' . $e->getMessage()], 500);
         }
+    }
+
+    public function storeAdmin(Request $request): RedirectResponse
+    {
+        $this->assertMainAdmin();
+
+        $data = $request->validate([
+            'name'     => 'required|string|max:255',
+            'email'    => 'required|email|max:255',
+            'phone'    => ['required', 'string', 'max:15', 'regex:/^\+?[0-9]{9,15}$/'],
+            'password' => 'nullable|string|min:8|max:120',
+            'role'     => 'required|in:main,admin',
+        ], [
+            'phone.regex' => 'Enter a valid phone number (e.g. 0771234567).',
+        ]);
+
+        $email = strtolower($data['email']);
+        $phone = $this->normalizePhone($data['phone']);
+        $existing = User::where('email', $email)->first();
+
+        if ($existing && $existing->is_admin) {
+            return $this->adminsBack()->with('error', $existing->name . ' is already an admin.');
+        }
+
+        if (! $existing && User::where('phone', $phone)->exists()) {
+            return $this->adminsBack()->with('error', 'That phone number is already used by another account.');
+        }
+
+        if ($existing && $existing->phone !== $phone && User::where('phone', $phone)->where('id', '!=', $existing->id)->exists()) {
+            return $this->adminsBack()->with('error', 'That phone number is already used by another account.');
+        }
+
+        if (! $existing && empty($data['password'])) {
+            return $this->adminsBack()->with('error', 'Set a password for this new admin.');
+        }
+
+        $user = $existing ?: new User;
+        $user->name = $data['name'];
+        $user->email = $email;
+        $user->phone = $phone;
+        $user->is_admin = true;
+        $user->admin_role = $data['role'];
+        if (! $user->email_verified_at) {
+            $user->email_verified_at = now();
+        }
+        if (! empty($data['password'])) {
+            $user->password = $data['password'];
+        }
+        $user->save();
+
+        Wallet::firstOrCreate(['user_id' => $user->id]);
+
+        $msg = $existing
+            ? $user->name . ' is now a ' . $user->adminRoleLabel() . '.'
+            : 'Added ' . $user->name . ' as ' . $user->adminRoleLabel() . '.';
+
+        return $this->adminsBack()->with('success', $msg);
+    }
+
+    public function updateAdmin(Request $request, User $user): RedirectResponse
+    {
+        $this->assertMainAdmin();
+
+        $data = $request->validate([
+            'role' => 'required|in:main,admin',
+        ]);
+
+        if (! $user->is_admin) {
+            return $this->adminsBack()->with('error', 'That person is not an admin.');
+        }
+
+        if ($user->isMainAdmin() && $data['role'] !== User::ADMIN_ROLE_MAIN && $this->mainAdminCount() <= 1) {
+            return $this->adminsBack()->with('error', 'Keep at least one main admin.');
+        }
+
+        $user->forceFill(['admin_role' => $data['role']])->save();
+
+        return $this->adminsBack()->with('success', $user->name . ' is now ' . $user->adminRoleLabel() . '.');
+    }
+
+    public function destroyAdmin(Request $request, User $user): RedirectResponse
+    {
+        $this->assertMainAdmin();
+
+        if (! $user->is_admin) {
+            return $this->adminsBack()->with('error', 'That person is not an admin.');
+        }
+
+        if ($user->id === auth()->id()) {
+            return $this->adminsBack()->with('error', 'You cannot remove your own admin access.');
+        }
+
+        if ($user->isMainAdmin() && $this->mainAdminCount() <= 1) {
+            return $this->adminsBack()->with('error', 'Keep at least one main admin.');
+        }
+
+        $user->forceFill([
+            'is_admin'   => false,
+            'admin_role' => null,
+        ])->save();
+
+        return $this->adminsBack()->with('success', $user->name . ' can no longer open the admin panel.');
+    }
+
+    protected function assertMainAdmin(): void
+    {
+        abort_unless(auth()->user()?->isMainAdmin(), 403, 'Only a main admin can manage admins.');
+    }
+
+    protected function mainAdminCount(): int
+    {
+        return User::query()
+            ->where('is_admin', true)
+            ->where('admin_role', User::ADMIN_ROLE_MAIN)
+            ->count();
+    }
+
+    protected function adminsBack(): RedirectResponse
+    {
+        return redirect()->route('admin.settings.index', ['tab' => 'admins']);
+    }
+
+    protected function normalizePhone(string $phone): string
+    {
+        $phone = preg_replace('/[^\d+]/', '', $phone);
+        if (str_starts_with($phone, '0') && ! str_starts_with($phone, '+')) {
+            $phone = '+94' . substr($phone, 1);
+        }
+
+        return $phone;
     }
 }

@@ -12,6 +12,9 @@
     <button type="button" class="set-tab active" data-set-tab="general">General</button>
     <button type="button" class="set-tab" data-set-tab="bank">Bank Details</button>
     <button type="button" class="set-tab" data-set-tab="smtp">SMTP / Email</button>
+    @if($isMainAdmin)
+      <button type="button" class="set-tab" data-set-tab="admins">Admins</button>
+    @endif
   </div>
 
   {{-- ===== GENERAL ===== --}}
@@ -139,6 +142,102 @@
       </div>
     </form>
   </div>
+
+  @if($isMainAdmin)
+  <div class="set-panel" data-set-panel="admins">
+    <p style="color:var(--muted); font-size:13px; font-weight:600; margin:0 0 16px;">
+      Main admin can add people who can open the admin panel. <b>Main admin</b> can add or remove admins.
+      <b>Admin</b> can run the site, but cannot add other admins.
+    </p>
+
+    <form method="POST" action="{{ route('admin.settings.admins.store') }}" style="margin-bottom:22px; padding:16px; border:1px solid var(--line); border-radius:14px; background:#f7f9fd;">
+      @csrf
+      <div class="form-grid">
+        <div class="field">
+          <label>Name <span class="req">*</span></label>
+          <input type="text" name="name" value="{{ old('name') }}" required>
+        </div>
+        <div class="field">
+          <label>Email <span class="req">*</span></label>
+          <input type="email" name="email" value="{{ old('email') }}" required>
+        </div>
+        <div class="field">
+          <label>Phone <span class="req">*</span></label>
+          <input type="tel" name="phone" value="{{ old('phone') }}" placeholder="0771234567" required>
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input type="password" name="password" minlength="8" autocomplete="new-password" placeholder="Needed for a new person">
+          <div class="hint">If this email already has a customer account, we promote them and password can stay empty.</div>
+        </div>
+        <div class="field">
+          <label>Role <span class="req">*</span></label>
+          <select name="role" required>
+            <option value="admin" @selected(old('role','admin')==='admin')>Admin</option>
+            <option value="main" @selected(old('role')==='main')>Main admin</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:16px; display:flex; justify-content:flex-end;">
+        <button type="submit" class="btn-admin btn-admin--gold">
+          <span class="btn-label"><x-icon name="plus" :size="14"/> Add admin</span>
+          <span class="btn-spinner" hidden></span>
+        </button>
+      </div>
+    </form>
+
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Role</th>
+            <th class="col-actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+        @forelse ($admins as $a)
+          <tr>
+            <td>
+              <b>{{ $a->name }}</b>
+              @if($a->id === auth()->id())<br><small style="color:var(--muted);">you</small>@endif
+            </td>
+            <td>{{ $a->email }}</td>
+            <td>{{ $a->phone }}</td>
+            <td>
+              <form method="POST" action="{{ route('admin.settings.admins.update', $a) }}">
+                @csrf
+                @method('PATCH')
+                <select name="role" onchange="this.form.submit()" style="height:36px; padding:0 10px; border-radius:9px; border:1.6px solid rgba(11,42,91,.16); font:inherit; font-weight:700; font-size:13px;">
+                  <option value="admin" @selected(!$a->isMainAdmin())>Admin</option>
+                  <option value="main" @selected($a->isMainAdmin())>Main admin</option>
+                </select>
+              </form>
+            </td>
+            <td class="col-actions">
+              <div class="td-actions">
+                @if($a->id !== auth()->id())
+                  <form method="POST" action="{{ route('admin.settings.admins.destroy', $a) }}" onsubmit="return confirm('Remove admin access for {{ addslashes($a->name) }}? They can still sign in as a customer.');">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="btn-admin btn-admin--danger btn-admin--sm">Remove</button>
+                  </form>
+                @else
+                  <em style="color:var(--muted); font-size:12px;">Your account</em>
+                @endif
+              </div>
+            </td>
+          </tr>
+        @empty
+          <tr><td colspan="5" style="text-align:center; color:var(--muted); padding:24px;">No admins yet.</td></tr>
+        @endforelse
+        </tbody>
+      </table>
+    </div>
+  </div>
+  @endif
 </div>
 
 @endsection
@@ -149,13 +248,21 @@
   // Tab switching
   var tabs = document.querySelectorAll('.set-tab');
   var panels = document.querySelectorAll('.set-panel');
-  tabs.forEach(function(t){
-    t.addEventListener('click', function(){
-      var key = t.dataset.setTab;
-      tabs.forEach(function(x){ x.classList.toggle('active', x===t); });
-      panels.forEach(function(p){ p.classList.toggle('active', p.dataset.setPanel === key); });
+  function openTab(key){
+    var found = false;
+    tabs.forEach(function(x){
+      var on = x.dataset.setTab === key;
+      x.classList.toggle('active', on);
+      if (on) found = true;
     });
+    if (!found) return;
+    panels.forEach(function(p){ p.classList.toggle('active', p.dataset.setPanel === key); });
+  }
+  tabs.forEach(function(t){
+    t.addEventListener('click', function(){ openTab(t.dataset.setTab); });
   });
+  var q = new URLSearchParams(window.location.search).get('tab');
+  if (q) openTab(q);
 
   // SMTP test
   var testBtn = document.getElementById('testSmtpBtn');

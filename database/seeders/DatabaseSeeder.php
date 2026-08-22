@@ -56,14 +56,18 @@ class DatabaseSeeder extends Seeder
             ]);
         }
 
-        // Default admin account
-        User::firstOrCreate(['email' => 'admin@happypratheep.lk'], [
+        // Default owner account
+        $owner = User::firstOrCreate(['email' => 'admin@happypratheep.lk'], [
             'name'              => 'Admin',
             'phone'             => '+94770000000',
             'password'          => Hash::make('admin123'),
             'is_admin'          => true,
+            'admin_role'        => User::ADMIN_ROLE_MAIN,
             'email_verified_at' => now(),
         ]);
+        if ($owner->is_admin && $owner->admin_role !== User::ADMIN_ROLE_MAIN) {
+            $owner->forceFill(['admin_role' => User::ADMIN_ROLE_MAIN])->save();
+        }
 
         // Seed the services catalog (op_codes) from providers BEFORE plans,
         // because PlansSeeder attaches plans to existing Service rows.

@@ -14,7 +14,7 @@ class User extends Authenticatable
 
     protected $fillable = [
         'name', 'email', 'phone', 'avatar', 'password',
-        'is_admin', 'is_retailer', 'last_login_ip', 'last_login_at', 'last_login_user_agent',
+        'is_admin', 'admin_role', 'is_retailer', 'last_login_ip', 'last_login_at', 'last_login_user_agent',
     ];
     protected $hidden   = ['password', 'remember_token'];
 
@@ -47,6 +47,28 @@ class User extends Authenticatable
     public function specialPrices(): HasMany
     {
         return $this->hasMany(SpecialPrice::class);
+    }
+
+    public const ADMIN_ROLE_MAIN = 'main';
+    public const ADMIN_ROLE_ADMIN = 'admin';
+
+    public function isAdmin(): bool
+    {
+        return (bool) $this->is_admin;
+    }
+
+    public function isMainAdmin(): bool
+    {
+        return $this->is_admin && $this->admin_role === self::ADMIN_ROLE_MAIN;
+    }
+
+    public function adminRoleLabel(): string
+    {
+        if (! $this->is_admin) {
+            return 'Customer';
+        }
+
+        return $this->admin_role === self::ADMIN_ROLE_MAIN ? 'Main admin' : 'Admin';
     }
 
     /** Avatar URL (uploaded or generated initials) */

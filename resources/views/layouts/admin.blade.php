@@ -71,6 +71,7 @@
 
     <div class="app-sidebar__footer">
       Logged in as<br><b style="color:#fff">{{ auth()->user()->name }}</b>
+      <div style="margin-top:4px;color:var(--gold-400);font-weight:700;letter-spacing:.04em;">{{ auth()->user()->adminRoleLabel() }}</div>
       <form method="POST" action="{{ route('logout') }}">
         @csrf
         <button type="submit" data-loading="Signing out…">
