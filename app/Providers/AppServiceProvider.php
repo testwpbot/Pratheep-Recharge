@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\Alert;
 use App\Models\Wallet;
 use App\Support\WalletLimits;
 use Illuminate\Support\Facades\View;
@@ -26,13 +27,20 @@ class AppServiceProvider extends ServiceProvider
 
         View::composer('layouts.dashboard', function ($view) {
             $user = auth()->user();
-            if (! $user || $user->isAdmin()) {
+            if (! $user) {
                 $view->with('walletNotice', null);
+                $view->with('dashboardAlerts', collect());
                 return;
             }
 
-            $wallet = $user->wallet ?: Wallet::firstOrCreate(['user_id' => $user->id]);
-            $view->with('walletNotice', WalletLimits::notice($user, $wallet));
+            if ($user->isAdmin()) {
+                $view->with('walletNotice', null);
+            } else {
+                $wallet = $user->wallet ?: Wallet::firstOrCreate(['user_id' => $user->id]);
+                $view->with('walletNotice', WalletLimits::notice($user, $wallet));
+            }
+
+            $view->with('dashboardAlerts', Alert::forDashboard($user));
         });
     }
 }

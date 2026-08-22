@@ -15,7 +15,7 @@ class SafeHtml
     /** @var list<string> */
     protected static array $tags = [
         'p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'strike',
-        'ul', 'ol', 'li', 'a', 'h3', 'h4', 'h5', 'span',
+        'ul', 'ol', 'li', 'a', 'h2', 'h3', 'h4', 'h5', 'span',
     ];
 
     public static function clean(?string $html): string

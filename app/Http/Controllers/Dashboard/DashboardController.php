@@ -55,12 +55,9 @@ class DashboardController extends Controller
             return [$cat->slug => $cat->services];
         });
 
-        $dashboardAlerts = Alert::forDashboard($user);
-
         return view('dashboard.index', compact(
             'user', 'wallet', 'orders', 'stats',
-            'categories', 'activeCategory', 'servicesByCategory',
-            'dashboardAlerts'
+            'categories', 'activeCategory', 'servicesByCategory'
         ));
     }
 

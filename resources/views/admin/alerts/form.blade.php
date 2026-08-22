@@ -12,7 +12,7 @@
     <div class="card__head">
       <div>
         <h3>{{ $alert->exists ? 'Edit alert' : 'New alert' }}</h3>
-        <small style="color:var(--muted); font-weight:600;">Customers see this on the dashboard after they sign in. Not on the homepage.</small>
+        <small style="color:var(--muted); font-weight:600;">This opens as a popup on account pages after they sign in. Not on the homepage.</small>
       </div>
     </div>
 
@@ -131,7 +131,7 @@
             <input type="checkbox" name="is_dismissible" value="1" {{ old('is_dismissible', $alert->is_dismissible) ? 'checked' : '' }}>
             <span class="sw__slider"></span>
           </label>
-          <div class="hint">If on, they can close the banner.</div>
+          <div class="hint">If on, they can close the popup and it stays hidden.</div>
         </div>
       </div>
 
@@ -146,11 +146,11 @@
   </div>
 
   <div>
-    <p class="fund-subhead">How it looks</p>
-    <div id="alertPreviewWrap">
+    <p class="fund-subhead">How the popup looks</p>
+    <div id="alertPreviewWrap" class="hpr-alert-pop is-preview">
       @include('partials.dashboard-alert', ['alert' => $alert, 'preview' => true])
     </div>
-    <p style="margin:12px 0 0; color:var(--muted); font-size:12.5px; font-weight:600; line-height:1.5;">This is the banner customers see at the top of My Dashboard.</p>
+    <p style="margin:12px 0 0; color:var(--muted); font-size:12.5px; font-weight:600; line-height:1.5;">Customers see this as a popup card on Wallet, Plans, Orders and the other account pages — not stuck on the page.</p>
   </div>
 </div>
 
@@ -229,11 +229,11 @@
       height: 260,
       plugins: 'lists link autolink',
       toolbar: 'undo redo | blocks | bold italic underline | forecolor | alignleft aligncenter alignright | bullist numlist | link | removeformat',
-      block_formats: 'Paragraph=p; Heading=h3; Small heading=h4',
+      block_formats: 'Paragraph=p; Big heading=h2; Heading=h3; Small heading=h4',
       convert_urls: false,
       link_default_target: '_blank',
       link_assume_external_targets: true,
-      content_style: 'body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;font-size:14.5px;line-height:1.55;color:#182033;padding:8px 4px;} p{margin:0 0 .7em;} p:last-child{margin-bottom:0;}',
+      content_style: 'body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;font-size:16px;line-height:1.65;color:#182033;padding:10px 8px;} p{margin:0 0 .75em;} p:last-child{margin-bottom:0;} h2{font-size:32px;line-height:1.2;font-weight:800;margin:0 0 .45em;letter-spacing:-.02em;} h3{font-size:24px;line-height:1.25;font-weight:800;margin:0 0 .45em;letter-spacing:-.02em;} h4{font-size:19px;line-height:1.3;font-weight:800;margin:0 0 .4em;}',
       setup: function(ed){
         editor = ed;
         ed.on('change keyup undo redo SetContent', function(){
