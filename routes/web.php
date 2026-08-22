@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AdminComplaintController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminDepositController;
+use App\Http\Controllers\Admin\AdminFundsController;
 use App\Http\Controllers\Admin\AdminOrderController;
 use App\Http\Controllers\Admin\AdminPlanController;
 use App\Http\Controllers\Admin\AdminProviderController;
@@ -99,6 +100,11 @@ Route::middleware('auth')->group(function () {
 */
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(function () {
     Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
+
+    // Funds health (provider float vs customer wallets)
+    Route::get('/funds',                                  [AdminFundsController::class, 'index'])->name('funds.index');
+    Route::post('/funds/refresh',                         [AdminFundsController::class, 'refresh'])->name('funds.refresh');
+    Route::post('/funds/settings',                        [AdminFundsController::class, 'saveSettings'])->name('funds.settings');
 
     // Providers
     Route::get('/providers',                              [AdminProviderController::class, 'index'])->name('providers.index');

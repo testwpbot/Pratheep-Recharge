@@ -26,7 +26,7 @@
         <div class="field">
           <label>Support Email</label>
           <input type="email" name="support_email" value="{{ old('support_email', $general['support_email'] ?? '') }}" placeholder="admin@happypratheep.lk">
-          <div class="hint">Deposit request emails are sent here.</div>
+          <div class="hint">Deposit requests and low provider-fund alerts are sent here.</div>
         </div>
         <div class="field">
           <label>Support Phone</label>

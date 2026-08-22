@@ -28,6 +28,11 @@
       <a href="{{ route('admin.dashboard') }}" class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
         <x-icon name="home" :size="18" /> Dashboard
       </a>
+      <a href="{{ route('admin.funds.index') }}" class="{{ request()->routeIs('admin.funds.*') ? 'active' : '' }}">
+        <x-icon name="wallet" :size="18" /> Funds Health
+        @php $fundLow = \Illuminate\Support\Facades\Cache::get('funds:overall_status') === 'low'; @endphp
+        @if($fundLow) <em class="sb-badge">!</em> @endif
+      </a>
       <a href="{{ route('admin.providers.index') }}" class="{{ request()->routeIs('admin.providers.*') ? 'active' : '' }}">
         <x-icon name="wifi" :size="18" /> Providers
       </a>

@@ -6,15 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Models\Complaint;
 use App\Models\Order;
 use App\Models\Provider;
+use App\Models\ProviderBalanceSnapshot;
 use App\Models\Service;
 use App\Models\User;
-use App\Services\ProviderFactory;
-use Illuminate\Http\Request;
+use App\Models\WalletTransaction;
+use App\Services\FundHealthService;
 use Illuminate\View\View;
 
 class AdminDashboardController extends Controller
 {
-    public function index(): View
+    public function index(FundHealthService $funds): View
     {
         $stats = [
             'users'      => User::where('is_admin', false)->count(),
@@ -31,6 +32,14 @@ class AdminDashboardController extends Controller
         $recentOrders = Order::with(['user', 'service', 'provider'])->latest()->limit(15)->get();
         $providers = Provider::all();
 
-        return view('admin.dashboard.index', compact('stats', 'recentOrders', 'providers'));
+        $health = $funds->overview(false);
+        $byId = collect($health['providers'])->keyBy('id');
+
+        $recentWallet = WalletTransaction::with(['wallet.user'])->latest('id')->limit(8)->get();
+        $recentSnaps = ProviderBalanceSnapshot::with('provider')->latest('id')->limit(8)->get();
+
+        return view('admin.dashboard.index', compact(
+            'stats', 'recentOrders', 'providers', 'health', 'byId', 'recentWallet', 'recentSnaps'
+        ));
     }
 }

@@ -22,6 +22,17 @@ class Provider extends Model
         return $this->hasMany(Service::class);
     }
 
+    public function balanceSnapshots(): HasMany
+    {
+        return $this->hasMany(ProviderBalanceSnapshot::class);
+    }
+
+    /** Wallet currency used when talking to this API. */
+    public function currency(): string
+    {
+        return strtoupper((string) $this->country) === 'IN' ? 'INR' : 'LKR';
+    }
+
     public function isHappyRechargeCenter(): bool
     {
         $class = (string) $this->api_class;
@@ -51,7 +62,7 @@ class Provider extends Model
      *
      * @return array{balance:?float,error:?string}
      */
-    public function fetchBalanceInfo(): array
+    public function fetchBalanceInfo(bool $fresh = false): array
     {
         if (! $this->is_active) {
             return ['balance' => null, 'error' => 'Provider is disabled'];
@@ -60,7 +71,12 @@ class Provider extends Model
             return ['balance' => null, 'error' => 'No API key'];
         }
 
-        return Cache::remember("provider:{$this->id}:balance_info", 60, function () {
+        $key = "provider:{$this->id}:balance_info";
+        if ($fresh) {
+            Cache::forget($key);
+        }
+
+        return Cache::remember($key, 60, function () {
             try {
                 $client = ProviderFactory::make($this);
                 $bal = $client->balance();

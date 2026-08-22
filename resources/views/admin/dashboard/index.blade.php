@@ -14,6 +14,68 @@
 
 <div class="card">
   <div class="card__head">
+    <div>
+      <h3>Funds Health</h3>
+      <small style="color:var(--muted); font-weight:600;">Provider API wallets vs money customers hold on this site.</small>
+    </div>
+    <a href="{{ route('admin.funds.index') }}" class="btn-admin btn-admin--gold btn-admin--sm">Full history</a>
+  </div>
+
+  @include('admin.funds._health', ['health' => $health])
+
+  <div class="fund-split" style="margin-top:18px;">
+    <div>
+      <h4 class="fund-subhead">Recent wallet movements</h4>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>When</th><th>Customer</th><th>Type</th><th>Amount</th></tr></thead>
+          <tbody>
+          @forelse ($recentWallet as $tx)
+            @php $u = $tx->wallet?->user; @endphp
+            <tr>
+              <td><small>{{ $tx->created_at->diffForHumans() }}</small></td>
+              <td>{{ $u->name ?? '—' }}</td>
+              <td><span class="pill pill--{{ $tx->type === 'debit' ? 'failed' : 'success' }}">{{ ucfirst($tx->type) }}</span></td>
+              <td><b>{{ $tx->isCredit() ? '+' : '−' }} LKR {{ number_format(abs((float) $tx->amount), 2) }}</b></td>
+            </tr>
+          @empty
+            <tr><td colspan="4" style="text-align:center; color:var(--muted); padding:20px;">No wallet activity yet.</td></tr>
+          @endforelse
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div>
+      <h4 class="fund-subhead">Recent provider snapshots</h4>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>When</th><th>Provider</th><th>Balance</th><th>Status</th></tr></thead>
+          <tbody>
+          @forelse ($recentSnaps as $s)
+            <tr>
+              <td><small>{{ $s->created_at->diffForHumans() }}</small></td>
+              <td>{{ $s->provider->name ?? '—' }}</td>
+              <td>
+                @if($s->balance === null)
+                  <span class="pill pill--failed">{{ \App\Models\Provider::balanceErrorLabel($s->error) }}</span>
+                @else
+                  {{ $s->currency }} {{ number_format($s->balance, 2) }}
+                @endif
+              </td>
+              <td><span class="pill pill--{{ $s->status === 'healthy' ? 'success' : ($s->status === 'low' ? 'failed' : 'pending') }}">{{ ucfirst($s->status) }}</span></td>
+            </tr>
+          @empty
+            <tr><td colspan="4" style="text-align:center; color:var(--muted); padding:20px;">No snapshots yet — open Funds Health and refresh.</td></tr>
+          @endforelse
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:20px;">
+  <div class="card__head">
     <h3>Providers</h3>
     <a href="{{ route('admin.providers.index') }}" class="btn-admin btn-admin--ghost btn-admin--sm">Manage providers</a>
   </div>
@@ -24,8 +86,9 @@
     <tbody>
     @foreach ($providers as $p)
       @php
-        $info = $p->is_active && $p->api_key ? $p->fetchBalanceInfo() : ['balance' => null, 'error' => null];
-        $bal = $info['balance'];
+        $row = $byId[$p->id] ?? null;
+        $bal = $row['balance'] ?? null;
+        $err = $row['error'] ?? null;
       @endphp
       <tr>
         <td><b>{{ $p->name }}</b><br><small style="color:var(--muted)">{{ $p->base_url ?: '(no URL configured)' }}</small></td>
@@ -39,9 +102,9 @@
           @elseif (!$p->api_key)
             <em style="color:var(--muted)">no API key</em>
           @elseif ($bal === null)
-            <span class="pill pill--failed" title="{{ $info['error'] }}">{{ \App\Models\Provider::balanceErrorLabel($info['error']) }}</span>
+            <span class="pill pill--failed" title="{{ $err }}">{{ \App\Models\Provider::balanceErrorLabel($err) }}</span>
           @else
-            @php $cur = strtoupper($p->country) === 'IN' ? 'INR' : 'LKR'; @endphp
+            @php $cur = $p->currency(); @endphp
             <b style="color:var(--gold-600); font-size:15px;">{{ $cur }} {{ number_format($bal, 2) }}</b>
           @endif
         </td>

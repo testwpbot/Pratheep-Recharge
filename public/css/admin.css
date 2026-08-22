@@ -115,6 +115,65 @@ textarea.hpr-input, .hpr-input--ta{
 }
 .hpr-input::placeholder{color:var(--muted); font-weight:500;}
 
+/* ----- Funds Health (dashboard + /admin/funds) ----- */
+.fund-kpis{
+  display:grid; gap:14px;
+  grid-template-columns:repeat(3, minmax(0,1fr));
+  margin-bottom:14px;
+}
+.fund-kpi{
+  background:#f7f9fd; border:1px solid var(--line); border-radius:14px;
+  padding:16px 18px; min-width:0;
+}
+.fund-kpi span{
+  display:block; font-size:11px; font-weight:800; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--muted);
+}
+.fund-kpi b{
+  display:block; margin-top:6px; font-size:22px; font-weight:800;
+  color:var(--navy-900); letter-spacing:-.02em; word-break:break-word;
+}
+.fund-kpi small{display:block; margin-top:4px; font-size:12px; font-weight:600; color:var(--muted);}
+.fund-kpi--low{background:#fdecec; border-color:#fecaca;}
+.fund-kpi--low b{color:#a52222;}
+.fund-kpi--healthy{background:#e5f7ec; border-color:#bbf0cd;}
+.fund-kpi--healthy b{color:#15733f;}
+.fund-kpi--unknown{background:#fff8e8; border-color:rgba(232,163,23,.35);}
+.fund-bar{
+  margin-top:10px; height:8px; border-radius:999px; background:rgba(11,42,91,.1); overflow:hidden;
+}
+.fund-bar__fill{height:100%; border-radius:999px; background:linear-gradient(90deg,var(--gold-300),var(--gold-500));}
+.fund-bar__fill--healthy{background:linear-gradient(90deg,#37d67a,#1c7a49);}
+.fund-bar__fill--low{background:linear-gradient(90deg,#f87171,#b91c1c);}
+.fund-pay{
+  display:flex; gap:12px; align-items:flex-start;
+  padding:14px 16px; border-radius:14px;
+  background:#fff6e5; border:1px solid rgba(232,163,23,.45);
+  margin-bottom:8px;
+}
+.fund-pay__icon{
+  width:36px; height:36px; border-radius:10px; flex:none;
+  background:linear-gradient(135deg,var(--gold-300),var(--gold-500));
+  color:#2a1a00; display:inline-flex; align-items:center; justify-content:center;
+}
+.fund-pay__body strong{display:block; font-size:13px; letter-spacing:.06em; text-transform:uppercase; color:#8a5a00;}
+.fund-pay__body p{margin:6px 0 0; font-size:14px; font-weight:600; color:var(--navy-800); line-height:1.45;}
+.fund-ok{
+  padding:12px 14px; border-radius:12px; margin-bottom:8px;
+  background:#e5f7ec; color:#15733f; font-weight:700; font-size:13.5px;
+}
+.fund-subhead{
+  margin:0 0 10px; font-size:13px; font-weight:800; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--muted);
+}
+.fund-split{
+  display:grid; gap:18px; grid-template-columns:1fr 1fr;
+}
+@media (max-width:820px){
+  .fund-kpis{grid-template-columns:1fr;}
+  .fund-split{grid-template-columns:1fr;}
+}
+
 /* ----- stats grid ----- */
 .stats-grid{
   display:grid; gap:18px;

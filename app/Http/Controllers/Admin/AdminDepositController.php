@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\DepositApproved;
 use App\Mail\DepositRejected;
 use App\Models\WalletDeposit;
+use App\Services\FundHealthService;
 use App\Services\WalletService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -46,6 +47,13 @@ class AdminDepositController extends Controller
 
         $deposit = $wallet->approve($deposit, auth()->id(), $validated['admin_note'] ?? null);
         $deposit->load('user.wallet');
+
+        // Customer wallets just went up — re-check provider float vs liability.
+        try {
+            app(FundHealthService::class)->check(fresh: false, persist: true, alert: true);
+        } catch (\Throwable $e) {
+            \Log::warning('Funds check after deposit failed: ' . $e->getMessage());
+        }
 
         // Notify customer
         $emailSent = false;
