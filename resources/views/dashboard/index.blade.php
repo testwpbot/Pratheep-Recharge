@@ -93,7 +93,7 @@
                         data-op-name="{{ $s->name }}"
                         data-mode="{{ $isBill ? 'bill' : 'reload' }}"
                         data-category="{{ $catSlug }}"
-                        data-hide-notify="{{ (!$isBill && $catSlug === 'mobile') ? '1' : '0' }}">
+                        data-hide-notify="{{ ($catSlug === 'mobile' || $svcType === 'postpaid') ? '1' : '0' }}">
                   @if ((float) $s->profit > 0)
                     <span class="cb-badge">
                       @if ($s->profit_type === 'PCT') {{ number_format($s->profit, 2) }}% cashback

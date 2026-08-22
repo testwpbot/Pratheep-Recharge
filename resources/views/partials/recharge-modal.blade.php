@@ -346,7 +346,7 @@ button.service-card{
     var mode   = card.dataset.mode || 'reload';
     currentMode = mode;
     var hideNotify = card.dataset.hideNotify === '1'
-      || (mode !== 'bill' && (card.dataset.category || '') === 'mobile');
+      || (card.dataset.category || '') === 'mobile';
     var details;
     try { details = JSON.parse(card.dataset.details || '[]'); } catch(e){ details = []; }
 

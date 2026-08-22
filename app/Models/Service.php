@@ -133,12 +133,13 @@ class Service extends Model
             || in_array($slug, ['utility', 'insurance', 'wallet-topup'], true);
     }
 
-    /** Mobile reload does not use a separate SMS notify number. */
+    /** Mobile reload and postpaid do not use a separate SMS notify number. */
     public function hidesNotifyNumber(): bool
     {
         $slug = strtolower((string) ($this->category?->slug ?? ''));
+        $type = strtolower((string) $this->type);
 
-        return $slug === 'mobile' && ! $this->isBillLike();
+        return $slug === 'mobile' || $type === 'postpaid';
     }
 
     /** Public URL for the operator logo */

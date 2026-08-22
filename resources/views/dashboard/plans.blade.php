@@ -203,7 +203,7 @@
                            data-validity="{{ $p->validity ?? $grp['label'] . ' plan' }}"
                            data-logo="{{ $g->logo ? asset($g->logo) : asset('assets/logo-mark.png') }}"
                            data-op-name="{{ $g->label }}{{ !empty($g->tag) ? ' ' . $g->tag : '' }}"
-                           data-hide-notify="{{ $cat->slug === 'mobile' ? '1' : '0' }}"
+                           data-hide-notify="{{ ($cat->slug === 'mobile' || strtolower((string) ($g->tag ?? '')) === 'postpaid') ? '1' : '0' }}"
                            data-cb="{{ number_format($cb, 2) }}"
                            data-details="{{ json_encode($metaDetails, JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT) }}">
                           @if ($cb > 0)
@@ -240,7 +240,7 @@
                      data-service-id="{{ $g->primary->id }}"
                      data-logo="{{ $g->logo ? asset($g->logo) : asset('assets/logo-mark.png') }}"
                      data-op-name="{{ $g->label }}{{ !empty($g->tag) ? ' ' . $g->tag : '' }}"
-                     data-hide-notify="{{ $cat->slug === 'mobile' ? '1' : '0' }}"
+                     data-hide-notify="{{ ($cat->slug === 'mobile' || strtolower((string) ($g->tag ?? '')) === 'postpaid') ? '1' : '0' }}"
                      data-mode="reload">
                     <x-icon name="bolt-nav" :size="13"/> Custom amount
                   </button>
@@ -253,6 +253,7 @@
                        data-service-id="{{ $billSvc->id }}"
                        data-logo="{{ $g->logo ? asset($g->logo) : asset('assets/logo-mark.png') }}"
                        data-op-name="{{ $g->bill_label ?? ('Pay ' . $billSvc->name) }}"
+                       data-hide-notify="{{ ($cat->slug === 'mobile' || strtolower((string) $billSvc->type) === 'postpaid') ? '1' : '0' }}"
                        data-mode="bill">
                       <x-icon name="bill" :size="13"/>
                       {{ $g->bill_label ?? ('Pay ' . $billSvc->name) }}
@@ -267,6 +268,7 @@
                      data-service-id="{{ $g->primary->id }}"
                      data-logo="{{ $g->logo ? asset($g->logo) : asset('assets/logo-mark.png') }}"
                      data-op-name="{{ $g->bill_label ?? ('Pay ' . $g->label) }}"
+                     data-hide-notify="{{ ($cat->slug === 'mobile' || strtolower((string) ($g->primary->type ?? '')) === 'postpaid' || strtolower((string) ($g->tag ?? '')) === 'postpaid') ? '1' : '0' }}"
                      data-mode="bill">
                     <x-icon name="bill" :size="13"/>
                     {{ $g->bill_label ?? ('Pay ' . $g->label) }}
@@ -1330,7 +1332,7 @@
     var cb     = card.dataset.cb;
     var mode   = card.dataset.mode || 'plan';
     currentMode = mode;
-    var hideNotify = card.dataset.hideNotify === '1';
+    var hideNotify = card.dataset.hideNotify === '1' || /postpaid/i.test(card.dataset.opName || '');
     var details;
     try { details = JSON.parse(card.dataset.details || '[]'); } catch(e){ details = []; }
 

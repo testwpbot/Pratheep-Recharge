@@ -54,6 +54,18 @@ class RechargeNotifyAndConfirmTest extends TestCase
             ->assertDontSee('Check this payment', false);
     }
 
+    public function test_mobile_postpaid_form_hides_notify_number(): void
+    {
+        $user = User::factory()->create();
+        $svc = $this->service('mobile', 'postpaid', 'Dialog Postpaid');
+
+        $this->actingAs($user)
+            ->get(route('recharge.form', $svc))
+            ->assertOk()
+            ->assertDontSee('Notify number', false)
+            ->assertSee('Pay Bill Now', false);
+    }
+
     public function test_utility_bill_form_keeps_notify_and_asks_to_confirm(): void
     {
         $user = User::factory()->create();
