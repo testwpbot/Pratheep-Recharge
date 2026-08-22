@@ -97,6 +97,36 @@ class Setting extends Model
         ];
     }
 
+    /**
+     * Phone / email shown in the public top bar and footer.
+     *
+     * @return array{phone:string,email:string,address:string,hours:string}
+     */
+    public static function contact(): array
+    {
+        $out = [
+            'phone'   => '+94 77 123 4567',
+            'email'   => 'hello@happypratheep.lk',
+            'address' => 'Main Street, Negombo, Western Province, Sri Lanka',
+            'hours'   => 'Open 24 hours · 7 days',
+        ];
+
+        try {
+            $phone = trim((string) static::get('general', 'support_phone', ''));
+            $email = trim((string) static::get('general', 'support_email', ''));
+            if ($phone !== '') {
+                $out['phone'] = $phone;
+            }
+            if ($email !== '') {
+                $out['email'] = $email;
+            }
+        } catch (\Throwable $e) {
+            // Settings table may not be ready yet.
+        }
+
+        return $out;
+    }
+
     /** Turn 0771234567 / +94 77 123 4567 into digits WhatsApp accepts. */
     public static function whatsappDigits(?string $phone): string
     {

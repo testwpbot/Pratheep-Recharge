@@ -25,6 +25,12 @@ class AppServiceProvider extends ServiceProvider
     {
         date_default_timezone_set(config('app.timezone', 'Asia/Colombo'));
 
+        View::composer('layouts.app', function ($view) {
+            if (! $view->offsetExists('contact')) {
+                $view->with('contact', \App\Models\Setting::contact());
+            }
+        });
+
         View::composer('layouts.dashboard', function ($view) {
             $user = auth()->user();
             if (! $user) {

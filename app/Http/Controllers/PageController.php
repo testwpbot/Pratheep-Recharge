@@ -105,12 +105,7 @@ class PageController extends Controller
             ['value' => '24/7',    'label' => 'Always available'],
         ];
 
-        $contact = [
-            'phone'   => '+94 77 123 4567',
-            'email'   => 'hello@happypratheep.lk',
-            'address' => 'Main Street, Negombo, Western Province, Sri Lanka',
-            'hours'   => 'Open 24 hours · 7 days',
-        ];
+        $contact = \App\Models\Setting::contact();
 
         return view('pages.home', compact(
             'providers', 'services', 'steps', 'features', 'stats', 'contact'
@@ -119,41 +114,21 @@ class PageController extends Controller
 
     public function support(): View
     {
-        return view('pages.support', ['contact' => $this->publicContact()]);
+        return view('pages.support', ['contact' => \App\Models\Setting::contact()]);
     }
 
     public function privacy(): View
     {
-        return view('pages.privacy', ['contact' => $this->publicContact()]);
+        return view('pages.privacy', ['contact' => \App\Models\Setting::contact()]);
     }
 
     public function terms(): View
     {
-        return view('pages.terms', ['contact' => $this->publicContact()]);
+        return view('pages.terms', ['contact' => \App\Models\Setting::contact()]);
     }
 
     public function refund(): View
     {
-        return view('pages.refund', ['contact' => $this->publicContact()]);
-    }
-
-    /** Footer / legal pages — settings if the table exists, else the usual defaults. */
-    protected function publicContact(): array
-    {
-        $phone = '+94 77 123 4567';
-        $email = 'hello@happypratheep.lk';
-        try {
-            $phone = \App\Models\Setting::get('general', 'support_phone', $phone) ?: $phone;
-            $email = \App\Models\Setting::get('general', 'support_email', $email) ?: $email;
-        } catch (\Throwable $e) {
-            // Settings table may not be ready yet.
-        }
-
-        return [
-            'phone'   => $phone,
-            'email'   => $email,
-            'address' => 'Main Street, Negombo, Western Province, Sri Lanka',
-            'hours'   => 'Open 24 hours · 7 days',
-        ];
+        return view('pages.refund', ['contact' => \App\Models\Setting::contact()]);
     }
 }
