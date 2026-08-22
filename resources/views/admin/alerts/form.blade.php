@@ -131,7 +131,7 @@
             <input type="checkbox" name="is_dismissible" value="1" {{ old('is_dismissible', $alert->is_dismissible) ? 'checked' : '' }}>
             <span class="sw__slider"></span>
           </label>
-          <div class="hint">If on, they can close the popup and it stays hidden.</div>
+          <div class="hint">If on, they can close it. It comes back after 24 hours.</div>
         </div>
       </div>
 

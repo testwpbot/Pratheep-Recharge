@@ -17,6 +17,9 @@ class Alert extends Model
     public const AUDIENCE_CUSTOMERS = 'customers';
     public const AUDIENCE_RETAILERS = 'retailers';
 
+    /** After they close a popup, show it again this many hours later. */
+    public const REDISPLAY_AFTER_HOURS = 24;
+
     protected $fillable = [
         'title', 'eyebrow', 'heading', 'body', 'image_path',
         'button_label', 'button_url', 'button2_label', 'button2_url',
@@ -129,8 +132,13 @@ class Alert extends Model
     /** @return \Illuminate\Support\Collection<int, self> */
     public static function forDashboard(User $user, int $limit = 5)
     {
+        $hiddenSince = now()->subHours(self::REDISPLAY_AFTER_HOURS);
         $dismissed = AlertDismissal::query()
             ->where('user_id', $user->id)
+            ->where(function ($q) use ($hiddenSince) {
+                $q->where('dismissed_at', '>=', $hiddenSince)
+                    ->orWhereNull('dismissed_at');
+            })
             ->pluck('alert_id');
 
         return static::query()
@@ -150,7 +158,7 @@ class Alert extends Model
             return;
         }
 
-        AlertDismissal::query()->firstOrCreate(
+        AlertDismissal::query()->updateOrCreate(
             ['alert_id' => $this->id, 'user_id' => $user->id],
             ['dismissed_at' => now()]
         );

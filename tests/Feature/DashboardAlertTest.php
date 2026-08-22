@@ -154,6 +154,51 @@ class DashboardAlertTest extends TestCase
             ->assertDontSee('Please add money today', false);
     }
 
+    public function test_dismissed_alert_comes_back_after_24_hours(): void
+    {
+        $customer = User::factory()->create();
+        $alert = Alert::create([
+            'title'          => 'Notice',
+            'heading'        => 'Wallet bonus is waiting',
+            'theme'          => 'navy',
+            'audience'       => 'all',
+            'is_active'      => true,
+            'is_dismissible' => true,
+        ]);
+
+        $this->actingAs($customer)
+            ->postJson(route('dashboard.alerts.dismiss', $alert))
+            ->assertOk();
+
+        $this->actingAs($customer)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertDontSee('Wallet bonus is waiting', false);
+
+        $this->travel(23)->hours();
+        $this->actingAs($customer)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertDontSee('Wallet bonus is waiting', false);
+
+        $this->travel(2)->hours();
+        $this->actingAs($customer)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('Wallet bonus is waiting', false);
+
+        $this->actingAs($customer)
+            ->postJson(route('dashboard.alerts.dismiss', $alert))
+            ->assertOk();
+
+        $this->actingAs($customer)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertDontSee('Wallet bonus is waiting', false);
+
+        $this->travelBack();
+    }
+
     public function test_retailer_only_alert_hides_from_normal_customer(): void
     {
         $customer = User::factory()->create(['is_retailer' => false]);
