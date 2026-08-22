@@ -544,8 +544,28 @@ textarea.hpr-input, .hpr-input--ta{
 .kv dd{margin:0; font-weight:700; color:var(--navy-900);}
 
 @media (max-width:900px){
-  .app-sidebar{position:fixed; left:-280px; top:0; bottom:0; z-index:210; transition:left .35s cubic-bezier(.6,.05,.2,1); box-shadow:0 0 60px rgba(7,27,61,.35);}
+  .app-sidebar{
+    position:fixed; left:-280px; top:0; bottom:auto; z-index:210;
+    height:100vh; max-height:100vh;
+    height:100dvh; max-height:100dvh;
+    overflow:hidden;
+    transition:left .35s cubic-bezier(.6,.05,.2,1);
+    box-shadow:0 0 60px rgba(7,27,61,.35);
+    padding-bottom:0;
+  }
   .app-sidebar.is-open{left:0;}
+  .app-sidebar nav{
+    flex:0 0 auto;
+    padding:8px 10px 4px;
+    overflow:visible;
+  }
+  .app-sidebar nav a{padding:9px 12px;}
+  .app-sidebar__brand{padding:16px 18px;}
+  .app-sidebar__footer{
+    margin-top:0;
+    padding:10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+    flex:none;
+  }
   .app-content{padding:18px;}
 
   /* scrim (shared with landing page drawer but scoped to dashboard) */
