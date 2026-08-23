@@ -56,7 +56,7 @@
       <div style="margin-top:22px; text-align:center;">
         <div style="display:inline-block; max-width:520px; border:1px solid var(--line); border-radius:14px; overflow:hidden; box-shadow:var(--shadow-sm);">
           <a href="{{ route('recharge.invoice', $order) }}">
-            <img src="{{ asset('storage/' . $order->invoice_path) }}?v={{ $order->updated_at->timestamp }}"
+            <img src="{{ route('recharge.invoice.file', $order) }}?v={{ $order->updated_at->timestamp }}"
                  alt="Receipt" style="width:100%; display:block;">
           </a>
         </div>

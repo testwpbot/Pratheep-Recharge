@@ -29,6 +29,10 @@ class InvoiceService
 
     public function generate(Order $order): string
     {
+        if (! function_exists('imagecreatetruecolor') || ! function_exists('imagepng')) {
+            throw new \RuntimeException('PHP GD is not enabled, so a receipt image cannot be created.');
+        }
+
         $order->loadMissing(['user', 'service', 'provider']);
 
         $rows = $this->buildRows($order);
@@ -182,14 +186,64 @@ class InvoiceService
         File::ensureDirectoryExists($dir);
         $name = $order->reference . '.png';
         $abs = $dir . '/' . $name;
-        imagepng($img, $abs);
+        if (! imagepng($img, $abs) || ! is_file($abs) || filesize($abs) < 100) {
+            imagedestroy($img);
+            throw new \RuntimeException('Could not write the receipt image file.');
+        }
         imagedestroy($img);
 
         $rel = self::INVOICE_DIR . '/' . $name;
         $order->invoice_path = $rel;
         $order->save();
+        $this->publishPublicCopy($order);
 
         return $rel;
+    }
+
+    public function absolutePath(Order $order): ?string
+    {
+        if (! $order->invoice_path) {
+            return null;
+        }
+
+        return storage_path('app/public/' . ltrim((string) $order->invoice_path, '/'));
+    }
+
+    public function fileIsReady(Order $order): bool
+    {
+        $abs = $this->absolutePath($order);
+
+        return $abs && is_file($abs) && filesize($abs) > 100;
+    }
+
+    /** Make the PNG even if the public/storage symlink is missing (DirectAdmin). */
+    public function ensureGenerated(Order $order): ?string
+    {
+        if ($order->status !== Order::STATUS_SUCCESS && $order->status !== 'success') {
+            return null;
+        }
+
+        if ($this->fileIsReady($order)) {
+            $this->publishPublicCopy($order);
+
+            return $order->invoice_path;
+        }
+
+        return $this->generate($order);
+    }
+
+    public function publishPublicCopy(Order $order): void
+    {
+        $abs = $this->absolutePath($order);
+        if (! $abs || ! is_file($abs)) {
+            return;
+        }
+
+        $dest = public_path('storage/' . ltrim((string) $order->invoice_path, '/'));
+        File::ensureDirectoryExists(dirname($dest));
+        if (! is_file($dest) || filesize($dest) !== filesize($abs)) {
+            File::copy($abs, $dest);
+        }
     }
 
     protected function buildRows(Order $order): array

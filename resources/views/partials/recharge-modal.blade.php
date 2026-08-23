@@ -571,7 +571,7 @@ button.service-card{
           mSuccessTitle.textContent = 'Recharge Successful!';
           mSuccessMsg.textContent = res.data.message || ('Payment of LKR ' + Number(o.amount).toFixed(2) + ' to ' + o.account + ' completed.');
           mViewOrder.href = o.redirect;
-          mViewOrder.textContent = 'View Receipt';
+          mViewOrder.textContent = 'View Order';
           mDownload.hidden = true;
           mForm.style.display = 'none';
           mPlanBox.style.display = 'none';

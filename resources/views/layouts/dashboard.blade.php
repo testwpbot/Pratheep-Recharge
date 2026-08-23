@@ -217,7 +217,7 @@
   function showError(){
     iconWrap.innerHTML = '';
     title.textContent = 'Download failed';
-    msg.textContent = 'Something went wrong. Please try again.';
+    msg.textContent = 'The receipt is not ready yet, or the file could not be saved. Open the order and try again after it succeeds.';
     clearTimeout(closeTimer);
     closeTimer = setTimeout(close, 1800);
   }
@@ -250,17 +250,23 @@
     fetch(url, {credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest','Accept':'image/png,*/*'}})
       .then(function(res){
         if (!res.ok) throw new Error('Network error ' + res.status);
-        // Try to read filename from Content-Disposition header
+        var ctype = (res.headers.get('Content-Type') || '').toLowerCase();
+        if (ctype.indexOf('image/') === -1 && ctype.indexOf('octet-stream') === -1) {
+          throw new Error('Receipt is not ready yet');
+        }
         var cd = res.headers.get('Content-Disposition') || '';
         var m = /filename\*?=(?:UTF-8'')?["']?([^"';\r\n]+)/i.exec(cd);
         var filename = m ? decodeURIComponent(m[1].replace(/^"|"$/g,'')) : (a.getAttribute('data-filename') || 'receipt.png');
-        return res.blob().then(function(blob){ return {blob:blob, filename:filename}; });
+        return res.blob().then(function(blob){
+          if (blob.type && blob.type.indexOf('image/') === -1 && blob.type !== 'application/octet-stream') {
+            throw new Error('Receipt is not ready yet');
+          }
+          return {blob:blob, filename:filename};
+        });
       })
       .then(function(res){ showSuccessAndDownload(res.blob, res.filename); })
       .catch(function(err){
-        console.warn('Download fetch failed, falling back to direct navigation:', err);
-        // Fallback: navigate directly so user still gets the file
-        window.location.href = url;
+        console.warn('Download fetch failed:', err);
         showError();
       });
   });

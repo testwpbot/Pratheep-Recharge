@@ -140,8 +140,7 @@ class RechargeController extends Controller
         }
 
         if ($request->wantsJson()) {
-            $hasInvoice = $order->status === 'success' && (bool) $order->invoice_path;
-            $invoiceUrl = $hasInvoice ? asset('storage/' . $order->invoice_path) : null;
+            $hasInvoice = $order->status === 'success' && $invoices->fileIsReady($order);
             return response()->json([
                 'ok'          => ! $order->isFailedLike(),
                 'status'      => $order->status,
@@ -155,7 +154,7 @@ class RechargeController extends Controller
                     'account'      => $order->account_number,
                     'amount'       => (float) $order->amount,
                     'cashback'     => (float) $order->profit,
-                    'redirect'     => route('recharge.invoice', $order),
+                    'redirect'     => route('recharge.show', $order),
                 ],
             ]);
         }
@@ -169,16 +168,7 @@ class RechargeController extends Controller
         abort_unless(auth()->id() === $order->user_id || auth()->user()?->is_admin, 403);
         $order->load(['service', 'provider', 'cashback']);
 
-        // Generate invoice lazily if somehow missing (e.g. older order, or cron
-        // hadn't generated it yet for a reconciled success)
-        if ($order->status === 'success' && !$order->invoice_path) {
-            try {
-                app(InvoiceService::class)->generate($order);
-                $order->refresh();
-            } catch (\Throwable $e) {
-                logger()->warning('Lazy invoice generation failed: ' . $e->getMessage());
-            }
-        }
+        $this->tryMakeInvoice($order);
 
         return view('recharge.show', compact('order'));
     }
@@ -188,54 +178,87 @@ class RechargeController extends Controller
     {
         abort_unless(auth()->id() === $order->user_id || auth()->user()?->is_admin, 403);
 
-        if ($order->status === 'success' && !$order->invoice_path) {
-            try {
-                $invoices->generate($order);
-                $order->refresh();
-            } catch (\Throwable $e) {
-                logger()->warning('Invoice generation failed: ' . $e->getMessage());
-            }
-        }
-
-        $invoiceUrl = $order->invoice_path ? asset('storage/' . $order->invoice_path) : null;
+        $this->tryMakeInvoice($order, $invoices);
         $order->load(['service', 'provider']);
+
+        $invoiceUrl = $invoices->fileIsReady($order)
+            ? route('recharge.invoice.file', $order)
+            : null;
 
         return view('recharge.invoice', compact('order', 'invoiceUrl'));
     }
 
-    /** Download the invoice PNG directly. */
-    public function invoiceDownload(Order $order, InvoiceService $invoices)
+    /** Stream the PNG so the browser does not need public/storage (DirectAdmin). */
+    public function invoiceFile(Order $order, InvoiceService $invoices)
     {
         abort_unless(auth()->id() === $order->user_id || auth()->user()?->is_admin, 403);
 
+        $this->tryMakeInvoice($order, $invoices);
+        if (! $invoices->fileIsReady($order)) {
+            abort(404, 'Receipt is not ready yet.');
+        }
+
+        return response()->file($invoices->absolutePath($order), [
+            'Content-Type' => 'image/png',
+            'Cache-Control' => 'private, max-age=3600',
+        ]);
+    }
+
+    /** Download the invoice PNG directly. */
+    public function invoiceDownload(Request $request, Order $order, InvoiceService $invoices)
+    {
+        abort_unless(auth()->id() === $order->user_id || auth()->user()?->is_admin, 403);
+
+        $ajax = $request->wantsJson() || $request->ajax();
+
         if ($order->status !== 'success') {
-            return back()->with('error', 'Receipt is available once payment is successful.');
-        }
-
-        if (!$order->invoice_path) {
-            try {
-                $invoices->generate($order);
-                $order->refresh();
-            } catch (\Throwable $e) {
-                return back()->with('error', 'Could not generate receipt: ' . $e->getMessage());
+            $msg = 'Receipt is available once payment is successful.';
+            if ($ajax) {
+                return response()->json(['ok' => false, 'message' => $msg], 409);
             }
+
+            return redirect()->route('recharge.show', $order)->with('error', $msg);
         }
 
-        $abs = storage_path('app/public/' . $order->invoice_path);
-        if (!file_exists($abs)) {
-            // Regenerate if missing from disk
-            try {
-                $invoices->generate($order);
-                $order->refresh();
-                $abs = storage_path('app/public/' . $order->invoice_path);
-            } catch (\Throwable $e) {
-                abort(404, 'Receipt file missing');
+        try {
+            $invoices->ensureGenerated($order);
+            $order->refresh();
+        } catch (\Throwable $e) {
+            logger()->warning('Invoice download generate failed: ' . $e->getMessage());
+            $msg = 'Could not generate receipt: ' . $e->getMessage();
+            if ($ajax) {
+                return response()->json(['ok' => false, 'message' => $msg], 500);
             }
+
+            return redirect()->route('recharge.invoice', $order)->with('error', $msg);
         }
 
-        return response()->download($abs, $order->reference . '.png', [
+        if (! $invoices->fileIsReady($order)) {
+            $msg = 'Receipt file is missing. Please try again.';
+            if ($ajax) {
+                return response()->json(['ok' => false, 'message' => $msg], 404);
+            }
+
+            return redirect()->route('recharge.invoice', $order)->with('error', $msg);
+        }
+
+        return response()->download($invoices->absolutePath($order), $order->reference . '.png', [
             'Content-Type' => 'image/png',
         ]);
+    }
+
+    protected function tryMakeInvoice(Order $order, ?InvoiceService $invoices = null): void
+    {
+        if ($order->status !== 'success') {
+            return;
+        }
+
+        try {
+            ($invoices ?: app(InvoiceService::class))->ensureGenerated($order);
+            $order->refresh();
+        } catch (\Throwable $e) {
+            logger()->warning('Invoice generation failed: ' . $e->getMessage());
+        }
     }
 
     /** Customer order history */

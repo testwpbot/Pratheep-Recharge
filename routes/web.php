@@ -103,6 +103,7 @@ Route::middleware(['auth', 'verified.otp'])->group(function () {
     Route::post('/recharge',                              [RechargeController::class, 'confirm'])->name('recharge.confirm');
     Route::get('/orders/{order}',                         [RechargeController::class, 'show'])->name('recharge.show');
     Route::get('/orders/{order}/invoice',                 [RechargeController::class, 'invoice'])->name('recharge.invoice');
+    Route::get('/orders/{order}/invoice/file',            [RechargeController::class, 'invoiceFile'])->name('recharge.invoice.file');
     Route::get('/orders/{order}/invoice/download',        [RechargeController::class, 'invoiceDownload'])->name('recharge.invoice.download');
     Route::get('/my-orders',                              [RechargeController::class, 'history'])->name('recharge.history');
 });
