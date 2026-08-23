@@ -206,6 +206,97 @@ class OrderProviderMessagesTest extends TestCase
         $this->assertEquals(1, Order::count());
     }
 
+    public function test_cron_sends_stuck_processing_dialog_api_fail_to_prepaid(): void
+    {
+        $ctx = $this->seedDialog();
+        $user = User::factory()->create();
+        $wallet = Wallet::create(['user_id' => $user->id, 'balance' => 400]);
+
+        $order = Order::create([
+            'reference' => 'HPR-20260823-STUCK1',
+            'user_id' => $user->id,
+            'service_id' => $ctx['prepaid']->id,
+            'provider_id' => $ctx['p']->id,
+            'account_number' => '0767286364',
+            'amount' => 50,
+            'profit' => 0.25,
+            'status' => 'processing',
+            'provider_status' => 'processing',
+            'message' => 'Recharge failed.',
+            'processed_at' => null,
+            'provider_response' => [
+                '_catalog_service_id' => $ctx['prepaid']->id,
+                '_catalog_service_name' => 'Dialog Prepaid',
+                '_route_service_id' => $ctx['api']->id,
+                '_route_op_code' => '921',
+                '_route_started_at' => now()->subMinutes(10)->toDateTimeString(),
+                'status' => 'failed',
+                'message' => 'Recharge failed.',
+            ],
+        ]);
+
+        WalletTransaction::create([
+            'wallet_id' => $wallet->id,
+            'transactable_type' => Order::class,
+            'transactable_id' => $order->id,
+            'type' => 'debit',
+            'amount' => 50,
+            'balance_before' => 450,
+            'balance_after' => 400,
+            'description' => 'Recharge: Dialog Prepaid 0767286364',
+        ]);
+
+        Http::fake([
+            '*topupmart.online/api/v2/recharge.php' => Http::response([
+                'status' => 'success', 'transaction_id' => 'PRE-STUCK', 'message' => 'ok',
+            ], 200),
+            '*topupmart.online/api/v2/status.php' => Http::response([
+                'status' => 'pending', 'message' => 'not found',
+            ], 200),
+        ]);
+
+        $this->assertGreaterThanOrEqual(1, app(OrderService::class)->syncPending());
+
+        $order->refresh();
+        $this->assertSame('181', $order->sendOpCode());
+        $this->assertSame('success', $order->status);
+        $this->assertSame('PRE-STUCK', $order->provider_txn_id);
+        $this->assertNotEmpty($order->provider_response['_auto_fallback_at'] ?? null);
+    }
+
+    public function test_cron_does_not_send_funds_wait_to_prepaid_after_five_minutes(): void
+    {
+        $ctx = $this->seedDialog();
+        $user = User::factory()->create();
+        Wallet::create(['user_id' => $user->id, 'balance' => 500]);
+
+        Http::fake([
+            '*topupmart.online/api/v2/recharge.php' => Http::response([
+                'status' => 'failed', 'message' => 'Insufficient balance',
+            ], 200),
+            '*topupmart.online/api/v2/balance.php' => Http::response([
+                'status' => 'success', 'balance' => 0,
+            ], 200),
+            '*topupmart.online/api/v2/status.php' => Http::response([
+                'status' => 'failed', 'message' => 'Insufficient balance',
+            ], 200),
+        ]);
+
+        $orders = app(OrderService::class);
+        $order = $orders->placeOrder($user, $ctx['prepaid']->id, '0771234567', 100);
+        $this->assertTrue($order->isAwaitingProviderFunds());
+        $this->assertSame('921', $order->sendOpCode());
+
+        $this->travel(PreferredRoute::AUTO_FALLBACK_MINUTES + 5)->minutes();
+        $orders->syncPending();
+
+        $order->refresh();
+        $this->assertSame('921', $order->sendOpCode());
+        $this->assertSame(Order::STATUS_PROCESSING, $order->status);
+        $this->assertTrue($order->isAwaitingProviderFunds());
+        $this->assertEmpty($order->provider_response['_auto_fallback_at'] ?? null);
+    }
+
     public function test_quick_recharge_hides_dialog_api_card(): void
     {
         $ctx = $this->seedDialog();

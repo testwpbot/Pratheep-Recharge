@@ -685,21 +685,18 @@ class OrderService
                          ->where('created_at', '>=', now()->subDays(7));
                   });
             })
-            ->where(function ($q) {
-                $q->where('status', 'pending')
-                  ->orWhere(function ($q2) {
-                      $q2->where('status', 'processing')
-                         ->where(function ($q3) {
-                             $q3->where('provider_status', 'awaiting_provider_funds')
-                                ->orWhere('processed_at', '<=', now()->subSeconds(30));
-                         });
-                  });
-            })
             ->with(['provider', 'service', 'user'])
             ->get();
 
         foreach ($orders as $order) {
             try {
+                // Dialog API already said no — do not wait for another status poll.
+                // Do not use the 5-minute switch here or we skip a late success check.
+                if ($this->maybeDialogPrepaidFallback($order, false)) {
+                    $count++;
+                    continue;
+                }
+
                 if ($order->isAwaitingProviderFunds()) {
                     if ($this->retryIfProviderFunded($order)) {
                         $count++;
@@ -752,12 +749,19 @@ class OrderService
                 }
 
                 $fresh = $order->fresh();
-                if ($fresh && $this->shouldAutoFallbackDialog($fresh)) {
-                    $this->transferToPairedService($fresh, null, 'Still waiting after 5 minutes');
+                if ($fresh && $this->maybeDialogPrepaidFallback($fresh)) {
                     $count++;
                 }
             } catch (\Throwable $e) {
                 Log::warning("Order sync error for {$order->reference}: " . $e->getMessage());
+                try {
+                    $fresh = $order->fresh();
+                    if ($fresh && $this->maybeDialogPrepaidFallback($fresh)) {
+                        $count++;
+                    }
+                } catch (\Throwable $ignored) {
+                    // already logged the main error
+                }
             }
         }
         return $count;
@@ -795,6 +799,12 @@ class OrderService
         }
 
         $order->save();
+
+        $fresh = $order->fresh();
+        if ($fresh && $this->maybeDialogPrepaidFallback($fresh)) {
+            return $fresh->fresh()?->status ?? $status;
+        }
+
         return $status;
     }
 
@@ -948,6 +958,45 @@ class OrderService
         }
 
         $this->applyProviderResult($order, is_array($resp) ? $resp : [], $timedOut, true);
+    }
+
+    /**
+     * Send a Dialog API order through Dialog Prepaid when:
+     *  - the API already returned a hard fail, or
+     *  - it is still waiting after 5 minutes.
+     * Funds-wait orders stay on Dialog API.
+     */
+    protected function maybeDialogPrepaidFallback(Order $order, bool $allowFiveMinuteWait = true): bool
+    {
+        if ($this->canFallbackDialogPrepaid($order) && $this->hasRecordedHardFail($order)) {
+            $this->fallbackDialogPrepaid($order, 'Dialog API failed — trying Dialog Prepaid');
+            return true;
+        }
+
+        if ($allowFiveMinuteWait && $this->shouldAutoFallbackDialog($order)) {
+            $this->transferToPairedService($order, null, 'Still waiting after 5 minutes');
+            return true;
+        }
+
+        return false;
+    }
+
+    protected function hasRecordedHardFail(Order $order): bool
+    {
+        if ($order->isAwaitingProviderFunds()) {
+            return false;
+        }
+
+        $resp = $order->responseArray();
+        foreach ([$resp['status'] ?? null, $resp['STATUS'] ?? null, $order->provider_status] as $status) {
+            if (in_array(strtolower((string) $status), ['failed', 'refund', 'cancelled', 'transfer_rejected'], true)) {
+                return true;
+            }
+        }
+
+        $msg = strtolower((string) $order->message);
+
+        return str_contains($msg, 'recharge failed');
     }
 
     protected function canFallbackDialogPrepaid(Order $order): bool
