@@ -19,6 +19,9 @@ return [
     'key' => env('APP_KEY'),
     'cipher' => 'AES-256-CBC',
 
+    // Optional. When set, GET /cron.php?key=... must match. Leave empty for DirectAdmin wget.
+    'cron_key' => env('CRON_KEY', ''),
+
     'maintenance' => [
         'driver' => 'file',
     ],

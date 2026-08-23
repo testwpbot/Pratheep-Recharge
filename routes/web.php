@@ -22,6 +22,7 @@ use App\Http\Controllers\Dashboard\DepositController;
 use App\Http\Controllers\Dashboard\EarningsController;
 use App\Http\Controllers\Dashboard\RefundsController;
 use App\Http\Controllers\Dashboard\WalletController;
+use App\Http\Controllers\CronController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\RechargeController;
 use Illuminate\Support\Facades\Route;
@@ -32,6 +33,10 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 Route::get('/', [PageController::class, 'home'])->name('home');
+
+// DirectAdmin wget/curl clock — same jobs as `php artisan schedule:run`
+Route::get('/cron.php', CronController::class)->middleware('throttle:8,1')->name('cron.run');
+Route::get('/cron', CronController::class)->middleware('throttle:8,1');
 
 Route::get('/support', [PageController::class, 'support'])->name('support');
 Route::get('/privacy', [PageController::class, 'privacy'])->name('privacy');
