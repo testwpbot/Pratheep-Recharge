@@ -731,6 +731,9 @@ class OrderService
                     if (ProviderErrors::isFundsIssue($resp['message'] ?? null, $resp)) {
                         $this->holdForProviderFunds($order, $resp['message'] ?? 'Provider has no money');
                         $count++;
+                    } elseif ($this->canFallbackDialogPrepaid($order)) {
+                        $this->fallbackDialogPrepaid($order, 'Dialog API later failed — trying Dialog Prepaid');
+                        $count++;
                     } else {
                         $this->markFailed($order, $resp['message'] ?? null);
                         $count++;
@@ -783,6 +786,10 @@ class OrderService
                 $this->holdForProviderFunds($order, $resp['message'] ?? $order->message ?? 'Provider has no money');
                 return 'processing';
             }
+            if ($this->canFallbackDialogPrepaid($order)) {
+                $updated = $this->fallbackDialogPrepaid($order, 'Dialog API later failed — trying Dialog Prepaid');
+                return $updated->status;
+            }
             $this->markFailed($order, $resp['message'] ?? null);
             return $order->fresh()?->status ?? 'refunded';
         }
@@ -828,6 +835,11 @@ class OrderService
 
         if (ProviderErrors::isFundsIssue($resp['message'] ?? null, $resp)) {
             $this->holdForProviderFunds($order, $resp['message'] ?? 'Provider has no money');
+            return;
+        }
+
+        if ($this->canFallbackDialogPrepaid($order)) {
+            $this->fallbackDialogPrepaid($order, 'Dialog API failed — trying Dialog Prepaid');
             return;
         }
 
@@ -936,6 +948,45 @@ class OrderService
         }
 
         $this->applyProviderResult($order, is_array($resp) ? $resp : [], $timedOut, true);
+    }
+
+    protected function canFallbackDialogPrepaid(Order $order): bool
+    {
+        if (! in_array($order->status, ['pending', 'processing'], true)) {
+            return false;
+        }
+        if ($order->isAwaitingProviderFunds()) {
+            return false;
+        }
+        if ($order->sendOpCode() !== PreferredRoute::DIALOG_API) {
+            return false;
+        }
+        $resp = $order->responseArray();
+        if (! empty($resp['_auto_fallback_at'])) {
+            return false;
+        }
+
+        $partner = ServicePairs::partnerFromOrder($order);
+
+        return $partner && (string) $partner->op_code === PreferredRoute::DIALOG_PREPAID;
+    }
+
+    protected function fallbackDialogPrepaid(Order $order, string $note): Order
+    {
+        $order->status = 'processing';
+        $order->completed_at = null;
+        $order->save();
+
+        Log::info("Order {$order->reference} Dialog API failed — sending same order through Dialog Prepaid");
+
+        $updated = $this->transferToPairedService($order, null, $note);
+
+        if ($updated->provider_status === 'transfer_rejected' && ! $updated->isAwaitingProviderFunds()) {
+            $this->markFailed($updated, $updated->message);
+            return $updated->fresh(['provider', 'service', 'user']);
+        }
+
+        return $updated;
     }
 
     protected function shouldAutoFallbackDialog(Order $order): bool

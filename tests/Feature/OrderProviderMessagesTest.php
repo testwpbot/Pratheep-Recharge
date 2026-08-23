@@ -160,6 +160,52 @@ class OrderProviderMessagesTest extends TestCase
         $this->assertNotEmpty($order->provider_response['_auto_fallback_at'] ?? null);
     }
 
+    public function test_dialog_api_fail_retries_dialog_prepaid_same_order(): void
+    {
+        $ctx = $this->seedDialog();
+        $user = User::factory()->create();
+        Wallet::create(['user_id' => $user->id, 'balance' => 500]);
+
+        Http::fake([
+            '*topupmart.online/api/v2/recharge.php' => Http::sequence()
+                ->push(['status' => 'failed', 'message' => 'Recharge failed.'], 200)
+                ->push(['status' => 'success', 'transaction_id' => 'PRE-OK', 'message' => 'ok'], 200),
+        ]);
+
+        $order = app(OrderService::class)->placeOrder($user, $ctx['prepaid']->id, '0767286364', 50);
+
+        $this->assertSame($order->id, Order::first()->id);
+        $this->assertSame('success', $order->status);
+        $this->assertSame('181', $order->sendOpCode());
+        $this->assertSame('PRE-OK', $order->provider_txn_id);
+        $this->assertSame('Dialog Prepaid', $order->customerServiceName());
+        $this->assertNotEmpty($order->provider_response['_auto_fallback_at'] ?? null);
+        $this->assertEquals(455, (float) Wallet::where('user_id', $user->id)->value('balance'));
+        $this->assertEquals(0, WalletTransaction::where('transactable_id', $order->id)->where('type', 'refund')->count());
+        $this->assertEquals(1, Order::count());
+    }
+
+    public function test_dialog_api_then_prepaid_both_fail_refunds_once(): void
+    {
+        $ctx = $this->seedDialog();
+        $user = User::factory()->create();
+        Wallet::create(['user_id' => $user->id, 'balance' => 500]);
+
+        Http::fake([
+            '*topupmart.online/api/v2/recharge.php' => Http::sequence()
+                ->push(['status' => 'failed', 'message' => 'Recharge failed.'], 200)
+                ->push(['status' => 'failed', 'message' => 'Recharge failed.'], 200),
+        ]);
+
+        $order = app(OrderService::class)->placeOrder($user, $ctx['prepaid']->id, '0767286364', 50);
+
+        $this->assertSame(Order::STATUS_REFUNDED, $order->status);
+        $this->assertSame('181', $order->sendOpCode());
+        $this->assertEquals(500, (float) Wallet::where('user_id', $user->id)->value('balance'));
+        $this->assertEquals(1, WalletTransaction::where('transactable_id', $order->id)->where('type', 'refund')->count());
+        $this->assertEquals(1, Order::count());
+    }
+
     public function test_quick_recharge_hides_dialog_api_card(): void
     {
         $ctx = $this->seedDialog();

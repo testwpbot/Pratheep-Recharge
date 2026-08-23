@@ -6,7 +6,8 @@ use App\Models\Service;
 
 /**
  * Customer-facing Dialog Prepaid (181) is sent first through Dialog API (921).
- * After 5 minutes still pending, cron (or admin) sends the same order through 181.
+ * If Dialog API fails, or is still pending after 5 minutes, the same order
+ * is sent through Dialog Prepaid (181). Admin can also switch by hand.
  * Do not mention this split on customer pages.
  */
 class PreferredRoute
