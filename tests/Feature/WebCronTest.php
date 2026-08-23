@@ -31,6 +31,12 @@ class WebCronTest extends TestCase
         $this->get('/cron.php?key=secret-clock')->assertOk();
     }
 
+    public function test_schema_fix_is_safe_on_sqlite(): void
+    {
+        \App\Support\SchemaFix::widenOrderProviderStatus();
+        $this->assertTrue(true);
+    }
+
     public function test_cron_url_saves_last_run_time(): void
     {
         $this->get('/cron.php')->assertOk();
