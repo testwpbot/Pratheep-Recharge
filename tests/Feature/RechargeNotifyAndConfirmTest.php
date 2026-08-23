@@ -91,7 +91,20 @@ class RechargeNotifyAndConfirmTest extends TestCase
             ->assertSee('data-hide-notify="1"', false)
             ->assertSee('data-category="mobile"', false)
             ->assertSee('rcNotifyField', false)
-            ->assertSee('Check this payment', false)
-            ->assertSee('Yes, pay now', false);
+            ->assertSee('Confirm this reload?', false)
+            ->assertSee('Yes, reload now', false);
+    }
+
+    public function test_plans_page_asks_to_confirm_reload(): void
+    {
+        $user = User::factory()->create();
+        $this->service('mobile', 'prepaid', 'Dialog Prepaid');
+
+        $this->actingAs($user)
+            ->get(route('dashboard.plans'))
+            ->assertOk()
+            ->assertSee('Confirm this reload?', false)
+            ->assertSee('Yes, reload now', false)
+            ->assertSee('showOrderConfirm', false);
     }
 }

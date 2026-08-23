@@ -352,11 +352,11 @@
     </form>
 
     <div class="rc-modal__confirm" id="rcConfirm" hidden>
-      <h4>Check this payment</h4>
-      <p id="rcConfirmText">Please confirm this bill payment.</p>
+      <h4 id="rcConfirmTitle">Confirm this reload?</h4>
+      <p id="rcConfirmText">Are you sure you want to reload from your wallet?</p>
       <div class="rc-modal__confirm-actions">
         <button type="button" class="btn-admin btn-admin--ghost" id="rcConfirmBack">Go back</button>
-        <button type="button" class="btn-admin btn-admin--gold" id="rcConfirmYes">Yes, pay now</button>
+        <button type="button" class="btn-admin btn-admin--gold" id="rcConfirmYes">Yes, reload now</button>
       </div>
     </div>
 
@@ -1570,14 +1570,21 @@
     if (mConfirm) mConfirm.hidden = true;
     modal.classList.remove('is-confirming');
     mForm.style.display = '';
+    if (currentMode === 'plan' && mPlanBox) mPlanBox.style.display = '';
+    else if (currentMode !== 'plan' && mHint) mHint.hidden = false;
   }
-  function showBillConfirm(){
+  function showOrderConfirm(){
     var amt = parseFloat(mAmount.value || '0');
     var acc = (mAcc.value || '').trim();
     var op = (mOpName.textContent || '').trim();
+    var isBill = currentMode === 'bill';
+    var title = document.getElementById('rcConfirmTitle') || document.querySelector('#rcConfirm h4');
+    if (title) title.textContent = isBill ? 'Confirm this payment?' : 'Confirm this reload?';
     if (mConfirmText){
-      mConfirmText.textContent = 'Pay LKR ' + amt.toFixed(2) + ' to ' + acc + (op ? (' for ' + op) : '') + ' from your wallet?';
+      mConfirmText.textContent = (isBill ? 'Are you sure you want to pay' : 'Are you sure you want to reload')
+        + ' LKR ' + amt.toFixed(2) + ' to ' + acc + (op ? (' for ' + op) : '') + ' from your wallet?';
     }
+    if (mConfirmYes) mConfirmYes.textContent = isBill ? 'Yes, pay now' : 'Yes, reload now';
     mForm.style.display = 'none';
     if (mPlanBox) mPlanBox.style.display = 'none';
     if (mHint) mHint.hidden = true;
@@ -1585,10 +1592,7 @@
     modal.classList.add('is-confirming');
   }
   if (mConfirmBack){
-    mConfirmBack.addEventListener('click', function(){
-      hideConfirm();
-      if (currentMode !== 'plan' && mHint) mHint.hidden = false;
-    });
+    mConfirmBack.addEventListener('click', hideConfirm);
   }
   if (mConfirmYes){
     mConfirmYes.addEventListener('click', function(){
@@ -1601,11 +1605,7 @@
     e.preventDefault();
     if (mSubmit.disabled) return;
     if (!mForm.reportValidity()) return;
-    if (currentMode === 'bill'){
-      showBillConfirm();
-      return;
-    }
-    sendOrder();
+    showOrderConfirm();
   });
 
   function sendOrder(){
