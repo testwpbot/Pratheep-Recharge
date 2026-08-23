@@ -94,12 +94,6 @@
                         data-mode="{{ $isBill ? 'bill' : 'reload' }}"
                         data-category="{{ $catSlug }}"
                         data-hide-notify="{{ ($catSlug === 'mobile' || $svcType === 'postpaid') ? '1' : '0' }}">
-                  @if ((float) $s->profit > 0)
-                    <span class="cb-badge">
-                      @if ($s->profit_type === 'PCT') {{ number_format($s->profit, 2) }}% cashback
-                      @else LKR {{ number_format($s->profit, 2) }} cashback @endif
-                    </span>
-                  @endif
                   <img src="{{ $s->logoUrl }}" alt="{{ $s->name }}"
                        onerror="this.src='{{ asset('assets/logo-mark.png') }}'">
                   <h4>{{ $s->name }}</h4>

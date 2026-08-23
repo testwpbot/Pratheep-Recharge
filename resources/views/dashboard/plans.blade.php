@@ -141,17 +141,6 @@
                     </small>
                   </div>
                 </div>
-                @if ($g->cashback)
-                  <span class="cb-badge" style="position:static;">
-                    @if ($g->cashback->profit_type === 'PCT')
-                      {{ number_format($g->cashback->profit, 0) }}% cashback
-                    @else
-                      +LKR {{ number_format($g->cashback->profit, 0) }}
-                    @endif
-                  </span>
-                @elseif (!$g->is_bill_only)
-                  <span class="op-block__std">Standard rates</span>
-                @endif
               </div>
 
               @if (!$g->is_bill_only && $g->plansGrouped->isNotEmpty())
@@ -206,9 +195,6 @@
                            data-hide-notify="{{ ($cat->slug === 'mobile' || strtolower((string) ($g->tag ?? '')) === 'postpaid') ? '1' : '0' }}"
                            data-cb="{{ number_format($cb, 2) }}"
                            data-details="{{ json_encode($metaDetails, JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT) }}">
-                          @if ($cb > 0)
-                            <span class="cb-badge">+LKR {{ number_format($cb, 2) }}</span>
-                          @endif
                           <img src="{{ $g->logo ? asset($g->logo) : asset('assets/logo-mark.png') }}"
                                alt=""
                                onerror="this.src='{{ asset('assets/logo-mark.png') }}'">
