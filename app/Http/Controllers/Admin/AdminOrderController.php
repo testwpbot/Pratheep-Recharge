@@ -46,21 +46,18 @@ class AdminOrderController extends Controller
         try {
             $client = \App\Services\ProviderFactory::make($order->provider);
             $resp = $client->checkStatus($order);
-            $status = strtolower((string) ($resp['status'] ?? 'pending'));
-            $order->provider_response = $resp;
-            $order->message = $resp['message'] ?? $order->message;
+            $status = $svc->applyStatusCheck($order, is_array($resp) ? $resp : []);
+            $fresh = $order->fresh();
 
             if ($status === 'success') {
-                $svc->markSuccess($order);
                 $message = "Order {$order->reference} marked as success — cashback credited.";
-            } elseif (in_array($status, ['failed', 'refund', 'cancelled'], true) && ! $order->isFailedLike()) {
-                $svc->markFailed($order, $resp['message'] ?? null);
-                $fresh = $order->fresh();
-                $message = $fresh && $fresh->isRefunded()
-                    ? "Order {$order->reference} failed. Money was put back in the wallet."
-                    : "Order {$order->reference} marked as failed.";
+            } elseif ($fresh && $fresh->isAwaitingProviderFunds()) {
+                $message = "Order {$order->reference} is waiting. The provider does not have enough money. It will send again when money is available.";
+            } elseif ($fresh && $fresh->isRefunded()) {
+                $message = "Order {$order->reference} failed. Money was put back in the wallet.";
+            } elseif (in_array($status, ['failed', 'refund', 'cancelled'], true)) {
+                $message = "Order {$order->reference} marked as failed.";
             } else {
-                $order->save();
                 $message = "Order still {$status}.";
             }
 

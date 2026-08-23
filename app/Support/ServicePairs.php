@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Order;
 use App\Models\Service;
 
 /**
@@ -51,6 +52,30 @@ class ServicePairs
         if ($service->provider_id) {
             $same = (clone $base)
                 ->where('provider_id', $service->provider_id)
+                ->orderByDesc('is_active')
+                ->first();
+            if ($same) {
+                return $same;
+            }
+        }
+
+        return $base->orderByDesc('is_active')->first();
+    }
+
+    /** Partner of the route we are actually sending right now. */
+    public static function partnerFromOrder(Order $order): ?Service
+    {
+        $code = $order->sendOpCode();
+        $partnerCode = self::partnerCode($code);
+        if (! $partnerCode) {
+            return self::partner($order->service);
+        }
+
+        $base = Service::query()->where('op_code', $partnerCode);
+        $providerId = $order->provider_id ?: $order->service?->provider_id;
+        if ($providerId) {
+            $same = (clone $base)
+                ->where('provider_id', $providerId)
                 ->orderByDesc('is_active')
                 ->first();
             if ($same) {

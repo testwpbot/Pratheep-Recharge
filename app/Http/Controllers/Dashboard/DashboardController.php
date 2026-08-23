@@ -38,6 +38,7 @@ class DashboardController extends Controller
         // Load ALL active categories with their active services + plans (one query)
         $categories = Category::where('is_active', true)
             ->withWhereHas('services', fn ($q) => $q->where('is_active', true)
+                ->where('type', '!=', 'api')
                 ->with(['plans', 'specialPrices' => fn ($sp) => $sp->where('user_id', $user->id)])
                 ->orderBy('name'))
             ->orderBy('sort_order')
@@ -318,9 +319,11 @@ class DashboardController extends Controller
                             $key = $pl->amount . '|' . $pl->type . '|' . strtolower(trim($pl->name));
                             if (isset($seen[$key])) continue;
                             $seen[$key] = true;
-                            // Tag each plan with the service it should actually route through
-                            // (so plain reloads from the API op code submit to that op_code, not primary_op).
-                            $pl->route_service_id = $srcSvc->id;
+                            // Dialog API plans still show on the Dialog card, but the
+                            // customer order is stored as Dialog Prepaid. Sending via
+                            // Dialog API happens inside OrderService.
+                            $routeSvc = \App\Support\PreferredRoute::faceService($srcSvc);
+                            $pl->route_service_id = $routeSvc->id;
                             $plansCollection->push($pl);
                         }
                     }

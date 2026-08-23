@@ -136,7 +136,7 @@
         @forelse ($orders as $o)
           <tr>
             <td><a href="{{ route('recharge.show', $o) }}" style="color:var(--gold-500); font-weight:700;">{{ $o->reference }}</a></td>
-            <td>{{ $o->service->name }}</td>
+            <td>{{ $o->customerServiceName() }}</td>
             <td>{{ $o->account_number }}</td>
             <td><b>LKR {{ number_format($o->amount, 2) }}</b></td>
             <td>LKR {{ number_format($o->profit, 2) }}</td>

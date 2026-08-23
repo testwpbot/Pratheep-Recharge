@@ -51,7 +51,33 @@ class DialogServiceTransferTest extends TestCase
         $this->assertSame($ctx['dialog']->id, ServicePairs::partner($ctx['api'])->id);
     }
 
-    public function test_pending_dialog_order_can_be_sent_through_dialog_api(): void
+    public function test_dialog_prepaid_is_sent_through_dialog_api_first(): void
+    {
+        $ctx = $this->seedDialog();
+        $user = User::factory()->create();
+        Wallet::create(['user_id' => $user->id, 'balance' => 1000]);
+
+        Http::fake([
+            'topupmart.online/api/v2/recharge.php' => Http::response([
+                'status' => 'pending', 'transaction_id' => 'TM-API', 'message' => 'queued',
+            ], 200),
+        ]);
+
+        $order = app(OrderService::class)->placeOrder($user, $ctx['dialog']->id, '0771234567', 200);
+
+        $this->assertSame('pending', $order->status);
+        $this->assertSame($ctx['dialog']->id, $order->service_id);
+        $this->assertSame('921', $order->sendOpCode());
+        $this->assertSame('Dialog Prepaid', $order->customerServiceName());
+        $this->assertEquals(800, (float) Wallet::where('user_id', $user->id)->value('balance'));
+
+        Http::assertSent(function ($request) {
+            return str_contains($request->url(), 'recharge.php')
+                && ($request->data()['op_code'] ?? null) === '921';
+        });
+    }
+
+    public function test_pending_dialog_api_order_can_be_sent_through_prepaid(): void
     {
         $ctx = $this->seedDialog();
         $user = User::factory()->create();
@@ -66,41 +92,17 @@ class DialogServiceTransferTest extends TestCase
 
         $svc = app(OrderService::class);
         $order = $svc->placeOrder($user, $ctx['dialog']->id, '0771234567', 200);
-        $this->assertSame('pending', $order->status);
-        $this->assertSame($ctx['dialog']->id, $order->service_id);
-        $this->assertEquals(800, (float) Wallet::where('user_id', $user->id)->value('balance'));
+        $this->assertSame('921', $order->sendOpCode());
 
-        $updated = $svc->transferToPairedService($order, $admin, 'stuck on Dialog');
+        $updated = $svc->transferToPairedService($order, $admin, 'stuck on API');
 
         $this->assertSame($order->id, $updated->id);
-        $this->assertSame($ctx['api']->id, $updated->service_id);
+        $this->assertSame('181', $updated->sendOpCode());
         $this->assertSame('success', $updated->status);
         $this->assertSame('TM-2', $updated->provider_txn_id);
         $this->assertSame($order->reference . '-T1', $updated->providerClientRef());
         $this->assertEquals(805, (float) Wallet::where('user_id', $user->id)->value('balance'));
         $this->assertArrayHasKey('_transfer', $updated->provider_response);
-    }
-
-    public function test_pending_dialog_api_order_can_be_sent_through_dialog(): void
-    {
-        $ctx = $this->seedDialog();
-        $user = User::factory()->create();
-        Wallet::create(['user_id' => $user->id, 'balance' => 500]);
-        $admin = User::factory()->create(['is_admin' => true]);
-
-        Http::fake([
-            'topupmart.online/api/v2/recharge.php' => Http::sequence()
-                ->push(['status' => 'pending', 'transaction_id' => 'A1', 'message' => 'wait'], 200)
-                ->push(['status' => 'pending', 'transaction_id' => 'D2', 'message' => 'still wait'], 200),
-        ]);
-
-        $svc = app(OrderService::class);
-        $order = $svc->placeOrder($user, $ctx['api']->id, '0771234567', 100);
-        $updated = $svc->transferToPairedService($order, $admin);
-
-        $this->assertSame($ctx['dialog']->id, $updated->service_id);
-        $this->assertSame('pending', $updated->status);
-        $this->assertEquals(400, (float) Wallet::where('user_id', $user->id)->value('balance'));
     }
 
     public function test_admin_can_post_transfer_from_order_page(): void
@@ -122,13 +124,14 @@ class DialogServiceTransferTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.orders.show', $order))
             ->assertOk()
-            ->assertSee('Send via Dialog', false);
+            ->assertSee('Send via Dialog Prepaid', false)
+            ->assertSee('Sending through', false);
 
         $this->actingAs($admin)
-            ->post(route('admin.orders.transfer', $order), ['note' => 'try API'])
+            ->post(route('admin.orders.transfer', $order), ['note' => 'try prepaid'])
             ->assertRedirect();
 
-        $this->assertSame($ctx['api']->id, $order->fresh()->service_id);
+        $this->assertSame('181', $order->fresh()->sendOpCode());
         $this->assertEquals(400, (float) Wallet::where('user_id', $user->id)->value('balance'));
     }
 

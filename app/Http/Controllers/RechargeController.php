@@ -31,7 +31,7 @@ class RechargeController extends Controller
         }
 
         $categories = Category::where('is_active', true)
-            ->withWhereHas('services', fn ($q) => $q->where('is_active', true))
+            ->withWhereHas('services', fn ($q) => $q->where('is_active', true)->where('type', '!=', 'api'))
             ->orderBy('sort_order')->get();
 
         $activeCategory = $categorySlug
@@ -41,6 +41,7 @@ class RechargeController extends Controller
         $services = $activeCategory
             ? Service::where('category_id', $activeCategory->id)
                 ->where('is_active', true)
+                ->where('type', '!=', 'api')
                 ->with('provider')
                 ->orderBy('name')
                 ->get()
@@ -53,6 +54,9 @@ class RechargeController extends Controller
     public function form(Service $service): View
     {
         abort_unless($service->is_active, 404);
+        if (strtolower((string) $service->type) === 'api' && ! auth()->user()?->is_admin) {
+            abort(404);
+        }
         $service->load(['category', 'plans', 'specialPrices' => fn ($sp) => $sp->where('user_id', auth()->id())]);
         $service->applyEffectivePricing(auth()->user());
         return view('recharge.form', compact('service'));
@@ -126,18 +130,7 @@ class RechargeController extends Controller
             $invoiceUrl = asset('storage/' . $order->invoice_path);
         }
 
-        if ($order->status === 'success') {
-            $cashbackNote = (float) $order->profit > 0
-                ? ' You earned LKR ' . number_format($order->profit, 2) . ' cashback.'
-                : '';
-            $msg = 'Recharge successful! Your ' . $order->service->name . ' of LKR ' . number_format((float) $order->amount, 2) . ' has been processed.' . $cashbackNote;
-        } elseif ($order->status === 'pending') {
-            $msg = 'Your recharge request has been sent and is being processed. You can track its status on the order details page.';
-        } elseif ($order->status === 'refunded') {
-            $msg = 'This recharge did not go through. LKR ' . number_format((float) $order->amount, 2) . ' was put back in your wallet.';
-        } else {
-            $msg = 'Order failed: ' . ($order->message ?? 'Unknown error.');
-        }
+        $msg = $order->publicMessage();
 
         if ($request->wantsJson()) {
             $hasInvoice = $order->status === 'success' && $invoices->fileIsReady($order);
@@ -150,7 +143,7 @@ class RechargeController extends Controller
                 'download_url'=> $hasInvoice ? route('recharge.invoice.download', $order) : null,
                 'order'       => [
                     'reference'    => $order->reference,
-                    'service_name' => $order->service->name,
+                    'service_name' => $order->customerServiceName(),
                     'account'      => $order->account_number,
                     'amount'       => (float) $order->amount,
                     'cashback'     => (float) $order->profit,

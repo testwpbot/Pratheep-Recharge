@@ -116,7 +116,7 @@ class OrderRefundStatusTest extends TestCase
 
         Http::fake([
             '*topupmart.online/*' => Http::response([
-                'status' => 'failed', 'message' => 'Insufficient balance',
+                'status' => 'failed', 'message' => 'Carrier rejected',
             ], 200),
         ]);
 
@@ -216,7 +216,7 @@ class OrderRefundStatusTest extends TestCase
 
         Http::fake([
             '*topupmart.online/*' => Http::response([
-                'status' => 'failed', 'message' => 'No provider money',
+                'status' => 'failed', 'message' => 'Invalid number',
             ], 200),
         ]);
 

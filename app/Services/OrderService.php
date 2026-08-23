@@ -9,6 +9,9 @@ use App\Models\Service;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
+use App\Support\PreferredRoute;
+use App\Support\ProviderErrors;
+use App\Support\ServicePairs;
 use App\Support\WalletLimits;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\App;
@@ -52,9 +55,11 @@ class OrderService
     /** Create a pending order and send it to the provider synchronously. */
     public function placeOrder(User $user, int $serviceId, string $accountNumber, float $amount, ?string $notifyNumber = null): Order
     {
-        /** @var Service $service */
-        $service = Service::where('is_active', true)->with(['provider', 'category'])->findOrFail($serviceId);
-        $provider = $this->resolveProvider($service);
+        /** @var Service $picked */
+        $picked = Service::where('is_active', true)->with(['provider', 'category'])->findOrFail($serviceId);
+        $service = PreferredRoute::faceService($picked);
+        $send = PreferredRoute::startService($service);
+        $provider = $this->resolveProvider($send);
 
         if (! $provider->is_active) {
             throw new \RuntimeException('Selected provider is currently unavailable.');
@@ -76,7 +81,7 @@ class OrderService
         // record in ONE DB transaction so they can never go out of sync.
         $order = null;
         $balanceBeforeDebit = (float) $wallet->balance;
-        DB::transaction(function () use ($user, $service, $provider, $accountNumber, $notifyNumber, $amount, $profit, $wallet, $balanceBeforeDebit, &$order) {
+        DB::transaction(function () use ($user, $service, $send, $provider, $accountNumber, $notifyNumber, $amount, $profit, $wallet, $balanceBeforeDebit, &$order) {
             // Re-lock wallet inside the transaction (the lock above was outside)
             $w = Wallet::whereKey($wallet->id)->lockForUpdate()->first() ?? $wallet;
             WalletLimits::assertCanDebit($user, $w, $amount);
@@ -97,6 +102,7 @@ class OrderService
                 'status'          => 'processing',
                 'provider_status' => 'processing',
                 'processed_at'    => now(),
+                'provider_response' => PreferredRoute::orderMeta($service, $send),
             ]);
 
             WalletTransaction::create([
@@ -151,44 +157,7 @@ class OrderService
             $resp = ['status' => 'failed', 'message' => 'Provider error: ' . $e->getMessage()];
         }
 
-        // Update order based on response
-        $order->provider_response = array_merge($resp ?: [], ['_timed_out' => $timedOut]);
-        $order->provider_txn_id   = $resp['transaction_id'] ?? null;
-        $order->message           = $resp['message'] ?? null;
-        $status = strtolower((string) ($resp['status'] ?? 'failed'));
-
-        if ($status === 'success') {
-            // Synchronous success — credit cashback + mark success.
-            // markSuccess uses its own DB transaction.
-            try {
-                $this->markSuccess($order);
-            } catch (\Throwable $e) {
-                Log::error('markSuccess failed after successful provider response', [
-                    'order' => $order->reference, 'err' => $e->getMessage(),
-                ]);
-                // Still save order as success — wallet crediting will be retried
-                // by a reconciliation pass later.
-                $order->status = 'success';
-                $order->provider_status = 'success';
-                $order->completed_at = now();
-                $order->save();
-            }
-        } elseif ($status === 'pending' || $timedOut) {
-            // Queued/async at the provider, OR our request timed out.
-            $order->status = 'pending';
-            $order->provider_status = $timedOut ? 'awaiting_confirmation' : 'pending';
-            $order->save();
-        } else {
-            // Explicit failure response from provider (e.g. "Insufficient balance",
-            // "Invalid mobile number", "Below minimum amount"). Provider rejected
-            // immediately — refund the wallet debit we did upfront, then show
-            // the order as Refunded so customer + admin can see the money is back.
-            $refunded = $this->tryRefundWallet($order, 'Recharge failed — refunded to wallet');
-            $order->status = $refunded ? Order::STATUS_REFUNDED : Order::STATUS_FAILED;
-            $order->provider_status = $status;
-            $order->completed_at = now();
-            $order->save();
-        }
+        $this->applyProviderResult($order, is_array($resp) ? $resp : [], $timedOut, true);
 
         $this->syncWalletNotice($user->id);
 
@@ -491,7 +460,7 @@ class OrderService
      * Admin switches a pending Dialog order to Dialog API (or the other way).
      * Same order, same wallet debit — only the op_code / service changes.
      */
-    public function transferToPairedService(Order $order, User $admin, ?string $note = null): Order
+    public function transferToPairedService(Order $order, ?User $admin = null, ?string $note = null): Order
     {
         $order->loadMissing(['provider', 'service.provider', 'user']);
 
@@ -500,7 +469,8 @@ class OrderService
         }
 
         $fromService = $order->service;
-        $partner = \App\Support\ServicePairs::partner($fromService);
+        $fromCode = $order->sendOpCode() ?: (string) ($fromService?->op_code ?? '');
+        $partner = ServicePairs::partnerFromOrder($order);
         if (! $partner) {
             throw new \RuntimeException('This service has no matching Dialog / Dialog API pair.');
         }
@@ -515,9 +485,13 @@ class OrderService
         $clientRef = $order->reference . '-T' . $count;
 
         $stamp = now()->timezone('Asia/Colombo')->format('Y-m-d H:i');
-        $noteText = "[ADMIN SWITCH {$stamp} by {$admin->name}] "
-            . "Same order sent through {$partner->name} (op {$partner->op_code}). "
-            . "First route was {$fromService->name} (op {$fromService->op_code}). "
+        $who = $admin?->name ?: 'system';
+        $tag = $admin ? 'ADMIN SWITCH' : 'AUTO SWITCH';
+        $fromLabel = PreferredRoute::adminLabel($fromService, $fromCode);
+        $toLabel = PreferredRoute::adminLabel($partner);
+        $noteText = "[{$tag} {$stamp} by {$who}] "
+            . "Same order sent through {$toLabel} (op {$partner->op_code}). "
+            . "First route was {$fromLabel} (op {$fromCode}). "
             . 'Customer was not charged again. If the first route later succeeds, check it by hand.';
         if ($note) {
             $noteText .= ' Admin note: ' . $note;
@@ -527,7 +501,7 @@ class OrderService
         $originalServiceId = $order->service_id;
         $originalTxn = $order->provider_txn_id;
 
-        DB::transaction(function () use ($order, $partner, $toProvider, $prevResp, $count, $clientRef, $noteText, $originalProviderId, $originalServiceId, $originalTxn) {
+        DB::transaction(function () use ($order, $partner, $toProvider, $prevResp, $count, $clientRef, $noteText, $originalProviderId, $originalServiceId, $originalTxn, $fromCode, $fromService, $admin) {
             $locked = Order::whereKey($order->id)->lockForUpdate()->first();
             if (! $locked) {
                 throw new \RuntimeException('Order not found.');
@@ -544,18 +518,30 @@ class OrderService
             $locked->processed_at = now();
             $locked->completed_at = null;
             $locked->message = trim(($locked->message ? $locked->message . "\n\n" : '') . $noteText);
+            $catalogId = $prevResp['_catalog_service_id'] ?? $originalServiceId;
+            $catalogName = $prevResp['_catalog_service_name'] ?? ($fromService->name ?? null);
             $locked->provider_response = array_merge($prevResp, [
                 '_client_ref' => $clientRef,
                 '_transfer_count' => $count,
+                '_route_service_id' => $partner->id,
+                '_route_op_code' => (string) $partner->op_code,
+                '_route_started_at' => now()->toDateTimeString(),
+                '_catalog_service_id' => $catalogId,
+                '_catalog_service_name' => $catalogName,
+                '_awaiting_funds' => false,
                 '_transfer' => [
                     'at' => now()->toDateTimeString(),
                     'from_provider_id' => $originalProviderId,
                     'from_service_id' => $originalServiceId,
+                    'from_op' => $fromCode,
                     'from_txn' => $originalTxn,
                     'to_provider_id' => $toProvider->id,
                     'to_service_id' => $partner->id,
+                    'to_op' => (string) $partner->op_code,
                     'client_ref' => $clientRef,
+                    'auto' => $admin === null,
                 ],
+                '_auto_fallback_at' => $admin === null ? now()->toDateTimeString() : ($prevResp['_auto_fallback_at'] ?? null),
             ]);
             $locked->save();
         });
@@ -605,6 +591,8 @@ class OrderService
             $order->status = 'pending';
             $order->provider_status = $timedOut ? 'awaiting_confirmation' : 'pending';
             $order->save();
+        } elseif (ProviderErrors::isFundsIssue($resp['message'] ?? null, is_array($resp) ? $resp : [])) {
+            $this->holdForProviderFunds($order, $resp['message'] ?? 'Provider has no money');
         } else {
             // Keep pending so admin can send it back the other way.
             // Do not refund — the first request may still complete.
@@ -613,7 +601,7 @@ class OrderService
             $order->save();
         }
 
-        Log::info("Admin service switch: {$order->reference} {$fromService->op_code} → {$partner->op_code} by admin {$admin->id}", [
+        Log::info("Service switch: {$order->reference} {$fromCode} → {$partner->op_code} by ".($admin?->id ?? 'system'), [
             'status' => $order->fresh()->status,
         ]);
 
@@ -691,13 +679,20 @@ class OrderService
         $count = 0;
         $orders = Order::whereIn('status', ['pending', 'processing'])
             ->where(function ($q) {
-                $q->where('created_at', '>=', now()->subHours(48));
+                $q->where('created_at', '>=', now()->subHours(48))
+                  ->orWhere(function ($q2) {
+                      $q2->where('provider_status', 'awaiting_provider_funds')
+                         ->where('created_at', '>=', now()->subDays(7));
+                  });
             })
             ->where(function ($q) {
                 $q->where('status', 'pending')
                   ->orWhere(function ($q2) {
                       $q2->where('status', 'processing')
-                         ->where('processed_at', '<=', now()->subSeconds(30));
+                         ->where(function ($q3) {
+                             $q3->where('provider_status', 'awaiting_provider_funds')
+                                ->orWhere('processed_at', '<=', now()->subSeconds(30));
+                         });
                   });
             })
             ->with(['provider', 'service', 'user'])
@@ -705,6 +700,13 @@ class OrderService
 
         foreach ($orders as $order) {
             try {
+                if ($order->isAwaitingProviderFunds()) {
+                    if ($this->retryIfProviderFunded($order)) {
+                        $count++;
+                    }
+                    continue;
+                }
+
                 $client = ProviderFactory::make($order->provider);
                 $resp = $client->checkStatus($order);
                 $status = strtolower((string) ($resp['status'] ?? 'pending'));
@@ -714,7 +716,9 @@ class OrderService
                 if (! empty($resp['transaction_id']) && empty($order->provider_txn_id)) {
                     $order->provider_txn_id = $resp['transaction_id'];
                 }
-                $order->message = $resp['message'] ?? $order->message;
+                if (! empty($resp['message'])) {
+                    $order->message = $resp['message'];
+                }
 
                 $turnedSuccess = false;
                 if ($status === 'success' && $order->status !== 'success') {
@@ -724,21 +728,30 @@ class OrderService
                     Log::info("Order {$order->reference} reconciled to SUCCESS by cron");
                 } elseif (($status === 'failed' || $status === 'refund' || $status === 'cancelled')
                     && ! $order->isFailedLike()) {
-                    $this->markFailed($order, $resp['message'] ?? null);
-                    $count++;
-                    Log::info("Order {$order->reference} reconciled to {$order->fresh()->status} by cron");
+                    if (ProviderErrors::isFundsIssue($resp['message'] ?? null, $resp)) {
+                        $this->holdForProviderFunds($order, $resp['message'] ?? 'Provider has no money');
+                        $count++;
+                    } else {
+                        $this->markFailed($order, $resp['message'] ?? null);
+                        $count++;
+                        Log::info("Order {$order->reference} reconciled to {$order->fresh()->status} by cron");
+                    }
                 } else {
                     $order->save();
                 }
 
-                // Generate invoice now that we know it's success (in case it
-                // was still pending at page load time).
-                if ($turnedSuccess && !$order->invoice_path) {
+                if ($turnedSuccess && ! $order->invoice_path) {
                     try {
                         app(InvoiceService::class)->generate($order->fresh());
                     } catch (\Throwable $e) {
                         Log::warning("Invoice generation failed for {$order->reference}: " . $e->getMessage());
                     }
+                }
+
+                $fresh = $order->fresh();
+                if ($fresh && $this->shouldAutoFallbackDialog($fresh)) {
+                    $this->transferToPairedService($fresh, null, 'Still waiting after 5 minutes');
+                    $count++;
                 }
             } catch (\Throwable $e) {
                 Log::warning("Order sync error for {$order->reference}: " . $e->getMessage());
@@ -746,4 +759,205 @@ class OrderService
         }
         return $count;
     }
+
+    public function applyStatusCheck(Order $order, array $resp): string
+    {
+        $status = strtolower((string) ($resp['status'] ?? 'pending'));
+        $prev = is_array($order->provider_response) ? $order->provider_response : [];
+        $order->provider_response = array_merge($prev, $resp, ['_last_checked' => now()->toDateTimeString()]);
+        if (! empty($resp['transaction_id']) && empty($order->provider_txn_id)) {
+            $order->provider_txn_id = $resp['transaction_id'];
+        }
+        if (! empty($resp['message'])) {
+            $order->message = $resp['message'];
+        }
+
+        if ($status === 'success' && $order->status !== 'success') {
+            $this->markSuccess($order);
+            return 'success';
+        }
+
+        if (in_array($status, ['failed', 'refund', 'cancelled'], true) && ! $order->isFailedLike()) {
+            if (ProviderErrors::isFundsIssue($resp['message'] ?? null, $resp)
+                || $order->provider_status === 'awaiting_provider_funds') {
+                $this->holdForProviderFunds($order, $resp['message'] ?? $order->message ?? 'Provider has no money');
+                return 'processing';
+            }
+            $this->markFailed($order, $resp['message'] ?? null);
+            return $order->fresh()?->status ?? 'refunded';
+        }
+
+        $order->save();
+        return $status;
+    }
+
+    protected function applyProviderResult(Order $order, array $resp, bool $timedOut = false, bool $refundOnHardFail = true): void
+    {
+        $prev = is_array($order->provider_response) ? $order->provider_response : [];
+        $order->provider_response = array_merge($prev, $resp, ['_timed_out' => $timedOut]);
+        if (! empty($resp['transaction_id'])) {
+            $order->provider_txn_id = $resp['transaction_id'];
+        }
+        if (! empty($resp['message'])) {
+            $order->message = $resp['message'];
+        }
+
+        $status = strtolower((string) ($resp['status'] ?? 'failed'));
+
+        if ($status === 'success') {
+            try {
+                $this->markSuccess($order);
+            } catch (\Throwable $e) {
+                Log::error('markSuccess failed after successful provider response', [
+                    'order' => $order->reference, 'err' => $e->getMessage(),
+                ]);
+                $order->status = 'success';
+                $order->provider_status = 'success';
+                $order->completed_at = now();
+                $order->save();
+            }
+            return;
+        }
+
+        if ($status === 'pending' || $timedOut) {
+            $order->status = 'pending';
+            $order->provider_status = $timedOut ? 'awaiting_confirmation' : 'pending';
+            $order->save();
+            return;
+        }
+
+        if (ProviderErrors::isFundsIssue($resp['message'] ?? null, $resp)) {
+            $this->holdForProviderFunds($order, $resp['message'] ?? 'Provider has no money');
+            return;
+        }
+
+        if (! $refundOnHardFail) {
+            $order->status = 'pending';
+            $order->provider_status = 'transfer_rejected';
+            $order->save();
+            return;
+        }
+
+        $refunded = $this->tryRefundWallet($order, 'Recharge failed — refunded to wallet');
+        $order->status = $refunded ? Order::STATUS_REFUNDED : Order::STATUS_FAILED;
+        $order->provider_status = $status;
+        $order->completed_at = now();
+        $order->save();
+    }
+
+    protected function holdForProviderFunds(Order $order, string $rawMessage): void
+    {
+        $prev = is_array($order->provider_response) ? $order->provider_response : [];
+        $prev['_awaiting_funds'] = true;
+        $prev['_funds_error'] = $rawMessage;
+        $order->provider_response = $prev;
+        $order->message = $rawMessage;
+        $order->status = Order::STATUS_PROCESSING;
+        $order->provider_status = 'awaiting_provider_funds';
+        $order->completed_at = null;
+        $order->save();
+        Log::warning("Order {$order->reference} waiting — provider has no money", [
+            'error' => $rawMessage,
+        ]);
+    }
+
+    protected function retryIfProviderFunded(Order $order): bool
+    {
+        $order->loadMissing(['provider', 'service']);
+        if (! $order->provider) {
+            return false;
+        }
+
+        $need = (float) $order->amount;
+        $info = $order->provider->fetchBalanceInfo(true);
+        $bal = $info['balance'];
+        $enough = false;
+        if ($bal === null) {
+            $last = $order->responseArray()['_funds_retry_at'] ?? null;
+            if ($last) {
+                try {
+                    if (\Illuminate\Support\Carbon::parse($last)->gt(now()->subMinutes(2))) {
+                        return false;
+                    }
+                } catch (\Throwable $e) {
+                    // retry
+                }
+            }
+            $enough = true;
+        } elseif ($order->provider->currency() === 'INR') {
+            $enough = $bal > 0;
+        } else {
+            $enough = $bal + 0.009 >= $need;
+        }
+
+        if (! $enough) {
+            return false;
+        }
+
+        $this->resendOrder($order, 'provider_funds');
+        return true;
+    }
+
+    protected function resendOrder(Order $order, string $reason): void
+    {
+        $prev = is_array($order->provider_response) ? $order->provider_response : [];
+        $n = (int) ($prev['_retry_count'] ?? 0) + 1;
+        $prev['_client_ref'] = $order->reference . '-R' . $n;
+        $prev['_retry_count'] = $n;
+        $prev['_funds_retry_at'] = now()->toDateTimeString();
+        $prev['_awaiting_funds'] = false;
+        $prev['_resend_reason'] = $reason;
+        $order->provider_response = $prev;
+        $order->provider_txn_id = null;
+        $order->status = 'processing';
+        $order->provider_status = 'processing';
+        $order->processed_at = now();
+        $order->completed_at = null;
+        $order->save();
+
+        $timedOut = false;
+        try {
+            $resp = ProviderFactory::make($order->provider)->recharge($order);
+        } catch (ConnectionException $e) {
+            $timedOut = true;
+            $resp = ['status' => 'pending', 'message' => 'Request sent — waiting for provider confirmation…'];
+            Log::warning('Provider resend TIMEOUT', [
+                'order' => $order->reference,
+                'reason' => $reason,
+                'error' => $e->getMessage(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Provider resend exception', [
+                'order' => $order->reference,
+                'reason' => $reason,
+                'error' => $e->getMessage(),
+            ]);
+            $resp = ['status' => 'failed', 'message' => 'Provider error: ' . $e->getMessage()];
+        }
+
+        $this->applyProviderResult($order, is_array($resp) ? $resp : [], $timedOut, true);
+    }
+
+    protected function shouldAutoFallbackDialog(Order $order): bool
+    {
+        if (! in_array($order->status, ['pending', 'processing'], true)) {
+            return false;
+        }
+        if ($order->isAwaitingProviderFunds()) {
+            return false;
+        }
+        if ($order->sendOpCode() !== PreferredRoute::DIALOG_API) {
+            return false;
+        }
+        $resp = $order->responseArray();
+        if (! empty($resp['_auto_fallback_at'])) {
+            return false;
+        }
+        if ($order->routeStartedAt()->gt(now()->subMinutes(PreferredRoute::AUTO_FALLBACK_MINUTES))) {
+            return false;
+        }
+
+        return ServicePairs::partnerFromOrder($order) !== null;
+    }
 }
+

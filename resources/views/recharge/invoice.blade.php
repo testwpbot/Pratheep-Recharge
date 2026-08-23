@@ -37,7 +37,7 @@
       <p style="font-weight:800; color:var(--navy-900); margin:0 0 12px;">Receipt</p>
       <dl class="kv">
         <dt>Reference</dt><dd>{{ $order->reference }}</dd>
-        <dt>Service</dt><dd>{{ $order->service->name ?? '—' }}</dd>
+        <dt>Service</dt><dd>{{ $order->customerServiceName() }}</dd>
         <dt>Account</dt><dd>{{ $order->account_number }}</dd>
         <dt>Amount</dt><dd>LKR {{ number_format((float) $order->amount, 2) }}</dd>
         @if ((float) $order->profit > 0)

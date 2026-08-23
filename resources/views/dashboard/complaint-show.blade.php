@@ -41,7 +41,7 @@
       </div>
       <div class="cmp-kv">
         <span>Service</span>
-        <b>{{ $complaint->order->service->name ?? '—' }}</b>
+        <b>{{ $complaint->order->customerServiceName() }}</b>
       </div>
       <div class="cmp-kv">
         <span>Order Amount</span>

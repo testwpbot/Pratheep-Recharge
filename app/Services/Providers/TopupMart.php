@@ -124,14 +124,14 @@ class TopupMart implements ProviderInterface
             'api_key'    => $this->apiKey,
             'mobile'     => $mobile,
             'amount'     => $amount,
-            'op_code'    => (string) $order->service->op_code,
+            'op_code'    => $order->sendOpCode(),
             'NotifyNo'   => $notify,
             'client_ref' => $order->providerClientRef(),
         ];
 
         Log::info('TopupMart recharge request', [
             'order'   => $order->reference,
-            'op_code' => $order->service->op_code,
+            'op_code' => $order->sendOpCode() ?: $order->service->op_code,
             'mobile'  => $mobile,
             'amount'  => $amount,
             'url'     => $this->baseUrl . '/recharge.php',
@@ -159,7 +159,7 @@ class TopupMart implements ProviderInterface
 
         Log::info('TopupMart recharge response', [
             'order'   => $order->reference,
-            'op_code' => $order->service->op_code,
+            'op_code' => $order->sendOpCode() ?: $order->service->op_code,
             'payload' => $data,
         ]);
 
@@ -180,10 +180,10 @@ class TopupMart implements ProviderInterface
         $payload = array_filter([
             'api_key'        => $this->apiKey,
             'transaction_id' => $order->provider_txn_id ?: null,
-            'client_ref'     => $order->reference,
+            'client_ref'     => $order->providerClientRef(),
             'mobile'         => preg_replace('/[^0-9]/', '', $order->account_number),
             'amount'         => $amount,
-            'op_code'        => $order->service?->op_code,
+            'op_code'        => $order->sendOpCode() ?: $order->service?->op_code,
         ]);
 
         try {

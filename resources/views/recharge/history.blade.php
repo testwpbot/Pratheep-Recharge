@@ -62,7 +62,7 @@
               @if ($o->service->logoUrl)
                 <img src="{{ $o->service->logoUrl }}" alt="" style="width:22px; height:22px; object-fit:contain; vertical-align:middle; margin-right:6px;">
               @endif
-              {{ $o->service->name }}
+              {{ $o->customerServiceName() }}
             </td>
             <td>{{ $o->account_number }}</td>
             <td><b>LKR {{ number_format($o->amount, 2) }}</b></td>
@@ -126,7 +126,7 @@
                         data-complaint-btn
                         data-order-id="{{ $o->id }}"
                         data-order-ref="{{ $o->reference }}"
-                        data-service="{{ $o->service->name }}"
+                        data-service="{{ $o->customerServiceName() }}"
                         data-mobile="{{ $o->account_number }}"
                         data-amount="{{ number_format((float) $o->amount, 2) }}">
                   <x-icon name="alert" :size="11"/> Complaint

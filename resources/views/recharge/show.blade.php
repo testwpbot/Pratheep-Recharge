@@ -24,9 +24,9 @@
 
   <div style="display:flex; align-items:center; gap:16px; padding:14px; border-radius:14px; background:#f7f9fd; margin-bottom:22px;">
     <img src="{{ $order->service->logo ? asset($order->service->logo) : asset('assets/logo-mark.png') }}"
-         alt="{{ $order->service->name }}" style="width:54px; height:54px; object-fit:contain;">
+         alt="{{ $order->customerServiceName() }}" style="width:54px; height:54px; object-fit:contain;">
     <div>
-      <div style="font-weight:800; color:var(--navy-900);">{{ $order->service->name }}</div>
+      <div style="font-weight:800; color:var(--navy-900);">{{ $order->customerServiceName() }}</div>
       <div style="color:var(--muted); font-size:13px;">Account: <b>{{ $order->account_number }}</b></div>
     </div>
     <span style="margin-left:auto; font-size:22px; font-weight:800; color:var(--navy-900);">LKR {{ number_format($order->amount, 2) }}</span>
@@ -34,14 +34,15 @@
 
   @if ($order->isRefunded())
     <div class="alert alert--success">
-      This recharge did not go through. LKR {{ number_format((float) $order->amount, 2) }} was put back in your wallet.
-      @if ($order->message)
-        <div style="margin-top:6px; font-weight:600;">{{ $order->message }}</div>
-      @endif
+      {{ $order->publicMessage() }}
     </div>
-  @elseif ($order->message)
-    <div class="alert alert--{{ $order->isFailedLike() ? 'error' : 'success' }}">
-      {{ $order->message }}
+  @elseif (in_array($order->status, ['pending', 'processing'], true))
+    <div class="alert alert--success">
+      {{ $order->publicMessage() }}
+    </div>
+  @elseif ($order->isFailedLike())
+    <div class="alert alert--error">
+      {{ $order->publicMessage() }}
     </div>
   @endif
 

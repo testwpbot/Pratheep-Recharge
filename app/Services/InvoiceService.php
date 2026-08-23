@@ -362,7 +362,7 @@ class InvoiceService
         $rows[] = ['label' => 'Mobile / Account', 'value' => $order->account_number];
 
         $rows[] = ['section' => 'Order Details'];
-        $rows[] = ['label' => 'Service',          'value' => $order->service->name ?? '—'];
+        $rows[] = ['label' => 'Service',          'value' => $order->customerServiceName()];
         // Do NOT expose third-party provider names to customers — show the brand instead.
         $rows[] = ['label' => 'Processed via',    'value' => 'Happy Pratheep Recharge'];
         if ($order->notify_number && $order->notify_number !== $order->account_number) {

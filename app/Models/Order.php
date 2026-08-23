@@ -2,7 +2,10 @@
 
 namespace App\Models;
 
+use App\Support\PreferredRoute;
+use App\Support\ProviderErrors;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -84,10 +87,92 @@ class Order extends Model
      */
     public function providerClientRef(): string
     {
-        $resp = is_array($this->provider_response) ? $this->provider_response : [];
+        $resp = $this->responseArray();
         $ref = trim((string) ($resp['_client_ref'] ?? ''));
 
         return $ref !== '' ? $ref : (string) $this->reference;
+    }
+
+    public function responseArray(): array
+    {
+        return is_array($this->provider_response) ? $this->provider_response : [];
+    }
+
+    public function sendOpCode(): string
+    {
+        $code = trim((string) ($this->responseArray()['_route_op_code'] ?? ''));
+
+        return $code !== '' ? $code : (string) ($this->service?->op_code ?? '');
+    }
+
+    public function customerServiceName(): string
+    {
+        $stored = trim((string) ($this->responseArray()['_catalog_service_name'] ?? ''));
+        if ($stored !== '') {
+            return $stored;
+        }
+
+        $code = (string) ($this->service?->op_code ?? '');
+        if ($code === PreferredRoute::DIALOG_API) {
+            return 'Dialog Prepaid';
+        }
+
+        return (string) ($this->service?->name ?? 'Recharge');
+    }
+
+    public function isAwaitingProviderFunds(): bool
+    {
+        if (! in_array($this->status, [self::STATUS_PENDING, self::STATUS_PROCESSING], true)) {
+            return false;
+        }
+
+        if ($this->provider_status === 'awaiting_provider_funds') {
+            return true;
+        }
+
+        $resp = $this->responseArray();
+
+        return ! empty($resp['_awaiting_funds'])
+            || ProviderErrors::isFundsIssue($this->message, $resp);
+    }
+
+    public function routeStartedAt(): Carbon
+    {
+        $raw = $this->responseArray()['_route_started_at'] ?? null;
+        if ($raw) {
+            try {
+                return Carbon::parse($raw);
+            } catch (\Throwable $e) {
+                // fall through
+            }
+        }
+
+        return $this->processed_at ?: $this->created_at ?: now();
+    }
+
+    /** Safe copy for customer pages. Never the raw provider text. */
+    public function publicMessage(): string
+    {
+        if ($this->status === self::STATUS_SUCCESS) {
+            $note = (float) $this->profit > 0
+                ? ' You earned LKR '.number_format((float) $this->profit, 2).' cashback.'
+                : '';
+
+            return 'Recharge successful! Your '.$this->customerServiceName()
+                .' of LKR '.number_format((float) $this->amount, 2)
+                .' has been processed.'.$note;
+        }
+
+        if (in_array($this->status, [self::STATUS_PENDING, self::STATUS_PROCESSING], true)) {
+            return 'Your recharge request has been sent and is being processed. You can track its status on this page.';
+        }
+
+        if ($this->isRefunded()) {
+            return 'This recharge did not go through. LKR '.number_format((float) $this->amount, 2)
+                .' was put back in your wallet.';
+        }
+
+        return 'This recharge did not go through. Please try again or contact support.';
     }
 
     /** Generate a unique order reference */

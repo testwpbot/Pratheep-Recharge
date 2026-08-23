@@ -183,14 +183,14 @@ class HappyRechargeCenter implements ProviderInterface
         $query = [
             'Apitoken'     => $this->apiKey,
             'Amount'       => $amount,
-            'OperatorCode' => (string) $order->service->op_code,
+            'OperatorCode' => $order->sendOpCode() ?: (string) $order->service->op_code,
             'Number'       => $number,
-            'ClientId'     => $order->reference,
+            'ClientId'     => $order->providerClientRef(),
         ];
 
         Log::info('HappyRechargeCenter recharge request', [
             'order'   => $order->reference,
-            'op_code' => $order->service->op_code,
+            'op_code' => $order->sendOpCode() ?: $order->service->op_code,
             'number'  => $number,
             'amount'  => $amount,
         ]);
@@ -239,7 +239,7 @@ class HappyRechargeCenter implements ProviderInterface
                 $this->baseUrl . '/rechargestatus.aspx',
                 [
                     'Apitoken' => $this->apiKey,
-                    'ClientId' => $order->reference,
+                    'ClientId' => $order->providerClientRef(),
                 ]
             );
             $data = $res->json();
