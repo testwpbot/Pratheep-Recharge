@@ -297,6 +297,7 @@ class OrderProviderMessagesTest extends TestCase
         $this->assertSame(Order::STATUS_PROCESSING, $order->status);
         $this->assertTrue($order->isAwaitingProviderFunds());
         $this->assertEmpty($order->provider_response['_auto_fallback_at'] ?? null);
+        $this->assertContains($order->provider_status, ['awaiting_funds', 'awaiting_provider_funds']);
     }
 
     public function test_quick_recharge_hides_dialog_api_card(): void

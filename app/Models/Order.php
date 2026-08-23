@@ -127,7 +127,9 @@ class Order extends Model
             return false;
         }
 
-        if ($this->provider_status === 'awaiting_provider_funds') {
+        if (in_array((string) $this->provider_status, [
+            'awaiting_provider_funds', 'awaiting_funds', 'awaiting_provide',
+        ], true)) {
             return true;
         }
 
@@ -145,7 +147,7 @@ class Order extends Model
 
         $resp = $this->responseArray();
         foreach ([$resp['status'] ?? null, $resp['STATUS'] ?? null, $this->provider_status] as $status) {
-            if (in_array(strtolower((string) $status), ['failed', 'refund', 'cancelled', 'transfer_rejected'], true)) {
+            if (in_array(strtolower((string) $status), ['failed', 'refund', 'cancelled', 'transfer_rejected', 'switch_fail'], true)) {
                 return true;
             }
         }

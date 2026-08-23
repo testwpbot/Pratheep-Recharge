@@ -23,6 +23,7 @@ class WebCron
         }
 
         try {
+            SchemaFix::widenOrderProviderStatus();
             Artisan::call('schedule:run');
             $out = trim((string) Artisan::output());
             static::rememberRun($out);

@@ -391,7 +391,7 @@ class OrderService
         $order->service_id      = $fallbackService->id;
         $order->provider_txn_id = null;
         $order->status          = 'processing';
-        $order->provider_status = 'failover_processing';
+        $order->provider_status = 'failover';
         $order->processed_at    = now();
         $order->completed_at    = null;
         $order->message         = trim(($order->message ? $order->message . "\n\n" : '') . $noteText);
@@ -445,7 +445,7 @@ class OrderService
             $this->markSuccess($order);
         } elseif ($status === 'pending' || $timedOut) {
             $order->status = 'pending';
-            $order->provider_status = $timedOut ? 'awaiting_confirmation' : 'pending';
+            $order->provider_status = $timedOut ? 'awaiting_ack' : 'pending';
             $order->save();
         } else {
             $order->save();
@@ -518,7 +518,7 @@ class OrderService
             $locked->service_id = $partner->id;
             $locked->provider_txn_id = null;
             $locked->status = 'processing';
-            $locked->provider_status = 'transfer_processing';
+            $locked->provider_status = 'switching';
             $locked->processed_at = now();
             $locked->completed_at = null;
             $locked->message = trim(($locked->message ? $locked->message . "\n\n" : '') . $noteText);
@@ -593,7 +593,7 @@ class OrderService
             $this->markSuccess($order);
         } elseif ($status === 'pending' || $timedOut) {
             $order->status = 'pending';
-            $order->provider_status = $timedOut ? 'awaiting_confirmation' : 'pending';
+            $order->provider_status = $timedOut ? 'awaiting_ack' : 'pending';
             $order->save();
         } elseif (ProviderErrors::isFundsIssue($resp['message'] ?? null, is_array($resp) ? $resp : [])) {
             $this->holdForProviderFunds($order, $resp['message'] ?? 'Provider has no money');
@@ -601,7 +601,7 @@ class OrderService
             // Keep pending so admin can send it back the other way.
             // Do not refund — the first request may still complete.
             $order->status = 'pending';
-            $order->provider_status = 'transfer_rejected';
+            $order->provider_status = 'switch_fail';
             $order->save();
         }
 
@@ -686,7 +686,7 @@ class OrderService
             ->where(function ($q) {
                 $q->where('created_at', '>=', now()->subHours(48))
                   ->orWhere(function ($q2) {
-                      $q2->where('provider_status', 'awaiting_provider_funds')
+                      $q2->whereIn('provider_status', ['awaiting_provider_funds', 'awaiting_funds'])
                          ->where('created_at', '>=', now()->subDays(7));
                   });
             })
@@ -817,7 +817,7 @@ class OrderService
 
         if (in_array($status, ['failed', 'refund', 'cancelled'], true) && ! $order->isFailedLike()) {
             if (ProviderErrors::isFundsIssue($resp['message'] ?? null, $resp)
-                || $order->provider_status === 'awaiting_provider_funds') {
+                || in_array($order->provider_status, ['awaiting_provider_funds', 'awaiting_funds', 'awaiting_provide'], true)) {
                 $this->holdForProviderFunds($order, $resp['message'] ?? $order->message ?? 'Provider has no money');
                 return 'processing';
             }
@@ -869,7 +869,7 @@ class OrderService
 
         if ($status === 'pending' || $timedOut) {
             $order->status = 'pending';
-            $order->provider_status = $timedOut ? 'awaiting_confirmation' : 'pending';
+            $order->provider_status = $timedOut ? 'awaiting_ack' : 'pending';
             $order->save();
             return;
         }
@@ -886,7 +886,7 @@ class OrderService
 
         if (! $refundOnHardFail) {
             $order->status = 'pending';
-            $order->provider_status = 'transfer_rejected';
+            $order->provider_status = 'switch_fail';
             $order->save();
             return;
         }
@@ -906,7 +906,7 @@ class OrderService
         $order->provider_response = $prev;
         $order->message = $rawMessage;
         $order->status = Order::STATUS_PROCESSING;
-        $order->provider_status = 'awaiting_provider_funds';
+        $order->provider_status = 'awaiting_funds';
         $order->completed_at = null;
         $order->save();
         Log::warning("Order {$order->reference} waiting — provider has no money", [
@@ -1048,7 +1048,7 @@ class OrderService
 
         $updated = $this->transferToPairedService($order, null, $note);
 
-        if ($updated->provider_status === 'transfer_rejected' && ! $updated->isAwaitingProviderFunds()) {
+        if (in_array($updated->provider_status, ['transfer_rejected', 'switch_fail'], true) && ! $updated->isAwaitingProviderFunds()) {
             $this->markFailed($updated, $updated->message);
             return $updated->fresh(['provider', 'service', 'user']);
         }
