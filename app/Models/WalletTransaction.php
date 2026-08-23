@@ -53,4 +53,35 @@ class WalletTransaction extends Model
     {
         return $this->signedAmount() >= 0;
     }
+
+    /** Short label for wallet history on every customer + admin page. */
+    public function typeLabel(): string
+    {
+        if ($this->type === self::TYPE_ADJUST) {
+            return $this->isCredit() ? 'Manual fund add' : 'Manual funds remove';
+        }
+
+        return match ($this->type) {
+            self::TYPE_DEBIT    => 'Recharge / Order',
+            self::TYPE_DEPOSIT  => 'Deposit',
+            self::TYPE_CASHBACK => 'Cashback',
+            self::TYPE_REFUND   => 'Refund',
+            default             => ucfirst((string) $this->type),
+        };
+    }
+
+    public function typePillClass(): string
+    {
+        if ($this->type === self::TYPE_DEBIT) {
+            return 'failed';
+        }
+        if ($this->type === self::TYPE_REFUND) {
+            return 'refunded';
+        }
+        if ($this->type === self::TYPE_ADJUST) {
+            return $this->isCredit() ? 'success' : 'failed';
+        }
+
+        return 'success';
+    }
 }

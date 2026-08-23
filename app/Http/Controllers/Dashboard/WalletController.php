@@ -18,12 +18,13 @@ class WalletController extends Controller
 
         $deposits = WalletDeposit::where('user_id', $user->id)
             ->latest()
-            ->paginate(15);
+            ->paginate(15, ['*'], 'dep_page')
+            ->withQueryString();
 
         $transactions = $wallet->transactions()
             ->latest()
-            ->limit(30)
-            ->get();
+            ->paginate(15, ['*'], 'tx_page')
+            ->withQueryString();
 
         $banks = \App\Models\BankAccount::active()->get();
         $general = Setting::forGroup('general');

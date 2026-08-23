@@ -107,7 +107,7 @@ class WalletService
                 }
                 $after = round($before + $amount, 2);
                 $delta = $amount;
-                $label = 'Admin added money';
+                $label = 'Manual fund add';
             } elseif ($mode === 'remove') {
                 if ($amount < 0.01) {
                     throw new RuntimeException('Enter an amount to take out.');
@@ -117,14 +117,14 @@ class WalletService
                 }
                 $after = round($before - $amount, 2);
                 $delta = $amount;
-                $label = 'Admin took money out';
+                $label = 'Manual funds remove';
             } else {
                 $after = $amount;
                 $delta = round(abs($after - $before), 2);
                 if ($delta < 0.01) {
                     throw new RuntimeException('Wallet is already LKR ' . number_format($before, 2) . '.');
                 }
-                $label = 'Admin set wallet to LKR ' . number_format($after, 2);
+                $label = $after >= $before ? 'Manual fund add' : 'Manual funds remove';
             }
 
             $w->balance = $after;

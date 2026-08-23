@@ -146,6 +146,20 @@ class AdminUserManagementTest extends TestCase
 
         $this->assertEquals(250, (float) $wallet->fresh()->balance);
         $this->assertSame(2, $wallet->transactions()->where('type', 'adjustment')->count());
+
+        $this->actingAs($admin)
+            ->get(route('admin.users.show', $customer))
+            ->assertOk()
+            ->assertSee('Manual fund add', false)
+            ->assertSee('Manual funds remove', false)
+            ->assertDontSee('>Adjustment<', false);
+
+        $this->actingAs($customer)
+            ->get(route('wallet'))
+            ->assertOk()
+            ->assertSee('Manual fund add', false)
+            ->assertSee('Manual funds remove', false)
+            ->assertDontSee('>Adjustment<', false);
     }
 
     public function test_admin_can_set_exact_wallet_amount(): void

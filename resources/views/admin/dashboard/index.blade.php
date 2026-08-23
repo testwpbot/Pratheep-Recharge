@@ -37,7 +37,7 @@
             <tr>
               <td><small>{{ $tx->created_at->diffForHumans() }}</small></td>
               <td>{{ $u->name ?? '—' }}</td>
-              <td><span class="pill pill--{{ $tx->type === 'debit' ? 'failed' : 'success' }}">{{ ucfirst($tx->type) }}</span></td>
+              <td><span class="pill pill--{{ $tx->typePillClass() }}">{{ $tx->typeLabel() }}</span></td>
               <td><b>{{ $tx->isCredit() ? '+' : '−' }} LKR {{ number_format(abs((float) $tx->amount), 2) }}</b></td>
             </tr>
           @empty

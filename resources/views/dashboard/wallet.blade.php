@@ -188,16 +188,9 @@
       @forelse($transactions as $t)
         @php
           $positive = $t->isCredit();
-          $iconCls = $t->type === 'deposit' ? 'tx-row__ic--dep' : ($t->type === 'cashback' ? 'tx-row__ic--cb' : 'tx-row__ic--deb');
-          $icon = $t->type === 'cashback' ? 'gift-dr' : ($t->type === 'deposit' ? 'wallet' : 'bolt');
-          $label = match($t->type){
-            'debit'      => 'Recharge / Order',
-            'deposit'    => 'Deposit',
-            'cashback'   => 'Cashback',
-            'refund'     => 'Refund',
-            'adjustment' => 'Adjustment',
-            default      => ucfirst($t->type),
-          };
+          $iconCls = $t->type === 'cashback' ? 'tx-row__ic--cb' : ($positive ? 'tx-row__ic--dep' : 'tx-row__ic--deb');
+          $icon = $t->type === 'cashback' ? 'gift-dr' : ($positive ? 'wallet' : 'bolt');
+          $label = $t->typeLabel();
         @endphp
         <div class="tx-row">
           <div class="tx-row__left">
@@ -215,6 +208,9 @@
         <div style="text-align:center; padding:30px; color:var(--muted); font-weight:600;">No transactions yet.</div>
       @endforelse
     </div>
+    @if($transactions->hasPages())
+      <div style="margin-top:14px;">{{ $transactions->links() }}</div>
+    @endif
   </div>
 
   <div class="card">
@@ -240,6 +236,9 @@
         <div style="text-align:center; padding:30px; color:var(--muted); font-weight:600;">No deposits yet.</div>
       @endforelse
     </div>
+    @if($deposits->hasPages())
+      <div style="margin-top:14px;">{{ $deposits->links() }}</div>
+    @endif
   </div>
 </div>
 </div>

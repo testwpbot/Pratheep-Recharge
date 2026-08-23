@@ -124,7 +124,7 @@ class AdminUserController extends Controller
         $wallet = Wallet::firstOrCreate(['user_id' => $user->id]);
         $user->setRelation('wallet', $wallet);
 
-        $transactions = $wallet->transactions()->latest('id')->limit(30)->get();
+        $transactions = $wallet->transactions()->latest('id')->paginate(20, ['*'], 'tx_page')->withQueryString();
         $orders = $user->orders()->with('service')->limit(15)->get();
         $deposits = $user->deposits()->limit(10)->get();
         $min = WalletLimits::minBalance();

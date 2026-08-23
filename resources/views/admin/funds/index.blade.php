@@ -118,7 +118,7 @@
               <b>{{ $u->name ?? '—' }}</b><br>
               <small style="color:var(--muted);">{{ $u->email ?? '' }}</small>
             </td>
-            <td><span class="pill pill--{{ $tx->type === 'debit' ? 'failed' : ($tx->type === 'refund' ? 'refunded' : 'success') }}">{{ ucfirst($tx->type) }}</span></td>
+            <td><span class="pill pill--{{ $tx->typePillClass() }}">{{ $tx->typeLabel() }}</span></td>
             <td>
               <b class="{{ $tx->isCredit() ? 'tx-row__amt--pos' : 'tx-row__amt--neg' }}">
                 {{ $tx->isCredit() ? '+' : '−' }} LKR {{ number_format(abs((float) $tx->amount), 2) }}

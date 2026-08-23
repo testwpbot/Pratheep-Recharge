@@ -158,7 +158,7 @@
         @php $pos = $t->isCredit(); @endphp
         <tr>
           <td><small>{{ $t->created_at->format('Y-m-d H:i') }}</small></td>
-          <td><span class="pill pill--{{ $pos ? 'success' : 'failed' }}">{{ ucfirst($t->type) }}</span></td>
+          <td><span class="pill pill--{{ $t->typePillClass() }}">{{ $t->typeLabel() }}</span></td>
           <td>
             <b class="{{ $pos ? 'tx-row__amt--pos' : 'tx-row__amt--neg' }}">
               {{ $pos ? '+' : '−' }} LKR {{ number_format(abs((float) $t->amount), 2) }}
@@ -175,6 +175,9 @@
       </tbody>
     </table>
   </div>
+  @if($transactions->hasPages())
+    <div style="margin-top:16px;">{{ $transactions->links() }}</div>
+  @endif
 </div>
 
 <div class="fund-split" style="margin-top:20px;">
