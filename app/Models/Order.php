@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Support\PreferredRoute;
 use App\Support\ProviderErrors;
+use App\Support\ServicePairs;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -134,6 +135,54 @@ class Order extends Model
 
         return ! empty($resp['_awaiting_funds'])
             || ProviderErrors::isFundsIssue($this->message, $resp);
+    }
+
+    public function hasRecordedHardFail(): bool
+    {
+        if ($this->isAwaitingProviderFunds()) {
+            return false;
+        }
+
+        $resp = $this->responseArray();
+        foreach ([$resp['status'] ?? null, $resp['STATUS'] ?? null, $this->provider_status] as $status) {
+            if (in_array(strtolower((string) $status), ['failed', 'refund', 'cancelled', 'transfer_rejected'], true)) {
+                return true;
+            }
+        }
+
+        return str_contains(strtolower((string) $this->message), 'recharge failed');
+    }
+
+    /** Simple English for admin: will the clock send this to Dialog Prepaid? */
+    public function clockNote(): ?string
+    {
+        if (! in_array($this->status, [self::STATUS_PENDING, self::STATUS_PROCESSING], true)) {
+            return null;
+        }
+        if ($this->sendOpCode() !== PreferredRoute::DIALOG_API) {
+            return null;
+        }
+        if (! empty($this->responseArray()['_auto_fallback_at'])) {
+            return 'The clock already sent this order through Dialog Prepaid.';
+        }
+        if (! ServicePairs::partnerFromOrder($this)) {
+            return 'The clock cannot send this to Dialog Prepaid because that service is missing.';
+        }
+        if ($this->isAwaitingProviderFunds()) {
+            return 'The clock will not switch this to Dialog Prepaid. The provider has no money, and Dialog Prepaid uses the same provider wallet. Add money at the provider, or click Send via Dialog Prepaid to try anyway.';
+        }
+        if ($this->hasRecordedHardFail()) {
+            return 'The clock should send this through Dialog Prepaid on the next run. Dialog API already failed.';
+        }
+
+        $mins = (int) $this->routeStartedAt()->diffInMinutes(now());
+        if ($mins >= PreferredRoute::AUTO_FALLBACK_MINUTES) {
+            return 'The clock should send this through Dialog Prepaid on the next run. It has been waiting '.$mins.' minutes.';
+        }
+
+        $left = PreferredRoute::AUTO_FALLBACK_MINUTES - $mins;
+
+        return 'The clock will send this through Dialog Prepaid in about '.$left.' minute(s) if Dialog API is still waiting.';
     }
 
     public function routeStartedAt(): Carbon

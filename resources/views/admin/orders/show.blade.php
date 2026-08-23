@@ -14,6 +14,8 @@
   $sendLabel = \App\Support\PreferredRoute::adminLabel($order->service, $order->sendOpCode());
   $switched = is_array($order->provider_response) && !empty($order->provider_response['_transfer']);
   $waitingFunds = $order->isAwaitingProviderFunds();
+  $clockNote = $order->clockNote();
+  $cron = \App\Models\Setting::cronStatus();
 @endphp
 
 @section('content')
@@ -49,8 +51,16 @@
   @if ($waitingFunds)
     <div class="alert alert--error" style="margin-top:16px;">
       The provider does not have enough money right now. This order is waiting.
-      The cron job will send it again when the provider has money.
+      The clock will send it again on the same route when the provider has money.
+      Dialog Prepaid uses that same provider wallet, so the clock will not switch this order automatically.
       The customer only sees “Processing” — they cannot see this error.
+    </div>
+  @endif
+
+  @if ($clockNote)
+    <div class="alert {{ $waitingFunds ? 'alert--error' : 'alert--success' }}" style="margin-top:16px;">
+      <b>Automatic Dialog Prepaid:</b> {{ $clockNote }}<br>
+      <small>Clock last ran: {{ $cron['label'] }}@if($cron['age_minutes'] !== null) ({{ $cron['age_minutes'] }} min ago)@endif</small>
     </div>
   @endif
 

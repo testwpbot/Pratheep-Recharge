@@ -9,6 +9,7 @@ use App\Models\Provider;
 use App\Models\ProviderBalanceSnapshot;
 use App\Models\Service;
 use App\Models\User;
+use App\Models\Setting;
 use App\Models\WalletTransaction;
 use App\Services\FundHealthService;
 use Illuminate\View\View;
@@ -37,9 +38,10 @@ class AdminDashboardController extends Controller
 
         $recentWallet = WalletTransaction::with(['wallet.user'])->latest('id')->limit(8)->get();
         $recentSnaps = ProviderBalanceSnapshot::with('provider')->latest('id')->limit(8)->get();
+        $cron = Setting::cronStatus();
 
         return view('admin.dashboard.index', compact(
-            'stats', 'recentOrders', 'providers', 'health', 'byId', 'recentWallet', 'recentSnaps'
+            'stats', 'recentOrders', 'providers', 'health', 'byId', 'recentWallet', 'recentSnaps', 'cron'
         ));
     }
 }

@@ -97,7 +97,9 @@ class OrderProviderMessagesTest extends TestCase
             ->assertOk()
             ->assertSee('Insufficient balance', false)
             ->assertSee('does not have enough money', false)
-            ->assertSee('Processing', false);
+            ->assertSee('Processing', false)
+            ->assertSee('Automatic Dialog Prepaid', false)
+            ->assertSee('will not switch this to Dialog Prepaid', false);
     }
 
     public function test_cron_resends_when_provider_has_money_again(): void

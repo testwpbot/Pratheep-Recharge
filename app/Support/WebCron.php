@@ -25,6 +25,7 @@ class WebCron
         try {
             Artisan::call('schedule:run');
             $out = trim((string) Artisan::output());
+            static::rememberRun($out);
 
             return [
                 'ok'     => true,
@@ -58,6 +59,23 @@ class WebCron
     public static function isCli(): bool
     {
         return in_array(PHP_SAPI, ['cli', 'phpdbg'], true);
+    }
+
+    private static function rememberRun(string $output): void
+    {
+        try {
+            \App\Models\Setting::set(
+                'cron',
+                'last_run_at',
+                now()->timezone('Asia/Colombo')->toDateTimeString()
+            );
+            $note = trim((string) \App\Models\Setting::get('cron', 'last_sync_note', ''));
+            if ($output !== '' && $note === '') {
+                \App\Models\Setting::set('cron', 'last_sync_note', mb_substr($output, 0, 2000));
+            }
+        } catch (Throwable) {
+            // Settings table may not be ready.
+        }
     }
 
     private static function rateOk(): bool

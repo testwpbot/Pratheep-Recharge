@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\Provider;
 use App\Models\Service;
 use App\Models\User;
+use App\Models\Setting;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Support\PreferredRoute;
@@ -20,6 +21,9 @@ use Illuminate\Support\Facades\Log;
 
 class OrderService
 {
+    /** @var list<string> */
+    public array $lastSyncReport = [];
+
     /**
      * Resolve the effective provider for a service.
      *
@@ -677,6 +681,7 @@ class OrderService
     public function syncPending(): int
     {
         $count = 0;
+        $notes = [];
         $orders = Order::whereIn('status', ['pending', 'processing'])
             ->where(function ($q) {
                 $q->where('created_at', '>=', now()->subHours(48))
@@ -688,18 +693,25 @@ class OrderService
             ->with(['provider', 'service', 'user'])
             ->get();
 
+        $notes[] = 'Checked '.$orders->count().' pending/processing order(s).';
+
         foreach ($orders as $order) {
             try {
+                $label = $order->reference.' ('.$order->status.', op '.$order->sendOpCode().')';
                 // Dialog API already said no — do not wait for another status poll.
                 // Do not use the 5-minute switch here or we skip a late success check.
                 if ($this->maybeDialogPrepaidFallback($order, false)) {
+                    $notes[] = $label.': sent through Dialog Prepaid (API already failed).';
                     $count++;
                     continue;
                 }
 
                 if ($order->isAwaitingProviderFunds()) {
                     if ($this->retryIfProviderFunded($order)) {
+                        $notes[] = $label.': provider has no money — resent on the same route.';
                         $count++;
+                    } else {
+                        $notes[] = $label.': provider has no money — waiting, not switching to Dialog Prepaid.';
                     }
                     continue;
                 }
@@ -722,17 +734,21 @@ class OrderService
                     $this->markSuccess($order);
                     $turnedSuccess = true;
                     $count++;
+                    $notes[] = $label.': provider said success.';
                     Log::info("Order {$order->reference} reconciled to SUCCESS by cron");
                 } elseif (($status === 'failed' || $status === 'refund' || $status === 'cancelled')
                     && ! $order->isFailedLike()) {
                     if (ProviderErrors::isFundsIssue($resp['message'] ?? null, $resp)) {
                         $this->holdForProviderFunds($order, $resp['message'] ?? 'Provider has no money');
+                        $notes[] = $label.': provider has no money — waiting.';
                         $count++;
                     } elseif ($this->canFallbackDialogPrepaid($order)) {
                         $this->fallbackDialogPrepaid($order, 'Dialog API later failed — trying Dialog Prepaid');
+                        $notes[] = $label.': provider failed — sent through Dialog Prepaid.';
                         $count++;
                     } else {
                         $this->markFailed($order, $resp['message'] ?? null);
+                        $notes[] = $label.': provider failed — refunded.';
                         $count++;
                         Log::info("Order {$order->reference} reconciled to {$order->fresh()->status} by cron");
                     }
@@ -750,13 +766,18 @@ class OrderService
 
                 $fresh = $order->fresh();
                 if ($fresh && $this->maybeDialogPrepaidFallback($fresh)) {
+                    $notes[] = $label.': still waiting after 5 minutes — sent through Dialog Prepaid.';
                     $count++;
+                } elseif ($fresh && $fresh->status === $order->status) {
+                    $notes[] = $label.': still '.$fresh->status.' on op '.$fresh->sendOpCode().'.';
                 }
             } catch (\Throwable $e) {
                 Log::warning("Order sync error for {$order->reference}: " . $e->getMessage());
+                $notes[] = $order->reference.': clock error — '.$e->getMessage();
                 try {
                     $fresh = $order->fresh();
                     if ($fresh && $this->maybeDialogPrepaidFallback($fresh)) {
+                        $notes[] = $order->reference.': sent through Dialog Prepaid after clock error.';
                         $count++;
                     }
                 } catch (\Throwable $ignored) {
@@ -764,6 +785,16 @@ class OrderService
                 }
             }
         }
+
+        $this->lastSyncReport = $notes;
+        try {
+            Setting::set('cron', 'last_sync_at', now()->timezone('Asia/Colombo')->toDateTimeString());
+            Setting::set('cron', 'last_sync_note', implode("
+", $notes));
+        } catch (\Throwable $e) {
+            //
+        }
+
         return $count;
     }
 
@@ -983,20 +1014,7 @@ class OrderService
 
     protected function hasRecordedHardFail(Order $order): bool
     {
-        if ($order->isAwaitingProviderFunds()) {
-            return false;
-        }
-
-        $resp = $order->responseArray();
-        foreach ([$resp['status'] ?? null, $resp['STATUS'] ?? null, $order->provider_status] as $status) {
-            if (in_array(strtolower((string) $status), ['failed', 'refund', 'cancelled', 'transfer_rejected'], true)) {
-                return true;
-            }
-        }
-
-        $msg = strtolower((string) $order->message);
-
-        return str_contains($msg, 'recharge failed');
+        return $order->hasRecordedHardFail();
     }
 
     protected function canFallbackDialogPrepaid(Order $order): bool

@@ -17,6 +17,33 @@
 <div class="card">
   <div class="card__head">
     <div>
+      <h3>Clock (cron)</h3>
+      <small style="color:var(--muted); font-weight:600;">This must run every minute or pending Dialog orders will sit still.</small>
+    </div>
+    @if ($cron['ok'])
+      <span class="pill pill--success">Running</span>
+    @elseif ($cron['never'])
+      <span class="pill pill--failed">Never ran</span>
+    @else
+      <span class="pill pill--failed">Not every minute</span>
+    @endif
+  </div>
+  <p style="margin:0 0 8px; font-weight:700;">
+    Last ran: {{ $cron['label'] }}
+    @if ($cron['age_minutes'] !== null)
+      <small style="color:var(--muted); font-weight:600;">({{ $cron['age_minutes'] }} min ago)</small>
+    @endif
+  </p>
+  @if ($cron['note'])
+    <pre style="background:#f7f9fd; padding:12px; border-radius:12px; font-size:12.5px; overflow:auto; margin:0; white-space:pre-wrap;">{{ $cron['note'] }}</pre>
+  @else
+    <p style="margin:0; color:var(--muted); font-weight:600;">No clock note yet. Open /cron.php once after you upload the new files.</p>
+  @endif
+</div>
+
+<div class="card">
+  <div class="card__head">
+    <div>
       <h3>Provider Money</h3>
       <small style="color:var(--muted); font-weight:600;">Does the provider have more money than customers have in their wallets?</small>
     </div>

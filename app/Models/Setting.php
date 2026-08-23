@@ -128,6 +128,43 @@ class Setting extends Model
     }
 
     /** Turn 0771234567 / +94 77 123 4567 into digits WhatsApp accepts. */
+    /**
+     * DirectAdmin clock heartbeat written by /cron.php.
+     *
+     * @return array{last_run_at:string,label:string,ok:bool,never:bool,age_minutes:?int,note:string}
+     */
+    public static function cronStatus(): array
+    {
+        $at = '';
+        $note = '';
+        try {
+            $at = trim((string) static::get('cron', 'last_run_at', ''));
+            $note = trim((string) static::get('cron', 'last_sync_note', ''));
+        } catch (\Throwable $e) {
+            //
+        }
+
+        $when = null;
+        if ($at !== '') {
+            try {
+                $when = \Illuminate\Support\Carbon::parse($at);
+            } catch (\Throwable $e) {
+                $when = null;
+            }
+        }
+
+        $age = $when ? (int) $when->diffInMinutes(now()) : null;
+
+        return [
+            'last_run_at' => $at,
+            'label'       => $when ? $when->timezone('Asia/Colombo')->format('Y-m-d H:i:s') : 'Never',
+            'ok'          => $when !== null && $age !== null && $age <= 3,
+            'never'       => $when === null,
+            'age_minutes' => $age,
+            'note'        => $note,
+        ];
+    }
+
     public static function whatsappDigits(?string $phone): string
     {
         $raw = preg_replace('/[^\d+]/', '', (string) $phone);

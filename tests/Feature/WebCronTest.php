@@ -30,4 +30,23 @@ class WebCronTest extends TestCase
         $this->get('/cron.php?key=wrong')->assertNotFound();
         $this->get('/cron.php?key=secret-clock')->assertOk();
     }
+
+    public function test_cron_url_saves_last_run_time(): void
+    {
+        $this->get('/cron.php')->assertOk();
+
+        $this->assertNotSame('', (string) Setting::get('cron', 'last_run_at', ''));
+    }
+
+    public function test_admin_dashboard_shows_clock_card(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $admin->forceFill(['admin_role' => User::ADMIN_ROLE_ADMIN])->save();
+
+        $this->actingAs($admin)
+            ->get(route('admin.dashboard'))
+            ->assertOk()
+            ->assertSee('Clock (cron)', false)
+            ->assertSee('Never', false);
+    }
 }
