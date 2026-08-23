@@ -69,6 +69,13 @@
       @endforeach
     </div>
 
+    <div class="kind-tabs" id="mobileKindTabs" role="tablist" aria-label="Prepaid or Postpaid"
+         @if(($categories->first()->slug ?? '') !== 'mobile') hidden @endif>
+      <button type="button" class="kind-tab active" data-kind="" aria-selected="true">All</button>
+      <button type="button" class="kind-tab" data-kind="prepaid" aria-selected="false">Prepaid</button>
+      <button type="button" class="kind-tab" data-kind="postpaid" aria-selected="false">Postpaid</button>
+    </div>
+
     <div class="service-panels" id="rechargePanels">
       @foreach ($categories as $cat)
         <div class="service-panel {{ $loop->first ? 'is-active' : '' }}"
@@ -84,6 +91,7 @@
                   $catSlug = strtolower((string) $cat->slug);
                   $isBill = in_array($svcType, ['utility','postpaid','bill','insurance','wallet'], true)
                     || in_array($catSlug, ['utility','insurance','wallet-topup'], true);
+                  $payKind = $svcType === 'postpaid' ? 'postpaid' : 'prepaid';
                 @endphp
                 <button type="button"
                         class="service-card"
@@ -93,6 +101,7 @@
                         data-op-name="{{ $s->name }}"
                         data-mode="{{ $isBill ? 'bill' : 'reload' }}"
                         data-category="{{ $catSlug }}"
+                        data-pay-kind="{{ $payKind }}"
                         data-hide-notify="{{ ($catSlug === 'mobile' || $svcType === 'postpaid') ? '1' : '0' }}">
                   <img src="{{ $s->logoUrl }}" alt="{{ $s->name }}"
                        onerror="this.src='{{ asset('assets/logo-mark.png') }}'">
@@ -199,6 +208,26 @@
   box-shadow:0 6px 14px rgba(7,27,61,.25);
 }
 
+.kind-tabs{
+  display:flex; gap:8px; flex-wrap:wrap;
+  padding:6px; background:#fff; border:1px solid var(--line);
+  border-radius:12px; margin:-8px 0 22px;
+}
+.kind-tabs[hidden]{display:none !important;}
+.kind-tab{
+  flex:1 1 0; min-width:0;
+  padding:9px 12px; border-radius:9px; border:0; background:transparent;
+  font:inherit; font-weight:700; font-size:13.5px; color:var(--navy-800);
+  cursor:pointer; transition:.18s;
+}
+.kind-tab:hover{background:rgba(11,42,91,.06);}
+.kind-tab.active{
+  background:linear-gradient(135deg,var(--gold-300),var(--gold-500));
+  color:#2a1a00;
+  box-shadow:0 4px 10px rgba(232,163,23,.28);
+}
+.service-card.is-kind-hidden{display:none !important;}
+
 /* ---------- Service panels (fade + slide animation) ---------- */
 .service-panels{position:relative; min-height:200px;}
 .service-panel{
@@ -223,6 +252,8 @@
 @media (max-width:580px){
   .cat-tabs{gap:6px; padding:6px;}
   .cat-tab{flex:1 1 calc(50% - 6px); padding:11px 8px; font-size:13px;}
+  .kind-tabs{gap:6px; padding:6px; margin-top:-4px;}
+  .kind-tab{padding:10px 8px; font-size:13px;}
 }
 @media (max-width:540px){
   .dash-hero{margin-bottom:12px; gap:10px;}
@@ -263,7 +294,28 @@
   var tabs = document.querySelectorAll('#rechargeTabs .cat-tab');
   var panels = document.querySelectorAll('.service-panel');
   var tabsEl = document.getElementById('rechargeTabs');
+  var kindTabs = document.getElementById('mobileKindTabs');
   if (!tabs.length) return;
+
+  function currentKind(){
+    if (!kindTabs) return '';
+    var on = kindTabs.querySelector('.kind-tab.active');
+    return on ? (on.dataset.kind || '') : '';
+  }
+  function applyMobileKind(){
+    var panel = document.getElementById('panel-mobile');
+    if (!panel) return;
+    var kind = currentKind();
+    panel.querySelectorAll('.service-card').forEach(function(card){
+      var match = !kind || card.dataset.payKind === kind;
+      card.classList.toggle('is-kind-hidden', !match);
+    });
+  }
+  function syncKindTabs(slug){
+    if (!kindTabs) return;
+    kindTabs.hidden = slug !== 'mobile';
+    applyMobileKind();
+  }
 
   function activate(tab, updateHash){
     var slug = tab.dataset.catSlug;
@@ -282,10 +334,24 @@
         setTimeout(function(){ p.classList.remove('is-leaving'); }, 280);
       }
     });
+    syncKindTabs(slug);
     if (updateHash){
       var newUrl = location.pathname + '#' + slug;
       history.replaceState(null, '', newUrl);
     }
+  }
+
+  if (kindTabs){
+    kindTabs.querySelectorAll('.kind-tab').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        kindTabs.querySelectorAll('.kind-tab').forEach(function(t){
+          var on = t === btn;
+          t.classList.toggle('active', on);
+          t.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        applyMobileKind();
+      });
+    });
   }
 
   tabs.forEach(function(tab){

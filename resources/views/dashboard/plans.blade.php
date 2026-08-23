@@ -100,6 +100,13 @@
       @endforeach
     </div>
 
+    <div class="kind-tabs" id="mobileKindTabs" role="tablist" aria-label="Prepaid or Postpaid"
+         @if(($visibleCategories->first()->slug ?? '') !== 'mobile') hidden @endif>
+      <button type="button" class="kind-tab active" data-kind="" aria-selected="true">All</button>
+      <button type="button" class="kind-tab" data-kind="prepaid" aria-selected="false">Prepaid</button>
+      <button type="button" class="kind-tab" data-kind="postpaid" aria-selected="false">Postpaid</button>
+    </div>
+
     <div class="plan-panels">
       @foreach ($visibleCategories as $cat)
         <div class="plan-panel {{ $loop->first ? 'is-active' : '' }}"
@@ -107,9 +114,17 @@
              data-cat-panel="{{ $cat->slug }}">
 
           @foreach ($cat->groups as $g)
+            @php
+              $hasPrepaidLine = !$g->is_bill_only && ($g->planCount > 0 || $g->primary);
+              $hasPostpaidLine = ($g->billServices && $g->billServices->isNotEmpty())
+                || ($g->is_bill_only && $g->primary)
+                || (!empty($g->tag) && strtolower($g->tag) === 'postpaid');
+            @endphp
             <div class="op-block @if(!empty($g->tag) && strtolower($g->tag) === 'postpaid') op-block--postpaid @endif"
                  id="op-{{ $g->key }}" data-op data-op-name="{{ strtolower($g->label) }}"
-                 data-op-key="{{ $g->key }}">
+                 data-op-key="{{ $g->key }}"
+                 data-line-prepaid="{{ $hasPrepaidLine ? '1' : '0' }}"
+                 data-line-postpaid="{{ $hasPostpaidLine ? '1' : '0' }}">
 
               {{-- Operator header --}}
               <div class="op-block__head">
@@ -150,7 +165,7 @@
                      like HBB routers end up with .type-panel{display:none} never overridden).
                      Visually hide the tabs when there's only one group so it stays clean. --}}
                 <div class="type-tabs type-tabs--{{ $g->plansGrouped->count() === 1 ? 'single' : 'multi' }}"
-                     role="tablist" data-type-tabs @if($g->plansGrouped->count() === 1) style="display:none" @endif>
+                     role="tablist" data-type-tabs data-kind-part="prepaid" @if($g->plansGrouped->count() === 1) style="display:none" @endif>
                   @foreach ($g->plansGrouped as $grp)
                     <button type="button"
                             role="tab"
@@ -168,7 +183,8 @@
                 @foreach ($g->plansGrouped as $grp)
                   <div class="type-panel @if($loop->first) is-active @endif"
                        data-type-panel="{{ $g->key }}-{{ $grp['type'] }}"
-                       data-type="{{ $grp['type'] }}">
+                       data-type="{{ $grp['type'] }}"
+                       data-kind-part="prepaid">
                     <div class="plan-grid">
                       @foreach ($grp['items'] as $p)
                         @php
@@ -222,6 +238,7 @@
                 @if ($g->primary && !$g->is_bill_only)
                   <button type="button"
                      class="btn-admin btn-admin--ghost btn-admin--sm"
+                     data-kind-part="prepaid"
                      data-rc-custom
                      data-service-id="{{ $g->primary->id }}"
                      data-logo="{{ $g->logo ? asset($g->logo) : asset('assets/logo-mark.png') }}"
@@ -235,6 +252,7 @@
                   @foreach ($g->billServices as $billSvc)
                     <button type="button"
                        class="btn-admin btn-admin--primary btn-admin--sm"
+                       data-kind-part="postpaid"
                        data-rc-custom
                        data-service-id="{{ $billSvc->id }}"
                        data-logo="{{ $g->logo ? asset($g->logo) : asset('assets/logo-mark.png') }}"
@@ -250,6 +268,7 @@
                   {{-- Bill-only groups (CEB, LECO, Water, insurance, wallets, TV Lanka, etc.) --}}
                   <button type="button"
                      class="btn-admin btn-admin--primary btn-admin--sm"
+                     data-kind-part="postpaid"
                      data-rc-custom
                      data-service-id="{{ $g->primary->id }}"
                      data-logo="{{ $g->logo ? asset($g->logo) : asset('assets/logo-mark.png') }}"
@@ -568,6 +587,25 @@
 .type-tab.active svg{color:var(--gold-400);}
 .type-tab.active em{background:rgba(232,163,23,.3); color:#fff;}
 
+.kind-tabs{
+  display:flex; gap:8px; flex-wrap:wrap;
+  padding:6px; background:#fff; border:1px solid var(--line);
+  border-radius:12px; margin:0 0 16px;
+}
+.kind-tabs[hidden]{display:none !important;}
+.kind-tab{
+  flex:1 1 0; min-width:0;
+  padding:9px 12px; border-radius:9px; border:0; background:transparent;
+  font:inherit; font-weight:700; font-size:13.5px; color:var(--navy-800);
+  cursor:pointer; transition:.18s;
+}
+.kind-tab:hover{background:rgba(11,42,91,.06);}
+.kind-tab.active{
+  background:linear-gradient(135deg,var(--gold-300),var(--gold-500));
+  color:#2a1a00;
+  box-shadow:0 4px 10px rgba(232,163,23,.28);
+}
+
 .type-panel{display:none;}
 .type-panel.is-active{display:block;}
 .type-panel.is-hidden{display:none !important;}
@@ -874,6 +912,8 @@
   }
   .type-tab em{display:none;}
   .cat-tabs em{display:none;}
+  .kind-tabs{gap:6px; padding:6px;}
+  .kind-tab{padding:10px 8px; font-size:13px;}
 
   .op-block__logo{width:38px; height:38px;}
   .op-block__title h4{font-size:15px;}
@@ -930,6 +970,28 @@
   catTabs.forEach(function(tab){
     tab.addEventListener('click', function(){ activateCat(tab); });
   });
+
+  var kindTabs = document.getElementById('mobileKindTabs');
+  if (kindTabs){
+    kindTabs.querySelectorAll('.kind-tab').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        kindTabs.querySelectorAll('.kind-tab').forEach(function(t){
+          var on = t === btn;
+          t.classList.toggle('active', on);
+          t.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        applyFilters();
+      });
+    });
+  }
+  function currentKindFilter(){
+    var active = document.querySelector('.plan-panel.is-active');
+    var slug = active ? active.dataset.catPanel : '';
+    if (kindTabs) kindTabs.hidden = slug !== 'mobile';
+    if (slug !== 'mobile' || !kindTabs) return '';
+    var on = kindTabs.querySelector('.kind-tab.active');
+    return on ? (on.dataset.kind || '') : '';
+  }
 
   // ----- Type sub-tabs (scoped per operator block) -----
   document.querySelectorAll('.op-block').forEach(function(block){
@@ -1054,6 +1116,13 @@
       var first = dd.querySelector('.plan-dd__item');
       if (first) label.textContent = first.textContent.trim();
     });
+    if (kindTabs){
+      kindTabs.querySelectorAll('.kind-tab').forEach(function(t){
+        var on = !t.dataset.kind;
+        t.classList.toggle('active', on);
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+    }
     applyFilters();
   });
 
@@ -1068,7 +1137,8 @@
     var q = (searchInput.value || '').trim().toLowerCase();
     var opFilter = currentFilter(0);   // operator group key
     var typeFilter = currentFilter(1); // plan type
-    var filtering = !!(q || opFilter || typeFilter);
+    var kindFilter = currentKindFilter();
+    var filtering = !!(q || opFilter || typeFilter || kindFilter);
 
     clearBtn.hidden = !q;
 
@@ -1079,6 +1149,8 @@
     document.querySelectorAll('.op-block').forEach(function(b){ b.classList.remove('is-hidden'); });
     document.querySelectorAll('[data-no-match]').forEach(function(n){ n.hidden = true; });
     document.querySelectorAll('[data-panel-empty]').forEach(function(n){ n.hidden = true; });
+    document.querySelectorAll('[data-kind-part]').forEach(function(el){ el.hidden = false; });
+    document.querySelectorAll('.op-block__foot').forEach(function(el){ el.hidden = false; });
 
     var activePanel = document.querySelector('.plan-panel.is-active');
     var totalVisible = 0;
@@ -1168,11 +1240,26 @@
         }
       }
 
-      // Decide block visibility
-      var hasBillCta = !!block.querySelector('.op-block__foot .btn-admin--primary');
-      var hasBillTip = !!block.querySelector('.op-block__tip');
+      // Prepaid / Postpaid split — only when the Mobile tab is open
+      if (kindFilter){
+        block.querySelectorAll('[data-kind-part]').forEach(function(el){
+          el.hidden = el.dataset.kindPart !== kindFilter;
+        });
+      }
+      var foot = block.querySelector('.op-block__foot');
+      if (foot){
+        var anyFoot = foot.querySelector('.btn-admin:not([hidden]), .op-block__tip:not([hidden])');
+        foot.hidden = !anyFoot;
+      }
 
-      var blockVisible = opMatch && (blockHasVisiblePlans || hasBillCta || hasBillTip || billOnly);
+      // Decide block visibility
+      var hasBillCta = !!block.querySelector('.op-block__foot .btn-admin--primary:not([hidden])');
+      var hasBillTip = !!block.querySelector('.op-block__tip:not([hidden])');
+      var kindOk = true;
+      if (kindFilter === 'prepaid') kindOk = block.dataset.linePrepaid === '1';
+      if (kindFilter === 'postpaid') kindOk = block.dataset.linePostpaid === '1';
+
+      var blockVisible = opMatch && kindOk && (blockHasVisiblePlans || hasBillCta || hasBillTip || (billOnly && kindFilter !== 'prepaid'));
       block.classList.toggle('is-hidden', !blockVisible);
 
       // Per-block no-match message: only show when there's an active filter AND
