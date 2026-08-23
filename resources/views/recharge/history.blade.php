@@ -52,7 +52,7 @@
           @endphp
           <tr>
             <td>
-              @if ($o->status === 'success' && $o->invoice_path)
+              @if ($o->status === 'success')
                 <a href="{{ route('recharge.invoice', $o) }}" style="color:var(--gold-500); font-weight:700;">{{ $o->reference }}</a>
               @else
                 <a href="{{ route('recharge.show', $o) }}" style="color:var(--gold-500); font-weight:700;">{{ $o->reference }}</a>

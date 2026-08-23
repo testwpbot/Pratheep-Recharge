@@ -47,7 +47,7 @@
         <dt>Date</dt><dd>{{ ($order->completed_at ?: $order->created_at)->timezone('Asia/Colombo')->format('d M Y, h:i A') }}</dd>
       </dl>
       <p style="margin:16px 0 0; font-size:13px; color:var(--muted); font-weight:600;">
-        The picture copy could not be created on the server. This text receipt is still valid.
+        Your order is successful. The picture receipt could not be drawn on the server yet. This text copy is still valid.
       </p>
     </div>
   @elseif ($order->isFailedLike())

@@ -8,6 +8,7 @@ use App\Models\Provider;
 use App\Models\Service;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Services\InvoiceService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -86,5 +87,62 @@ class InvoiceReceiptTest extends TestCase
             ->getJson(route('recharge.invoice.download', $order))
             ->assertStatus(409)
             ->assertJsonPath('ok', false);
+    }
+
+    public function test_bundled_receipt_fonts_live_inside_the_project(): void
+    {
+        $svc = app(InvoiceService::class);
+        $ref = new \ReflectionClass($svc);
+        $m = $ref->getMethod('findFont');
+        $m->setAccessible(true);
+
+        $regular = $m->invoke($svc, false);
+        $bold = $m->invoke($svc, true);
+
+        $this->assertNotNull($regular);
+        $this->assertNotNull($bold);
+        $this->assertFileExists($regular);
+        $this->assertFileExists($bold);
+        $this->assertStringContainsString('resources/fonts', str_replace('\\', '/', $regular));
+        $this->assertStringContainsString('resources/fonts', str_replace('\\', '/', $bold));
+        $this->assertStringNotContainsString('/usr/share/fonts', $regular);
+    }
+
+    public function test_old_success_order_builds_picture_receipt_when_gd_is_available(): void
+    {
+        if (! function_exists('imagepng') || ! function_exists('imagecreatetruecolor')) {
+            $this->markTestSkipped('PHP GD is not enabled.');
+        }
+
+        $svc = $this->seedService();
+        $user = User::factory()->create();
+        Wallet::create(['user_id' => $user->id, 'balance' => 500]);
+
+        $order = Order::create([
+            'reference' => 'HPR-20260823-62F95F',
+            'user_id' => $user->id,
+            'service_id' => $svc->id,
+            'provider_id' => $svc->provider_id,
+            'account_number' => '0777919042',
+            'amount' => 1249,
+            'profit' => 6.25,
+            'status' => 'success',
+            'completed_at' => now(),
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('recharge.invoice', $order))
+            ->assertOk()
+            ->assertSee('Download PNG', false)
+            ->assertDontSee('picture receipt could not be drawn', false);
+
+        $order->refresh();
+        $this->assertTrue(app(InvoiceService::class)->fileIsReady($order));
+        $this->assertNotEmpty($order->invoice_path);
+
+        $this->actingAs($user)
+            ->get(route('recharge.invoice.file', $order))
+            ->assertOk()
+            ->assertHeader('content-type', 'image/png');
     }
 }

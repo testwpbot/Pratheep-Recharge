@@ -51,27 +51,27 @@
     <dt>Completed at</dt><dd>{{ $order->completed_at?->format('Y-m-d H:i:s') ?? 'Pending…' }}</dd>
   </dl>
 
-  @if ($order->status === 'success')
-    @if ($order->invoice_path)
-      <div style="margin-top:22px; text-align:center;">
-        <div style="display:inline-block; max-width:520px; border:1px solid var(--line); border-radius:14px; overflow:hidden; box-shadow:var(--shadow-sm);">
-          <a href="{{ route('recharge.invoice', $order) }}">
-            <img src="{{ route('recharge.invoice.file', $order) }}?v={{ $order->updated_at->timestamp }}"
-                 alt="Receipt" style="width:100%; display:block;">
-          </a>
-        </div>
+  @if ($order->status === 'success' && !empty($hasInvoice))
+    <div style="margin-top:22px; text-align:center;">
+      <div style="display:inline-block; max-width:520px; border:1px solid var(--line); border-radius:14px; overflow:hidden; box-shadow:var(--shadow-sm);">
+        <a href="{{ route('recharge.invoice', $order) }}">
+          <img src="{{ route('recharge.invoice.file', $order) }}?v={{ $order->updated_at->timestamp }}"
+               alt="Receipt" style="width:100%; display:block;">
+        </a>
       </div>
-    @endif
+    </div>
   @endif
 
   <div style="margin-top:22px; display:flex; gap:10px; flex-wrap:wrap;">
-    @if ($order->status === 'success' && $order->invoice_path)
+    @if ($order->status === 'success')
       <a href="{{ route('recharge.invoice', $order) }}" class="btn-admin btn-admin--ghost btn-admin--sm">
         <x-icon name="bill" :size="13"/> View Receipt
       </a>
-      <a href="{{ route('recharge.invoice.download', $order) }}" data-download class="btn-admin btn-admin--gold">
-        <x-icon name="download" :size="17"/> Download Receipt (PNG)
-      </a>
+      @if (!empty($hasInvoice))
+        <a href="{{ route('recharge.invoice.download', $order) }}" data-download class="btn-admin btn-admin--gold">
+          <x-icon name="download" :size="17"/> Download Receipt (PNG)
+        </a>
+      @endif
     @endif
     <a href="{{ route('dashboard') }}" class="btn-admin btn-admin--primary">Go to Dashboard</a>
     <a href="{{ route('dashboard.plans') }}" class="btn-admin btn-admin--ghost">

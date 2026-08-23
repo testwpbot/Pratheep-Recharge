@@ -163,14 +163,15 @@ class RechargeController extends Controller
     }
 
     /** Show order details / status */
-    public function show(Order $order): View
+    public function show(Order $order, InvoiceService $invoices): View
     {
         abort_unless(auth()->id() === $order->user_id || auth()->user()?->is_admin, 403);
         $order->load(['service', 'provider', 'cashback']);
 
-        $this->tryMakeInvoice($order);
+        $this->tryMakeInvoice($order, $invoices);
+        $hasInvoice = $invoices->fileIsReady($order);
 
-        return view('recharge.show', compact('order'));
+        return view('recharge.show', compact('order', 'hasInvoice'));
     }
 
     /** Full-page invoice viewer (image-based). */
@@ -257,7 +258,7 @@ class RechargeController extends Controller
             ($invoices ?: app(InvoiceService::class))->ensureGenerated($order);
             $order->refresh();
         } catch (\Throwable $e) {
-            logger()->warning('Invoice generation failed: ' . $e->getMessage());
+            logger()->warning('Invoice generation failed for '.$order->reference.': '.$e->getMessage());
         }
     }
 
