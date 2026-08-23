@@ -75,12 +75,17 @@
             </label>
           </div>
         </div>
-        <div style="margin-top:16px; display:flex; justify-content:flex-end;">
+        <div style="margin-top:16px; display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap;">
           <button type="submit" class="btn-admin btn-admin--gold">
             <span class="btn-label"><x-icon name="check" :size="14"/> Save details</span>
             <span class="btn-spinner" hidden></span>
           </button>
         </div>
+      </form>
+      <form method="POST" action="{{ route('admin.users.destroy', $user) }}" style="margin-top:14px;" onsubmit="return confirm('Delete {{ addslashes($user->name) }}? Their wallet and orders will also be removed.');">
+        @csrf
+        @method('DELETE')
+        <button type="submit" class="btn-admin btn-admin--danger btn-admin--sm">Delete this user</button>
       </form>
     @endif
   </div>

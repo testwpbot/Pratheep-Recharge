@@ -47,7 +47,7 @@
 <div class="card">
   <div class="card__head">
     <h3>Users</h3>
-    <small style="color:var(--muted); font-weight:600;">Open a person to change their details or wallet.</small>
+    <small style="color:var(--muted); font-weight:600;">Use Wallet manage to add or deduct funds. Open a person for full details.</small>
   </div>
 
   <div class="table-wrap">
@@ -94,7 +94,23 @@
           <td><small>{{ $u->created_at->format('Y-m-d') }}</small></td>
           <td class="col-actions">
             <div class="td-actions">
+              <button type="button"
+                      class="btn-admin btn-admin--primary btn-admin--sm"
+                      data-wallet-manage
+                      data-action="{{ route('admin.users.wallet', $u) }}"
+                      data-name="{{ $u->name }}"
+                      data-email="{{ $u->email }}"
+                      data-balance="{{ number_format($bal, 2) }}">
+                Wallet manage
+              </button>
               <a href="{{ route('admin.users.show', $u) }}" class="btn-admin btn-admin--gold btn-admin--sm">Open</a>
+              @unless($u->is_admin)
+                <form method="POST" action="{{ route('admin.users.destroy', $u) }}" onsubmit="return confirm('Delete {{ addslashes($u->name) }}? Their wallet and orders will also be removed.');">
+                  @csrf
+                  @method('DELETE')
+                  <button type="submit" class="btn-admin btn-admin--danger btn-admin--sm">Delete</button>
+                </form>
+              @endunless
             </div>
           </td>
         </tr>
@@ -107,4 +123,90 @@
   <div style="margin-top:18px;">{{ $users->links() }}</div>
 </div>
 
+<div class="rc-modal" id="walletManageModal" hidden>
+  <div class="rc-modal__backdrop" data-wallet-close></div>
+  <div class="rc-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="wmHead">
+    <button type="button" class="rc-modal__close" data-wallet-close aria-label="Close">✕</button>
+    <div class="rc-modal__head">
+      <h3 id="wmHead">Wallet manage</h3>
+      <small id="wmWho">—</small>
+    </div>
+    <p style="margin:0 0 16px; font-weight:700; color:var(--navy-900);">
+      Wallet now: <span id="wmBalance">LKR 0.00</span>
+    </p>
+    <form method="POST" action="#" id="walletManageForm">
+      @csrf
+      <div class="field" style="margin-bottom:14px;">
+        <label>What do you want to do? <span class="req">*</span></label>
+        <div class="hpr-dd hpr-dd--block" data-hpr-dd>
+          <input type="hidden" name="mode" id="wmMode" value="add">
+          <button type="button" class="hpr-dd__btn">
+            <span class="hpr-dd__label">Add funds</span>
+            <svg class="hpr-dd__caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <div class="hpr-dd__menu" hidden>
+            <button type="button" class="hpr-dd__item is-active" data-value="add" data-label="Add funds">Add funds</button>
+            <button type="button" class="hpr-dd__item" data-value="remove" data-label="Deduct funds">Deduct funds</button>
+            <button type="button" class="hpr-dd__item" data-value="set" data-label="Set exact amount">Set exact amount</button>
+          </div>
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:14px;">
+        <label>Amount (LKR) <span class="req">*</span></label>
+        <input type="number" name="amount" min="0" max="500000" step="0.01" required placeholder="e.g. 500">
+      </div>
+      <div class="field" style="margin-bottom:16px;">
+        <label>Reason <span class="req">*</span></label>
+        <textarea name="note" rows="3" required maxlength="500" placeholder="e.g. Cash received at the shop"></textarea>
+      </div>
+      <div style="display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap;">
+        <button type="button" class="btn-admin btn-admin--ghost" data-wallet-close>Cancel</button>
+        <button type="submit" class="btn-admin btn-admin--gold">
+          <span class="btn-label">Save wallet change</span>
+          <span class="btn-spinner" hidden></span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
 @endsection
+
+@push('scripts')
+<script>
+(function(){
+  var modal = document.getElementById('walletManageModal');
+  var form = document.getElementById('walletManageForm');
+  var who = document.getElementById('wmWho');
+  var bal = document.getElementById('wmBalance');
+  var mode = document.getElementById('wmMode');
+  if (!modal || !form) return;
+  document.body.appendChild(modal);
+
+  function open(btn){
+    form.action = btn.dataset.action;
+    who.textContent = (btn.dataset.name || '') + (btn.dataset.email ? ' · ' + btn.dataset.email : '');
+    bal.textContent = 'LKR ' + (btn.dataset.balance || '0.00');
+    form.reset();
+    mode.value = 'add';
+    var label = modal.querySelector('.hpr-dd__label');
+    if (label) label.textContent = 'Add funds';
+    modal.querySelectorAll('.hpr-dd__item').forEach(function(it){
+      it.classList.toggle('is-active', it.getAttribute('data-value') === 'add');
+    });
+    modal.hidden = false;
+  }
+  function close(){ modal.hidden = true; }
+
+  document.querySelectorAll('[data-wallet-manage]').forEach(function(btn){
+    btn.addEventListener('click', function(){ open(btn); });
+  });
+  modal.querySelectorAll('[data-wallet-close]').forEach(function(el){
+    el.addEventListener('click', close);
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && !modal.hidden) close();
+  });
+})();
+</script>
+@endpush

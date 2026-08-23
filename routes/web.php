@@ -123,6 +123,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified.otp', 'adm
     Route::get('/users/{user}',                           [AdminUserController::class, 'show'])->name('users.show');
     Route::patch('/users/{user}',                         [AdminUserController::class, 'update'])->name('users.update');
     Route::post('/users/{user}/wallet',                   [AdminUserController::class, 'adjustWallet'])->name('users.wallet');
+    Route::delete('/users/{user}',                        [AdminUserController::class, 'destroy'])->name('users.destroy');
 
     // Dashboard alerts
     Route::get('/alerts',                                 [AdminAlertController::class, 'index'])->name('alerts.index');

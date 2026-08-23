@@ -209,4 +209,44 @@ class AdminUserManagementTest extends TestCase
             ->assertSee('Kamal Silva')
             ->assertDontSee('Other Person');
     }
+
+    public function test_admin_can_delete_customer(): void
+    {
+        $admin = $this->admin();
+        $customer = User::factory()->create(['name' => 'Gone User', 'email' => 'gone@example.com']);
+        Wallet::create(['user_id' => $customer->id, 'balance' => 20]);
+
+        $this->actingAs($admin)
+            ->delete(route('admin.users.destroy', $customer))
+            ->assertRedirect(route('admin.users.index'));
+
+        $this->assertDatabaseMissing('users', ['id' => $customer->id]);
+        $this->assertDatabaseMissing('wallets', ['user_id' => $customer->id]);
+    }
+
+    public function test_admin_cannot_delete_another_admin_here(): void
+    {
+        $admin = $this->admin();
+        $other = User::factory()->create(['is_admin' => true, 'email' => 'keepadmin@example.com']);
+        $other->forceFill(['admin_role' => User::ADMIN_ROLE_ADMIN])->save();
+
+        $this->actingAs($admin)
+            ->delete(route('admin.users.destroy', $other))
+            ->assertRedirect()
+            ->assertSessionHas('error');
+
+        $this->assertDatabaseHas('users', ['id' => $other->id]);
+    }
+
+    public function test_admin_cannot_delete_self(): void
+    {
+        $admin = $this->admin();
+
+        $this->actingAs($admin)
+            ->delete(route('admin.users.destroy', $admin))
+            ->assertRedirect()
+            ->assertSessionHas('error');
+
+        $this->assertDatabaseHas('users', ['id' => $admin->id]);
+    }
 }

@@ -201,6 +201,29 @@ class AdminUserController extends Controller
         return back()->with('success', $msg);
     }
 
+    public function destroy(Request $request, User $user): RedirectResponse
+    {
+        if ($user->id === $request->user()->id) {
+            return back()->with('error', 'You cannot delete your own account.');
+        }
+
+        if ($user->is_admin) {
+            return back()->with('error', 'Admin accounts are removed in Settings → Admins.');
+        }
+
+        $name = $user->name;
+
+        try {
+            $user->delete();
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Could not delete this user: '.$e->getMessage());
+        }
+
+        return redirect()
+            ->route('admin.users.index')
+            ->with('success', $name.' was deleted. Their wallet and orders were removed too.');
+    }
+
     protected function normalizePhone(string $phone): string
     {
         $phone = preg_replace('/[^\d+]/', '', $phone);
