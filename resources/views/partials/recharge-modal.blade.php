@@ -255,9 +255,9 @@ button.service-card{
       : false;
     $hprBlock = $hprCan
       ? ''
-      : (($hprBal <= 0.009)
-          ? ('Add at least LKR ' . number_format($hprMin, 2) . ' to your wallet before you can recharge.')
-          : ('Your wallet is below LKR ' . number_format($hprMin, 2) . '. Add money to keep recharging.'));
+      : ($hprUser && $hprWallet
+          ? \App\Support\WalletLimits::blockMessage($hprUser, $hprWallet)
+          : ('Add at least LKR ' . number_format($hprMin, 2) . ' to your wallet before you can recharge.'));
   @endphp
   window.__hprWallet = {
     can_recharge: {{ $hprCan ? 'true' : 'false' }},

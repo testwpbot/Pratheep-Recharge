@@ -265,4 +265,22 @@ class WalletMinimumTest extends TestCase
             ->assertJsonPath('ok', false)
             ->assertSee('Add at least LKR 100.00', false);
     }
+
+    public function test_http_recharge_blocked_when_leftover_would_break_reserve(): void
+    {
+        $svc = $this->seedService();
+        $user = User::factory()->create();
+        Wallet::create(['user_id' => $user->id, 'balance' => 100]);
+
+        $this->actingAs($user)
+            ->postJson(route('recharge.confirm'), [
+                'service_id' => $svc->id,
+                'account_number' => '0771234567',
+                'amount' => 50,
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('ok', false)
+            ->assertSee('You must keep LKR 100.00 in your wallet', false)
+            ->assertSee('needs LKR 150.00', false);
+    }
 }

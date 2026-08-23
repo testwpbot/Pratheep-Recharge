@@ -20,7 +20,7 @@
       <small>Wallet Balance</small>
       <b>LKR {{ number_format($stats['balance'], 2) }}</b>
       @if(!empty($walletNotice))
-        <span style="color:var(--gold-600); font-weight:700;">{{ $walletNotice['type'] === 'low' ? 'Wallet is low — add money →' : 'Add money to start →' }}</span>
+        <span style="color:var(--gold-600); font-weight:700;">{{ in_array($walletNotice['type'] ?? '', ['low', 'reserve'], true) ? 'Keep LKR '.number_format($walletNotice['min'] ?? 100, 0).' — add money →' : 'Add money to start →' }}</span>
       @else
         <span style="color:var(--gold-600); font-weight:700;">Top up via bank transfer →</span>
       @endif

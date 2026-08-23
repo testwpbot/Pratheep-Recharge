@@ -48,7 +48,7 @@
           <label>Smallest wallet amount (LKR)</label>
           <input type="number" name="min_wallet_balance" min="0" max="10000" step="1"
                  value="{{ old('min_wallet_balance', $general['min_wallet_balance'] ?? 100) }}" required>
-          <div class="hint">Customers need this much in the wallet to recharge. New customers must add at least this amount. Default 100.</div>
+          <div class="hint">This amount must stay in the wallet after a recharge. Example: LKR 100 reserve + LKR 50 recharge = LKR 150 needed. Default 100.</div>
         </div>
         <div class="field" style="grid-column:1/-1;">
           <label>Deposit note (shown to customers)</label>

@@ -26,7 +26,7 @@ class WalletBalanceNotifier
         $min = WalletLimits::minBalance();
         $balance = (float) $wallet->balance;
 
-        if ($balance + 0.0001 >= $min) {
+        if (WalletLimits::canStartRecharge($user, $wallet)) {
             if ($wallet->low_balance_notified_at) {
                 $wallet->low_balance_notified_at = null;
                 $wallet->save();
@@ -80,7 +80,7 @@ class WalletBalanceNotifier
 
         $wallets = Wallet::query()
             ->whereNull('low_balance_notified_at')
-            ->where('balance', '<', $min)
+            ->where('balance', '<', $min + WalletLimits::SMALLEST_ORDER)
             ->whereHas('user', fn ($q) => $q->where('is_admin', false))
             ->with('user')
             ->get();

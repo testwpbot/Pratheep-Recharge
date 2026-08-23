@@ -1,17 +1,17 @@
 @extends('emails.layout')
 
 @section('title', 'Your wallet is low')
-@section('preheader', 'Your wallet is below LKR ' . number_format((float) $min, 2) . '. Add money to keep recharging.')
-@section('heading', 'Your wallet is low')
+@section('preheader', 'You must keep LKR ' . number_format((float) $min, 2) . ' in your wallet. Add money to recharge.')
+@section('heading', 'Add money to keep recharging')
 
 @section('content')
   <p style="margin:0 0 14px;">Hi {{ explode(' ', trim($user->name))[0] }},</p>
-  <p style="margin:0 0 16px;">Your Happy Pratheep wallet is below the minimum. Add money so you can keep recharging and paying bills.</p>
+  <p style="margin:0 0 16px;">You must keep LKR {{ number_format((float) $min, 2) }} in your wallet. Add more money if you want to place a recharge.</p>
   @include('emails.partials.rows', ['rows' => [
       ['label' => 'Wallet now', 'value' => 'LKR ' . number_format((float) $balance, 2), 'large' => true],
-      ['label' => 'You need at least', 'value' => 'LKR ' . number_format((float) $min, 2)],
+      ['label' => 'Must stay in wallet', 'value' => 'LKR ' . number_format((float) $min, 2)],
   ]])
-  <p style="margin:16px 0 0;">Send a bank transfer of LKR {{ number_format((float) $min, 2) }} or more, then we will add it to your wallet after we check the slip.</p>
+  <p style="margin:16px 0 0;">A LKR 50 recharge needs LKR {{ number_format((float) $min + 50, 2) }} in your wallet. Send a bank transfer, then we will add it after we check the slip.</p>
 @endsection
 
 @section('action')

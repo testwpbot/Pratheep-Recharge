@@ -16,7 +16,7 @@
   @if(!empty($walletNotice))
     <p class="wallet-hero__note">{{ $walletNotice['message'] }}</p>
   @else
-    <p class="wallet-hero__note">Keep at least LKR {{ number_format($minDeposit, 2) }} in your wallet to place a recharge.</p>
+    <p class="wallet-hero__note">You must keep LKR {{ number_format($minDeposit, 2) }} in your wallet. A recharge of LKR 50 needs LKR {{ number_format($minDeposit + 50, 2) }}.</p>
   @endif
   <div class="wallet-hero__grid">
     <div><span>Cashback Earned</span><i>LKR {{ number_format($totalEarned, 2) }}</i></div>

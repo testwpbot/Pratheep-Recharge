@@ -10,15 +10,17 @@ use RuntimeException;
 
 /**
  * Customer wallet rules:
- *  - Wallet must be at least LKR 100 to place a recharge.
- *  - New customers must deposit at least LKR 100 first.
- *  - After a recharge the leftover can drop below 100; then we block
- *    the next recharge and email them that the wallet is low.
+ *  - LKR 100 (or the admin setting) must stay in the wallet after a recharge.
+ *    Example: a LKR 50 recharge needs LKR 150 in the wallet.
+ *  - New customers must deposit at least that reserve first.
  *  - Admins are not limited (so they can still test).
  */
 class WalletLimits
 {
     public const DEFAULT_MIN = 100.0;
+
+    /** Smallest bill a customer can pay — used to decide if they can open recharge. */
+    public const SMALLEST_ORDER = 10.0;
 
     public static function minBalance(): float
     {
@@ -45,17 +47,29 @@ class WalletLimits
         return 'LKR ' . number_format($amount, 2);
     }
 
+    /** How much must be in the wallet to place this recharge. */
+    public static function requiredBalance(float $amount): float
+    {
+        return round($amount + self::minBalance(), 2);
+    }
+
+    /** Money that can be spent while leaving the reserve untouched. */
+    public static function spendable(Wallet $wallet): float
+    {
+        return max(0, round((float) $wallet->balance - self::minBalance(), 2));
+    }
+
     public static function canStartRecharge(User $user, Wallet $wallet): bool
     {
         if (! self::appliesTo($user)) {
             return true;
         }
 
-        return (float) $wallet->balance + 0.0001 >= self::minBalance();
+        return self::spendable($wallet) + 0.0001 >= self::SMALLEST_ORDER;
     }
 
     /**
-     * Throw if this customer cannot pay $amount from the wallet.
+     * Throw if this customer cannot pay $amount and still keep the reserve.
      */
     public static function assertCanDebit(User $user, Wallet $wallet, float $amount): void
     {
@@ -66,7 +80,18 @@ class WalletLimits
         $balance = round((float) $wallet->balance, 2);
         $min = self::minBalance();
 
-        if (self::appliesTo($user) && $balance < $min) {
+        if (! self::appliesTo($user)) {
+            if ($balance < $amount) {
+                $short = $amount - $balance;
+                throw new RuntimeException(
+                    'Not enough wallet money. You need ' . self::money($short) . ' more. Please add money to your wallet.'
+                );
+            }
+
+            return;
+        }
+
+        if ($balance < $min) {
             if ($balance <= 0.009) {
                 throw new RuntimeException(
                     'Add at least ' . self::money($min) . ' to your wallet before you can recharge.'
@@ -78,10 +103,12 @@ class WalletLimits
             );
         }
 
-        if ($balance < $amount) {
-            $short = $amount - $balance;
+        $need = self::requiredBalance($amount);
+        if ($balance + 0.0001 < $need) {
             throw new RuntimeException(
-                'Not enough wallet money. You need ' . self::money($short) . ' more. Please add money to your wallet.'
+                'You must keep ' . self::money($min) . ' in your wallet. '
+                . 'This ' . self::money($amount) . ' recharge needs ' . self::money($need)
+                . ' in your wallet. You have ' . self::money($balance) . '.'
             );
         }
     }
@@ -92,7 +119,7 @@ class WalletLimits
             return false;
         }
 
-        return (float) $wallet->balance + 0.0001 < self::minBalance();
+        return self::spendable($wallet) + 0.0001 < self::SMALLEST_ORDER;
     }
 
     /**
@@ -108,9 +135,6 @@ class WalletLimits
 
         $min = self::minBalance();
         $balance = (float) $wallet->balance;
-        if ($balance + 0.0001 >= $min) {
-            return null;
-        }
 
         $pending = WalletDeposit::query()
             ->where('user_id', $user->id)
@@ -145,13 +169,39 @@ class WalletLimits
             ];
         }
 
+        if (self::canStartRecharge($user, $wallet)) {
+            return null;
+        }
+
+        if ($balance + 0.0001 < $min) {
+            return [
+                'type'    => 'low',
+                'title'   => 'Your wallet is low',
+                'message' => 'You have ' . self::money($balance) . '. Add money so your wallet is at least '
+                    . self::money($min) . ' and you can keep recharging.',
+                'balance' => $balance,
+                'min'     => $min,
+            ];
+        }
+
         return [
-            'type'    => 'low',
-            'title'   => 'Your wallet is low',
-            'message' => 'You have ' . self::money($balance) . '. Add money so your wallet is at least '
-                . self::money($min) . ' and you can keep recharging.',
+            'type'    => 'reserve',
+            'title'   => 'Keep ' . self::money($min) . ' in your wallet',
+            'message' => 'You must keep ' . self::money($min) . ' in your wallet. Add more money to place a recharge.',
             'balance' => $balance,
             'min'     => $min,
         ];
+    }
+
+    public static function blockMessage(User $user, Wallet $wallet): string
+    {
+        $notice = self::notice($user, $wallet);
+        if ($notice) {
+            return $notice['message'];
+        }
+
+        $min = self::minBalance();
+
+        return 'You must keep ' . self::money($min) . ' in your wallet. Add more money to place a recharge.';
     }
 }
