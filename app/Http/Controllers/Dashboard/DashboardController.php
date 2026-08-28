@@ -199,6 +199,43 @@ class DashboardController extends Controller
                 'bill_label' => 'Cable bill payment',
             ],
 
+            // ===== DTH (Indian Direct-To-Home) =====
+            // Each brand maps to BOTH providers' op codes. 'primary_op' is the
+            // TMobiling code (the live SL provider); 'fallback_ops' is the
+            // Topup Mart equivalent. The card renders through whichever provider
+            // is currently enabled — turning one provider off automatically
+            // routes DTH through the other, with no duplicate cards.
+            (object) [
+                'key' => 'airtel-dth', 'label' => 'Airtel Digital TV',
+                'logo' => 'assets/logos/airtel.png',
+                'primary_op' => '23', 'fallback_ops' => ['120'], 'bill_ops' => [], 'other_ops' => [],
+                'category' => 'dth', 'is_bill_only' => false, 'bill_label' => null,
+            ],
+            (object) [
+                'key' => 'dish-tv', 'label' => 'Dish TV',
+                'logo' => 'assets/logos/dishtv.png',
+                'primary_op' => '22', 'fallback_ops' => ['121'], 'bill_ops' => [], 'other_ops' => [],
+                'category' => 'dth', 'is_bill_only' => false, 'bill_label' => null,
+            ],
+            (object) [
+                'key' => 'sun-direct', 'label' => 'Sun Direct',
+                'logo' => 'assets/logos/sundirect.png',
+                'primary_op' => '20', 'fallback_ops' => ['122'], 'bill_ops' => [], 'other_ops' => [],
+                'category' => 'dth', 'is_bill_only' => false, 'bill_label' => null,
+            ],
+            (object) [
+                'key' => 'tata-play', 'label' => 'Tata Play',
+                'logo' => 'assets/logos/tataplay.png',
+                'primary_op' => '79', 'fallback_ops' => ['123'], 'bill_ops' => [], 'other_ops' => [],
+                'category' => 'dth', 'is_bill_only' => false, 'bill_label' => null,
+            ],
+            (object) [
+                'key' => 'videocon-d2h', 'label' => 'Videocon d2h',
+                'logo' => 'assets/logos/d2h.png',
+                'primary_op' => '21', 'fallback_ops' => ['124'], 'bill_ops' => [], 'other_ops' => [],
+                'category' => 'dth', 'is_bill_only' => false, 'bill_label' => null,
+            ],
+
             // ===== UTILITY BILLS =====
             (object) [
                 'key' => 'ceb', 'label' => 'CEB Electricity',
@@ -310,10 +347,21 @@ class DashboardController extends Controller
                             break;
                         }
                     }
+                    // Resolve bill-payment services from every op code in the
+                    // group. A brand can offer the SAME payable product under two
+                    // providers (e.g. Dialog Postpaid is op 171 on Topup Mart and
+                    // op 12 on TMobiling). We must show only ONE "Pay bill" button
+                    // per product, otherwise enabling both providers renders a
+                    // duplicate CTA. De-dupe by a cross-provider "canonical" op
+                    // code so equivalent Topup Mart / TMobiling rows collapse to
+                    // one, while genuinely different products in the same group
+                    // (e.g. TV Lanka SD vs HD) are both kept. bill_ops are ordered
+                    // preferred-provider-first, so the first hit wins.
                     $billServices = collect($g->bill_ops ?? [])
                         ->map(fn ($op) => $allServices->get((string) $op))
                         ->filter()
                         ->unique('id')
+                        ->unique(fn (Service $s) => self::canonicalBillKey((string) $s->op_code))
                         ->values();
 
                     if (! $primary && $g->is_bill_only && $billServices->isNotEmpty()) {
@@ -394,5 +442,42 @@ class DashboardController extends Controller
             ->values();
 
         return view('dashboard.plans', compact('visibleCategories', 'typeMeta'));
+    }
+
+    /**
+     * Map a provider op_code to a canonical key so equivalent products from
+     * different providers collapse to one bill-payment CTA on the plans page.
+     *
+     * The same real-world operator has different op codes on Topup Mart vs
+     * TMobiling (e.g. Dialog Postpaid = 171 on Topup Mart, 12 on TMobiling).
+     * Without this, enabling both providers shows the payment button twice.
+     * Any op code not listed maps to itself, so unrelated products stay distinct.
+     *
+     * @var array<string, string>
+     */
+    protected const BILL_OP_ALIASES = [
+        // Mobile postpaid  (TopupMart => TMobiling)
+        '171' => 'dialog-postpaid',  '12' => 'dialog-postpaid',
+        '173' => 'mobitel-postpaid', '14' => 'mobitel-postpaid',
+        '172' => 'hutch-postpaid',   '15' => 'hutch-postpaid',
+        '170' => 'airtel-postpaid',  '13' => 'airtel-postpaid',
+        // Dialog TV postpaid
+        '191' => 'dialog-tv-postpaid', '16' => 'dialog-tv-postpaid',
+        // Electricity / water
+        '195' => 'ceb',   '29' => 'ceb',
+        '196' => 'leco',  '30' => 'leco',
+        '197' => 'nwsdb', '31' => 'nwsdb',
+        // Insurance
+        '130' => 'aia',      '32' => 'aia',
+        '133' => 'hnb-assurance', '68' => 'hnb-assurance',
+        '134' => 'sli',      '36' => 'sli',
+        // Wallet / driver top-ups
+        '104' => 'pickme', '10' => 'pickme',
+        '105' => 'uber',   '40' => 'uber',
+    ];
+
+    protected static function canonicalBillKey(string $opCode): string
+    {
+        return self::BILL_OP_ALIASES[$opCode] ?? $opCode;
     }
 }

@@ -87,7 +87,13 @@
             // Plan-bearing group that also has a bill-pay CTA (e.g. Dialog TV postpaid)
             return ($g->billServices && $g->billServices->count()) ? 1 : 0;
           });
-          $tabCount = $planCount + $billCount;
+          // Plan-less reload groups (e.g. DTH) have no fixed plans and no bill
+          // CTA, but are still a usable "enter any amount" card — count them once.
+          $reloadOnlyCount = $cat->groups->sum(function($g){
+            return (!$g->is_bill_only && $g->planCount === 0 && $g->primary
+                    && (!$g->billServices || $g->billServices->isEmpty())) ? 1 : 0;
+          });
+          $tabCount = $planCount + $billCount + $reloadOnlyCount;
         @endphp
         <button type="button"
                 role="tab"
@@ -150,8 +156,10 @@
                     <small data-op-count>
                       @if ($g->is_bill_only)
                         Bill payment service
-                      @else
+                      @elseif ($g->planCount > 0)
                         {{ $g->planCount }} plans available
+                      @else
+                        Reload — enter any amount
                       @endif
                     </small>
                   </div>
@@ -234,10 +242,15 @@
               @endif
 
               {{-- Footer actions: custom amount + bill-payment CTAs (all open same modal) --}}
+              @php
+                // Plan-less reload groups (DTH etc.): no fixed plans, so the
+                // custom-amount button IS the main call to action.
+                $isReloadOnly = $g->primary && !$g->is_bill_only && $g->planCount === 0;
+              @endphp
               <div class="op-block__foot">
                 @if ($g->primary && !$g->is_bill_only)
                   <button type="button"
-                     class="btn-admin btn-admin--ghost btn-admin--sm"
+                     class="btn-admin {{ $isReloadOnly ? 'btn-admin--primary' : 'btn-admin--ghost' }} btn-admin--sm"
                      data-kind-part="prepaid"
                      data-rc-custom
                      data-service-id="{{ $g->primary->id }}"
@@ -245,7 +258,7 @@
                      data-op-name="{{ $g->label }}{{ !empty($g->tag) ? ' ' . $g->tag : '' }}"
                      data-hide-notify="{{ ($cat->slug === 'mobile' || strtolower((string) ($g->tag ?? '')) === 'postpaid') ? '1' : '0' }}"
                      data-mode="reload">
-                    <x-icon name="bolt-nav" :size="13"/> Custom amount
+                    <x-icon name="bolt-nav" :size="13"/> {{ $isReloadOnly ? 'Recharge now' : 'Custom amount' }}
                   </button>
                 @endif
                 @if ($g->billServices && $g->billServices->isNotEmpty())
