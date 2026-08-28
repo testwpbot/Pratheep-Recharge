@@ -69,11 +69,14 @@ class TopupMart implements ProviderInterface
             ['op_code' => '133', 'name' => 'HNB Assurance',      'type' => 'insurance', 'category_slug' => 'insurance', 'logo' => 'assets/logos/hnbassu.png'],
             ['op_code' => '134', 'name' => 'Sri Lanka Insurance','type' => 'insurance', 'category_slug' => 'insurance', 'logo' => 'assets/logos/srilankains.png'],
 
-            ['op_code' => '120', 'name' => 'Airtel DTH',   'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/airtel.png'],
-            ['op_code' => '121', 'name' => 'DishTV',       'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/dishtv.png'],
-            ['op_code' => '122', 'name' => 'Sun Direct',   'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/sundirect.png'],
-            ['op_code' => '123', 'name' => 'Tata Play',    'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/tataplay.png'],
-            ['op_code' => '124', 'name' => 'Videocon d2h', 'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/d2h.png'],
+            // Indian DTH on Topup Mart stays off until admin turns a row on.
+            // TMobiling also has these operators — customers only see a service
+            // when BOTH the provider and the service are On.
+            ['op_code' => '120', 'name' => 'Airtel DTH',   'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/airtel.png',    'is_active' => false],
+            ['op_code' => '121', 'name' => 'DishTV',       'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/dishtv.png',    'is_active' => false],
+            ['op_code' => '122', 'name' => 'Sun Direct',   'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/sundirect.png', 'is_active' => false],
+            ['op_code' => '123', 'name' => 'Tata Play',    'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/tataplay.png',  'is_active' => false],
+            ['op_code' => '124', 'name' => 'Videocon d2h', 'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/d2h.png',       'is_active' => false],
 
             ['op_code' => '104', 'name' => 'PickMe',    'type' => 'wallet', 'category_slug' => 'wallet-topup', 'logo' => 'assets/logos/pickme.png'],
             ['op_code' => '105', 'name' => 'Uber Eats', 'type' => 'wallet', 'category_slug' => 'wallet-topup', 'logo' => 'assets/logos/ubereats.png'],
@@ -122,14 +125,14 @@ class TopupMart implements ProviderInterface
             'api_key'    => $this->apiKey,
             'mobile'     => $mobile,
             'amount'     => $amount,
-            'op_code'    => (string) $order->service->op_code,
+            'op_code'    => $order->sendOpCode(),
             'NotifyNo'   => $notify,
-            'client_ref' => $order->reference,
+            'client_ref' => $order->providerClientRef(),
         ];
 
         Log::info('TopupMart recharge request', [
             'order'   => $order->reference,
-            'op_code' => $order->service->op_code,
+            'op_code' => $order->sendOpCode() ?: $order->service->op_code,
             'mobile'  => $mobile,
             'amount'  => $amount,
             'url'     => $this->baseUrl . '/recharge.php',
@@ -157,7 +160,7 @@ class TopupMart implements ProviderInterface
 
         Log::info('TopupMart recharge response', [
             'order'   => $order->reference,
-            'op_code' => $order->service->op_code,
+            'op_code' => $order->sendOpCode() ?: $order->service->op_code,
             'payload' => $data,
         ]);
 
@@ -178,10 +181,10 @@ class TopupMart implements ProviderInterface
         $payload = array_filter([
             'api_key'        => $this->apiKey,
             'transaction_id' => $order->provider_txn_id ?: null,
-            'client_ref'     => $order->reference,
+            'client_ref'     => $order->providerClientRef(),
             'mobile'         => preg_replace('/[^0-9]/', '', $order->account_number),
             'amount'         => $amount,
-            'op_code'        => $order->service?->op_code,
+            'op_code'        => $order->sendOpCode() ?: $order->service?->op_code,
         ]);
 
         try {

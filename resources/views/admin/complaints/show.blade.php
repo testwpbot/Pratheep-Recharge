@@ -38,7 +38,7 @@
         <div class="kv"><span>Order Ref</span><b><a href="{{ route('admin.orders.show', $complaint->order) }}" style="color:var(--gold-500); text-decoration:none;">{{ $complaint->order->reference }}</a></b></div>
         <div class="kv"><span>Service</span><b>{{ optional($complaint->order->service)->name }} ({{ optional($complaint->order->provider)->name }})</b></div>
         <div class="kv"><span>Order Amount</span><b>LKR {{ number_format((float) $complaint->order->amount, 2) }}</b></div>
-        <div class="kv"><span>Order Status</span><b><span class="pill pill--{{ $complaint->order->status }}">{{ ucfirst($complaint->order->status) }}</span></b></div>
+        <div class="kv"><span>Order Status</span><b><span class="pill pill--{{ $complaint->order->status }}">{{ $complaint->order->statusLabel() }}</span></b></div>
       @endif
     </div>
 

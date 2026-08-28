@@ -15,7 +15,10 @@
       </thead>
       <tbody>
       @foreach ($providers as $p)
-        @php $bal = $p->is_active && $p->api_key ? $p->fetchBalance() : null; @endphp
+        @php
+          $info = $p->is_active && $p->api_key ? $p->fetchBalanceInfo() : ['balance' => null, 'error' => $p->is_active ? 'No API key' : 'disabled'];
+          $bal = $info['balance'];
+        @endphp
         <tr data-provider-row="{{ $p->id }}">
           <td><b>{{ $p->name }}</b><br><small style="color:var(--muted)">{{ $p->slug }}</small></td>
           <td>{{ strtoupper($p->country) }}</td>
@@ -25,33 +28,38 @@
               {{ $p->is_active ? 'Active' : 'Disabled' }}
             </span>
           </td>
-          <td>{{ $p->services()->count() }} service(s)</td>
+          <td>{{ $p->services()->where('is_active', true)->count() }} service(s)</td>
           <td data-balance-cell>
             @if (!$p->is_active)
               <em style="color:var(--muted)">— disabled —</em>
             @elseif (!$p->api_key)
               <em style="color:var(--muted)">no API key</em>
             @elseif ($bal === null)
-              <span class="pill pill--failed" title="Could not reach provider">Unavailable</span>
+              <span class="pill pill--failed" title="{{ $info['error'] }}">{{ \App\Models\Provider::balanceErrorLabel($info['error']) }}</span>
+              @if ($info['error'])
+                <br><small style="color:var(--muted); font-weight:600;">{{ \Illuminate\Support\Str::limit($info['error'], 90) }}</small>
+              @endif
             @else
               @php $cur = strtoupper($p->country) === 'IN' ? 'INR' : 'LKR'; @endphp
               <b style="color:var(--gold-600); font-size:15px;">{{ $cur }} {{ number_format($bal, 2) }}</b>
             @endif
           </td>
-          <td style="text-align:right; display:flex; gap:6px; justify-content:flex-end; flex-wrap:wrap;">
-            <a href="{{ route('admin.providers.edit', $p) }}" class="btn-admin btn-admin--ghost btn-admin--sm">Configure</a>
-            <form method="POST" action="{{ route('admin.providers.toggle', $p) }}" data-ajax data-ajax-refresh="1">
-              @csrf
-              <button class="btn-admin btn-admin--ghost btn-admin--sm" type="submit" data-loading="Updating…">
-                {{ $p->is_active ? 'Disable' : 'Enable' }}
-              </button>
-            </form>
-            <form method="POST" action="{{ route('admin.providers.import', $p) }}" data-ajax>
-              @csrf
-              <button class="btn-admin btn-admin--gold btn-admin--sm" type="submit" data-loading="Importing…">
-                Import Services
-              </button>
-            </form>
+          <td class="col-actions">
+            <div class="td-actions">
+              <a href="{{ route('admin.providers.edit', $p) }}" class="btn-admin btn-admin--ghost btn-admin--sm">Configure</a>
+              <form method="POST" action="{{ route('admin.providers.toggle', $p) }}" data-ajax data-ajax-refresh="1">
+                @csrf
+                <button class="btn-admin btn-admin--ghost btn-admin--sm" type="submit" data-loading="Updating…">
+                  {{ $p->is_active ? 'Disable' : 'Enable' }}
+                </button>
+              </form>
+              <form method="POST" action="{{ route('admin.providers.import', $p) }}" data-ajax>
+                @csrf
+                <button class="btn-admin btn-admin--gold btn-admin--sm" type="submit" data-loading="Importing…">
+                  Import Services
+                </button>
+              </form>
+            </div>
           </td>
         </tr>
       @endforeach
@@ -59,7 +67,7 @@
     </table>
   </div>
   <div style="padding:14px 18px; font-size:12px; color:var(--muted); border-top:1px solid var(--line);">
-    Balance refreshes automatically every 60 seconds. Toggle & Import actions save without reloading the page.
+    Turn a provider <b>Off</b> to hide every service that belongs to it from the website. Turn a service Off on the Services page to hide just that operator. Customers never see the provider name. TMobiling needs this server’s public IP in their whitelist (Profile → Whitelist IP) and the Response URL set to <code>{{ url('/webhooks/tmobiling') }}</code>. Toggle &amp; Import save without reloading.
   </div>
 </div>
 

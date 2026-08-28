@@ -1,0 +1,8 @@
+# This file is for DirectAdmin: the app folder is public_html/laravel.
+# Nobody should open /laravel/.env or any file in this folder from the browser.
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Deny from all
+</IfModule>

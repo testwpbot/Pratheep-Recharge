@@ -8,6 +8,7 @@ use App\Models\Complaint;
 use App\Models\Order;
 use App\Models\Setting;
 use App\Models\User;
+use App\Support\HistoryPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\View\View;
@@ -17,8 +18,7 @@ class ComplaintController extends Controller
     public function index(Request $request): View
     {
         $status = (string) $request->query('status', 'all');
-        $from = $request->query('from');
-        $to   = $request->query('to');
+        $period = HistoryPeriod::fromRequest($request);
 
         $q = auth()->user()->complaints()->with('order');
 
@@ -26,11 +26,8 @@ class ComplaintController extends Controller
         if (in_array($status, $allowed, true)) {
             $q->where('status', $status);
         }
-        if ($from && preg_match('/^\d{4}-\d{2}-\d{2}$/', $from)) {
-            $q->whereDate('created_at', '>=', $from);
-        }
-        if ($to && preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) {
-            $q->whereDate('created_at', '<=', $to);
+        if ($status !== 'open' && $status !== 'in_progress') {
+            $period->apply($q, 'created_at', fn ($open) => $open->whereIn('status', ['open', 'in_progress']));
         }
 
         $complaints = $q->latest()->paginate(15)->appends($request->query());
@@ -42,7 +39,7 @@ class ComplaintController extends Controller
             'rejected' => auth()->user()->complaints()->where('status', 'rejected')->count(),
         ];
 
-        return view('dashboard.complaints', compact('complaints', 'status', 'from', 'to', 'counts'));
+        return view('dashboard.complaints', compact('complaints', 'status', 'period', 'counts'));
     }
 
     public function show(Complaint $complaint): View

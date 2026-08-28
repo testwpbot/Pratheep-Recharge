@@ -22,8 +22,9 @@
       </div>
 
       <div class="field">
-        <label>Operator code (read-only)</label>
-        <input type="text" value="{{ $service->op_code }}" disabled>
+        <label>Operator code</label>
+        <input type="text" name="op_code" value="{{ old('op_code', $service->op_code) }}" required maxlength="20">
+        <div class="hint">Sent to the provider as the operator code. Change this only if the provider gave you a different number.</div>
       </div>
 
       <div class="field">
@@ -78,7 +79,7 @@
 
       <div class="field field-inline" style="grid-column:1/-1;">
         <input type="checkbox" name="is_active" id="is_active" value="1" {{ old('is_active', $service->is_active) ? 'checked' : '' }}>
-        <label for="is_active" style="margin:0;">Service is active and visible to customers</label>
+        <label for="is_active" style="margin:0;">Service is on (customers see it only if this provider is also On)</label>
       </div>
     </div>
 

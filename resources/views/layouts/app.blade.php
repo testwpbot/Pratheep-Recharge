@@ -3,9 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>@yield('title', 'Happy Pratheep Recharge — Mobile Reloads, ISP & Utility Bill Payments in Sri Lanka')</title>
-<meta name="description" content="@yield('meta_description', 'Mobile reloads, data packages, ISP bill payments and utility bills for all Sri Lankan providers. Fast turnaround, secure bank transfers, 24/7 support.')">
-<link rel="icon" type="image/png" href="{{ asset('assets/logo-mark.png') }}">
+@include('partials.seo')
+@include('partials.favicon')
 <link rel="stylesheet" href="{{ asset('css/landing.css') }}">
 <link rel="stylesheet" href="{{ asset('css/loader.css') }}">
 @stack('styles')
@@ -22,6 +21,7 @@
 </main>
 
 @include('partials.footer')
+@include('partials.whatsapp-float')
 
 <script src="{{ asset('js/landing.js') }}"></script>
 @stack('scripts')

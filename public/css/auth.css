@@ -94,6 +94,28 @@
 }
 .auth__errors ul{margin:0;padding-left:18px;}
 
+.otp-boxes{
+  display:flex; gap:8px; justify-content:center; margin:6px 0 20px;
+}
+.otp-box{
+  width:46px; height:54px; text-align:center;
+  border:1.6px solid rgba(11,42,91,.16); border-radius:12px;
+  font:inherit; font-size:22px; font-weight:700; color:var(--navy-900);
+  background:#fff;
+}
+.otp-box:focus{
+  outline:none; border-color:var(--gold-500);
+  box-shadow:0 0 0 4px rgba(232,163,23,.18);
+}
+.auth__resend{
+  width:100%; height:42px; border:0; background:transparent;
+  color:var(--navy-700); font:inherit; font-weight:700; font-size:13.5px;
+  cursor:pointer;
+}
+.auth__resend:disabled{color:var(--muted); cursor:default;}
+.auth__resend:not(:disabled):hover{color:var(--gold-500);}
+
 @media (max-width:520px){
   .auth__card{padding:30px 20px 22px;border-radius:18px;}
+  .otp-box{width:40px; height:50px; font-size:20px;}
 }

@@ -100,6 +100,13 @@
       @endforeach
     </div>
 
+    <div class="kind-tabs" id="mobileKindTabs" role="tablist" aria-label="Prepaid or Postpaid"
+         @if(($visibleCategories->first()->slug ?? '') !== 'mobile') hidden @endif>
+      <button type="button" class="kind-tab active" data-kind="" aria-selected="true">All</button>
+      <button type="button" class="kind-tab" data-kind="prepaid" aria-selected="false">Prepaid</button>
+      <button type="button" class="kind-tab" data-kind="postpaid" aria-selected="false">Postpaid</button>
+    </div>
+
     <div class="plan-panels">
       @foreach ($visibleCategories as $cat)
         <div class="plan-panel {{ $loop->first ? 'is-active' : '' }}"
@@ -107,9 +114,17 @@
              data-cat-panel="{{ $cat->slug }}">
 
           @foreach ($cat->groups as $g)
+            @php
+              $hasPrepaidLine = !$g->is_bill_only && ($g->planCount > 0 || $g->primary);
+              $hasPostpaidLine = ($g->billServices && $g->billServices->isNotEmpty())
+                || ($g->is_bill_only && $g->primary)
+                || (!empty($g->tag) && strtolower($g->tag) === 'postpaid');
+            @endphp
             <div class="op-block @if(!empty($g->tag) && strtolower($g->tag) === 'postpaid') op-block--postpaid @endif"
                  id="op-{{ $g->key }}" data-op data-op-name="{{ strtolower($g->label) }}"
-                 data-op-key="{{ $g->key }}">
+                 data-op-key="{{ $g->key }}"
+                 data-line-prepaid="{{ $hasPrepaidLine ? '1' : '0' }}"
+                 data-line-postpaid="{{ $hasPostpaidLine ? '1' : '0' }}">
 
               {{-- Operator header --}}
               <div class="op-block__head">
@@ -141,17 +156,6 @@
                     </small>
                   </div>
                 </div>
-                @if ($g->cashback)
-                  <span class="cb-badge" style="position:static;">
-                    @if ($g->cashback->profit_type === 'PCT')
-                      {{ number_format($g->cashback->profit, 0) }}% cashback
-                    @else
-                      +LKR {{ number_format($g->cashback->profit, 0) }}
-                    @endif
-                  </span>
-                @elseif (!$g->is_bill_only)
-                  <span class="op-block__std">Standard rates</span>
-                @endif
               </div>
 
               @if (!$g->is_bill_only && $g->plansGrouped->isNotEmpty())
@@ -161,7 +165,7 @@
                      like HBB routers end up with .type-panel{display:none} never overridden).
                      Visually hide the tabs when there's only one group so it stays clean. --}}
                 <div class="type-tabs type-tabs--{{ $g->plansGrouped->count() === 1 ? 'single' : 'multi' }}"
-                     role="tablist" data-type-tabs @if($g->plansGrouped->count() === 1) style="display:none" @endif>
+                     role="tablist" data-type-tabs data-kind-part="prepaid" @if($g->plansGrouped->count() === 1) style="display:none" @endif>
                   @foreach ($g->plansGrouped as $grp)
                     <button type="button"
                             role="tab"
@@ -179,7 +183,8 @@
                 @foreach ($g->plansGrouped as $grp)
                   <div class="type-panel @if($loop->first) is-active @endif"
                        data-type-panel="{{ $g->key }}-{{ $grp['type'] }}"
-                       data-type="{{ $grp['type'] }}">
+                       data-type="{{ $grp['type'] }}"
+                       data-kind-part="prepaid">
                     <div class="plan-grid">
                       @foreach ($grp['items'] as $p)
                         @php
@@ -203,11 +208,9 @@
                            data-validity="{{ $p->validity ?? $grp['label'] . ' plan' }}"
                            data-logo="{{ $g->logo ? asset($g->logo) : asset('assets/logo-mark.png') }}"
                            data-op-name="{{ $g->label }}{{ !empty($g->tag) ? ' ' . $g->tag : '' }}"
+                           data-hide-notify="{{ ($cat->slug === 'mobile' || strtolower((string) ($g->tag ?? '')) === 'postpaid') ? '1' : '0' }}"
                            data-cb="{{ number_format($cb, 2) }}"
                            data-details="{{ json_encode($metaDetails, JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT) }}">
-                          @if ($cb > 0)
-                            <span class="cb-badge">+LKR {{ number_format($cb, 2) }}</span>
-                          @endif
                           <img src="{{ $g->logo ? asset($g->logo) : asset('assets/logo-mark.png') }}"
                                alt=""
                                onerror="this.src='{{ asset('assets/logo-mark.png') }}'">
@@ -235,10 +238,12 @@
                 @if ($g->primary && !$g->is_bill_only)
                   <button type="button"
                      class="btn-admin btn-admin--ghost btn-admin--sm"
+                     data-kind-part="prepaid"
                      data-rc-custom
                      data-service-id="{{ $g->primary->id }}"
                      data-logo="{{ $g->logo ? asset($g->logo) : asset('assets/logo-mark.png') }}"
                      data-op-name="{{ $g->label }}{{ !empty($g->tag) ? ' ' . $g->tag : '' }}"
+                     data-hide-notify="{{ ($cat->slug === 'mobile' || strtolower((string) ($g->tag ?? '')) === 'postpaid') ? '1' : '0' }}"
                      data-mode="reload">
                     <x-icon name="bolt-nav" :size="13"/> Custom amount
                   </button>
@@ -247,10 +252,12 @@
                   @foreach ($g->billServices as $billSvc)
                     <button type="button"
                        class="btn-admin btn-admin--primary btn-admin--sm"
+                       data-kind-part="postpaid"
                        data-rc-custom
                        data-service-id="{{ $billSvc->id }}"
                        data-logo="{{ $g->logo ? asset($g->logo) : asset('assets/logo-mark.png') }}"
                        data-op-name="{{ $g->bill_label ?? ('Pay ' . $billSvc->name) }}"
+                       data-hide-notify="{{ ($cat->slug === 'mobile' || strtolower((string) $billSvc->type) === 'postpaid') ? '1' : '0' }}"
                        data-mode="bill">
                       <x-icon name="bill" :size="13"/>
                       {{ $g->bill_label ?? ('Pay ' . $billSvc->name) }}
@@ -261,10 +268,12 @@
                   {{-- Bill-only groups (CEB, LECO, Water, insurance, wallets, TV Lanka, etc.) --}}
                   <button type="button"
                      class="btn-admin btn-admin--primary btn-admin--sm"
+                     data-kind-part="postpaid"
                      data-rc-custom
                      data-service-id="{{ $g->primary->id }}"
                      data-logo="{{ $g->logo ? asset($g->logo) : asset('assets/logo-mark.png') }}"
                      data-op-name="{{ $g->bill_label ?? ('Pay ' . $g->label) }}"
+                     data-hide-notify="{{ ($cat->slug === 'mobile' || strtolower((string) ($g->primary->type ?? '')) === 'postpaid' || strtolower((string) ($g->tag ?? '')) === 'postpaid') ? '1' : '0' }}"
                      data-mode="bill">
                     <x-icon name="bill" :size="13"/>
                     {{ $g->bill_label ?? ('Pay ' . $g->label) }}
@@ -326,7 +335,7 @@
           <label id="rcAccountLabel">Mobile / Account Number <span class="req">*</span></label>
           <input type="tel" name="account_number" id="rcAccount" placeholder="e.g. 0771234567" required>
         </div>
-        <div class="field">
+        <div class="field" id="rcNotifyField">
           <label>Notify Number <small style="color:var(--muted);font-weight:600;">(optional)</small></label>
           <input type="tel" name="notify_number" id="rcNotify" placeholder="Same as above if blank">
         </div>
@@ -341,6 +350,15 @@
         <span class="btn-spinner" hidden></span>
       </button>
     </form>
+
+    <div class="rc-modal__confirm" id="rcConfirm" hidden>
+      <h4 id="rcConfirmTitle">Confirm this reload?</h4>
+      <p id="rcConfirmText">Are you sure you want to reload from your wallet?</p>
+      <div class="rc-modal__confirm-actions">
+        <button type="button" class="btn-admin btn-admin--ghost" id="rcConfirmBack">Go back</button>
+        <button type="button" class="btn-admin btn-admin--gold" id="rcConfirmYes">Yes, reload now</button>
+      </div>
+    </div>
 
     <div class="rc-modal__plan" id="rcPlanBox">
       <div class="rc-modal__plan-label">Selected plan</div>
@@ -568,6 +586,25 @@
 }
 .type-tab.active svg{color:var(--gold-400);}
 .type-tab.active em{background:rgba(232,163,23,.3); color:#fff;}
+
+.kind-tabs{
+  display:flex; gap:8px; flex-wrap:wrap;
+  padding:6px; background:#fff; border:1px solid var(--line);
+  border-radius:12px; margin:0 0 16px;
+}
+.kind-tabs[hidden]{display:none !important;}
+.kind-tab{
+  flex:1 1 0; min-width:0;
+  padding:9px 12px; border-radius:9px; border:0; background:transparent;
+  font:inherit; font-weight:700; font-size:13.5px; color:var(--navy-800);
+  cursor:pointer; transition:.18s;
+}
+.kind-tab:hover{background:rgba(11,42,91,.06);}
+.kind-tab.active{
+  background:linear-gradient(135deg,var(--gold-300),var(--gold-500));
+  color:#2a1a00;
+  box-shadow:0 4px 10px rgba(232,163,23,.28);
+}
 
 .type-panel{display:none;}
 .type-panel.is-active{display:block;}
@@ -814,6 +851,15 @@
   background:#f7f9fd; color:var(--navy-800); font-weight:700;
   cursor:default;
 }
+.rc-modal__confirm{text-align:center; padding:8px 4px 2px;}
+.rc-modal__confirm h4{margin:0 0 8px; font-size:18px; font-weight:800; color:var(--navy-900);}
+.rc-modal__confirm p{margin:0 0 16px; font-size:14px; font-weight:600; color:var(--navy-800); line-height:1.55;}
+.rc-modal__confirm-actions{display:flex; gap:10px; justify-content:center; flex-wrap:wrap;}
+.rc-modal.is-confirming .rc-modal__form,
+.rc-modal.is-confirming .rc-modal__plan,
+.rc-modal.is-confirming .rc-modal__hint{display:none;}
+.rc-modal.is-success .rc-modal__confirm,
+.rc-modal.is-generating .rc-modal__confirm{display:none;}
 
 /* ======== responsive ======== */
 @media (max-width:820px){
@@ -866,6 +912,8 @@
   }
   .type-tab em{display:none;}
   .cat-tabs em{display:none;}
+  .kind-tabs{gap:6px; padding:6px;}
+  .kind-tab{padding:10px 8px; font-size:13px;}
 
   .op-block__logo{width:38px; height:38px;}
   .op-block__title h4{font-size:15px;}
@@ -922,6 +970,28 @@
   catTabs.forEach(function(tab){
     tab.addEventListener('click', function(){ activateCat(tab); });
   });
+
+  var kindTabs = document.getElementById('mobileKindTabs');
+  if (kindTabs){
+    kindTabs.querySelectorAll('.kind-tab').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        kindTabs.querySelectorAll('.kind-tab').forEach(function(t){
+          var on = t === btn;
+          t.classList.toggle('active', on);
+          t.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        applyFilters();
+      });
+    });
+  }
+  function currentKindFilter(){
+    var active = document.querySelector('.plan-panel.is-active');
+    var slug = active ? active.dataset.catPanel : '';
+    if (kindTabs) kindTabs.hidden = slug !== 'mobile';
+    if (slug !== 'mobile' || !kindTabs) return '';
+    var on = kindTabs.querySelector('.kind-tab.active');
+    return on ? (on.dataset.kind || '') : '';
+  }
 
   // ----- Type sub-tabs (scoped per operator block) -----
   document.querySelectorAll('.op-block').forEach(function(block){
@@ -1046,6 +1116,13 @@
       var first = dd.querySelector('.plan-dd__item');
       if (first) label.textContent = first.textContent.trim();
     });
+    if (kindTabs){
+      kindTabs.querySelectorAll('.kind-tab').forEach(function(t){
+        var on = !t.dataset.kind;
+        t.classList.toggle('active', on);
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+    }
     applyFilters();
   });
 
@@ -1060,7 +1137,8 @@
     var q = (searchInput.value || '').trim().toLowerCase();
     var opFilter = currentFilter(0);   // operator group key
     var typeFilter = currentFilter(1); // plan type
-    var filtering = !!(q || opFilter || typeFilter);
+    var kindFilter = currentKindFilter();
+    var filtering = !!(q || opFilter || typeFilter || kindFilter);
 
     clearBtn.hidden = !q;
 
@@ -1071,6 +1149,8 @@
     document.querySelectorAll('.op-block').forEach(function(b){ b.classList.remove('is-hidden'); });
     document.querySelectorAll('[data-no-match]').forEach(function(n){ n.hidden = true; });
     document.querySelectorAll('[data-panel-empty]').forEach(function(n){ n.hidden = true; });
+    document.querySelectorAll('[data-kind-part]').forEach(function(el){ el.hidden = false; });
+    document.querySelectorAll('.op-block__foot').forEach(function(el){ el.hidden = false; });
 
     var activePanel = document.querySelector('.plan-panel.is-active');
     var totalVisible = 0;
@@ -1160,11 +1240,26 @@
         }
       }
 
-      // Decide block visibility
-      var hasBillCta = !!block.querySelector('.op-block__foot .btn-admin--primary');
-      var hasBillTip = !!block.querySelector('.op-block__tip');
+      // Prepaid / Postpaid split — only when the Mobile tab is open
+      if (kindFilter){
+        block.querySelectorAll('[data-kind-part]').forEach(function(el){
+          el.hidden = el.dataset.kindPart !== kindFilter;
+        });
+      }
+      var foot = block.querySelector('.op-block__foot');
+      if (foot){
+        var anyFoot = foot.querySelector('.btn-admin:not([hidden]), .op-block__tip:not([hidden])');
+        foot.hidden = !anyFoot;
+      }
 
-      var blockVisible = opMatch && (blockHasVisiblePlans || hasBillCta || hasBillTip || billOnly);
+      // Decide block visibility
+      var hasBillCta = !!block.querySelector('.op-block__foot .btn-admin--primary:not([hidden])');
+      var hasBillTip = !!block.querySelector('.op-block__tip:not([hidden])');
+      var kindOk = true;
+      if (kindFilter === 'prepaid') kindOk = block.dataset.linePrepaid === '1';
+      if (kindFilter === 'postpaid') kindOk = block.dataset.linePostpaid === '1';
+
+      var blockVisible = opMatch && kindOk && (blockHasVisiblePlans || hasBillCta || hasBillTip || (billOnly && kindFilter !== 'prepaid'));
       block.classList.toggle('is-hidden', !blockVisible);
 
       // Per-block no-match message: only show when there's an active filter AND
@@ -1211,6 +1306,12 @@
   var mSvcId   = document.getElementById('rcServiceId');
   var mAcc     = document.getElementById('rcAccount');
   var mNotify  = document.getElementById('rcNotify');
+  var mNotifyField = document.getElementById('rcNotifyField');
+  var mConfirm = document.getElementById('rcConfirm');
+  var mConfirmText = document.getElementById('rcConfirmText');
+  var mConfirmBack = document.getElementById('rcConfirmBack');
+  var mConfirmYes = document.getElementById('rcConfirmYes');
+  var currentMode = 'plan';
   var mAmount  = document.getElementById('rcAmount');
   var mSubmit  = document.getElementById('rcSubmit');
   var mSpinner = mSubmit.querySelector('.btn-spinner');
@@ -1303,12 +1404,18 @@
     var op     = card.dataset.opName;
     var cb     = card.dataset.cb;
     var mode   = card.dataset.mode || 'plan';
+    currentMode = mode;
+    var hideNotify = card.dataset.hideNotify === '1' || /postpaid/i.test(card.dataset.opName || '');
     var details;
     try { details = JSON.parse(card.dataset.details || '[]'); } catch(e){ details = []; }
 
     mSvcId.value  = svcId;
     mAcc.value = '';
     mNotify.value = '';
+    if (mNotify){ mNotify.disabled = hideNotify; mNotify.value = ''; }
+    if (mNotifyField) mNotifyField.hidden = hideNotify;
+    if (mConfirm) mConfirm.hidden = true;
+    modal.classList.remove('is-confirming');
     mPlanLogo.src = logo; mLogo.src = logo;
     mOpName.textContent = op;
 
@@ -1418,7 +1525,8 @@
   function closeModal(){
     modal.hidden = true;
     modal.setAttribute('aria-hidden','true');
-    modal.classList.remove('is-success', 'is-generating');
+    modal.classList.remove('is-success', 'is-generating', 'is-confirming');
+    if (mConfirm) mConfirm.hidden = true;
     unlockBodyScroll();
     mSubmit.disabled = false;
     mSubmit.classList.remove('is-loading');
@@ -1458,10 +1566,49 @@
   });
 
   // Submit recharge via AJAX
+  function hideConfirm(){
+    if (mConfirm) mConfirm.hidden = true;
+    modal.classList.remove('is-confirming');
+    mForm.style.display = '';
+    if (currentMode === 'plan' && mPlanBox) mPlanBox.style.display = '';
+    else if (currentMode !== 'plan' && mHint) mHint.hidden = false;
+  }
+  function showOrderConfirm(){
+    var amt = parseFloat(mAmount.value || '0');
+    var acc = (mAcc.value || '').trim();
+    var op = (mOpName.textContent || '').trim();
+    var isBill = currentMode === 'bill';
+    var title = document.getElementById('rcConfirmTitle') || document.querySelector('#rcConfirm h4');
+    if (title) title.textContent = isBill ? 'Confirm this payment?' : 'Confirm this reload?';
+    if (mConfirmText){
+      mConfirmText.textContent = (isBill ? 'Are you sure you want to pay' : 'Are you sure you want to reload')
+        + ' LKR ' + amt.toFixed(2) + ' to ' + acc + (op ? (' for ' + op) : '') + ' from your wallet?';
+    }
+    if (mConfirmYes) mConfirmYes.textContent = isBill ? 'Yes, pay now' : 'Yes, reload now';
+    mForm.style.display = 'none';
+    if (mPlanBox) mPlanBox.style.display = 'none';
+    if (mHint) mHint.hidden = true;
+    if (mConfirm) mConfirm.hidden = false;
+    modal.classList.add('is-confirming');
+  }
+  if (mConfirmBack){
+    mConfirmBack.addEventListener('click', hideConfirm);
+  }
+  if (mConfirmYes){
+    mConfirmYes.addEventListener('click', function(){
+      hideConfirm();
+      sendOrder();
+    });
+  }
+
   mForm.addEventListener('submit', function(e){
     e.preventDefault();
     if (mSubmit.disabled) return;
+    if (!mForm.reportValidity()) return;
+    showOrderConfirm();
+  });
 
+  function sendOrder(){
     var fd = new FormData(mForm);
     var started = performance.now();
     var MIN_SPIN = 2200; // match landing.js MIN_BTN_SPIN_MS
@@ -1547,7 +1694,7 @@
         mSuccessTitle.textContent = 'Recharge Successful!';
         mSuccessMsg.textContent = res.data.message || ('Payment of LKR ' + Number(o.amount).toFixed(2) + ' to ' + o.account + ' completed.');
         mViewOrder.href = o.redirect;
-        mViewOrder.textContent = 'View Receipt';
+        mViewOrder.textContent = 'View Order';
         mViewOrder.target = '_blank';
         mDownload.hidden = true;
         mForm.style.display = 'none';
@@ -1582,7 +1729,7 @@
         else alert(err.message || 'Something went wrong.');
       });
     });
-  });
+  }
 })();
 </script>
 

@@ -32,7 +32,14 @@ class ServicesSeeder extends Seeder
             ));
         }
 
-        // Happy Recharge Center (India) is inactive until the admin supplies
-        // API credentials — skip its catalog for now.
+        $tmobi = Provider::where('slug', 'tmobiling')->first();
+        if ($tmobi) {
+            $res = $importer->importFromProvider($tmobi);
+            $this->command?->info(sprintf(
+                '[ServicesSeeder] TMobiling: %d imported, %d updated.',
+                $res['imported'],
+                $res['skipped']
+            ));
+        }
     }
 }

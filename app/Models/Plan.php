@@ -25,8 +25,8 @@ class Plan extends Model
     }
 
     /** Cashback earned on this plan (delegates to service) */
-    public function cashback(): float
+    public function cashback(?User $user = null): float
     {
-        return $this->service->calculateCashback((float) $this->amount);
+        return $this->service->calculateCashback((float) $this->amount, $user ?? auth()->user());
     }
 }

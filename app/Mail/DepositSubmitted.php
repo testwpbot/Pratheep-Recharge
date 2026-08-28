@@ -18,13 +18,14 @@ class DepositSubmitted extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: 'New Wallet Deposit Request - ' . $this->deposit->reference());
+        return new Envelope(subject: 'New wallet deposit ' . $this->deposit->reference());
     }
 
     public function content(): Content
     {
         return new Content(
-            view: 'emails.deposit_submitted',
+            html: 'emails.deposit_submitted',
+            text: 'emails.text.deposit_submitted',
             with: ['d' => $this->deposit],
         );
     }

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\OrderService;
+use App\Support\HistoryPeriod;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -30,9 +31,15 @@ class AdminOrderController extends Controller
             });
         }
 
+        $period = HistoryPeriod::fromRequest($request);
+        $status = (string) $request->input('status', '');
+        if (! in_array($status, ['pending', 'processing'], true)) {
+            $period->apply($query, 'created_at', fn ($q) => $q->whereIn('status', ['pending', 'processing']));
+        }
+
         $orders = $query->latest()->paginate(50)->withQueryString();
 
-        return view('admin.orders.index', compact('orders'));
+        return view('admin.orders.index', compact('orders', 'period'));
     }
 
     public function show(Order $order): View
@@ -46,18 +53,18 @@ class AdminOrderController extends Controller
         try {
             $client = \App\Services\ProviderFactory::make($order->provider);
             $resp = $client->checkStatus($order);
-            $status = strtolower((string) ($resp['status'] ?? 'pending'));
-            $order->provider_response = $resp;
-            $order->message = $resp['message'] ?? $order->message;
+            $status = $svc->applyStatusCheck($order, is_array($resp) ? $resp : []);
+            $fresh = $order->fresh();
 
             if ($status === 'success') {
-                $svc->markSuccess($order);
                 $message = "Order {$order->reference} marked as success — cashback credited.";
-            } elseif ($status === 'failed' || $status === 'refund') {
-                $svc->markFailed($order, $resp['message'] ?? null);
+            } elseif ($fresh && $fresh->isAwaitingProviderFunds()) {
+                $message = "Order {$order->reference} is waiting. The provider does not have enough money. It will send again when money is available.";
+            } elseif ($fresh && $fresh->isRefunded()) {
+                $message = "Order {$order->reference} failed. Money was put back in the wallet.";
+            } elseif (in_array($status, ['failed', 'refund', 'cancelled'], true)) {
                 $message = "Order {$order->reference} marked as failed.";
             } else {
-                $order->save();
                 $message = "Order still {$status}.";
             }
 
@@ -84,24 +91,59 @@ class AdminOrderController extends Controller
         $note  = trim((string) $request->input('note', ''));
 
         try {
-            $newOrder = $svc->failoverToTopupMart($order, $admin, $note !== '' ? $note : null);
-            $message = "Failover complete. New Topup Mart order: {$newOrder->reference} (status: {$newOrder->status}).";
+            $updated = $svc->failoverToTopupMart($order, $admin, $note !== '' ? $note : null);
+            $message = "Failover complete. Order {$updated->reference} re-sent via Topup Mart (status: {$updated->status}).";
             if ($request->wantsJson()) {
                 return response()->json([
                     'ok'               => true,
                     'message'          => $message,
-                    'new_order_id'     => $newOrder->id,
-                    'new_order_ref'    => $newOrder->reference,
-                    'new_order_status' => $newOrder->status,
-                    'redirect'         => route('admin.orders.show', $newOrder),
+                    'new_order_id'     => $updated->id,
+                    'new_order_ref'    => $updated->reference,
+                    'new_order_status' => $updated->status,
+                    'redirect'         => route('admin.orders.show', $updated),
                 ]);
             }
-            return redirect()->route('admin.orders.show', $newOrder)->with('status', $message);
+            return redirect()->route('admin.orders.show', $updated)->with('status', $message);
         } catch (\Throwable $e) {
             $message = 'Failover failed: ' . $e->getMessage();
             if ($request->wantsJson()) {
                 return response()->json(['ok' => false, 'message' => $message], 500);
             }
+            return back()->with('error', $message);
+        }
+    }
+
+    /**
+     * Admin sends a pending Dialog order through Dialog API, or the other way.
+     */
+    public function transfer(Request $request, Order $order, OrderService $svc)
+    {
+        /** @var User $admin */
+        $admin = Auth::user();
+        $note = trim((string) $request->input('note', ''));
+
+        try {
+            $updated = $svc->transferToPairedService($order, $admin, $note !== '' ? $note : null);
+            $toName = $updated->service->name ?? 'the other route';
+            $message = "Order {$updated->reference} sent through {$toName}. Status: {$updated->status}. Customer was not charged again.";
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'ok' => true,
+                    'message' => $message,
+                    'new_order_id' => $updated->id,
+                    'new_order_ref' => $updated->reference,
+                    'new_order_status' => $updated->status,
+                    'redirect' => route('admin.orders.show', $updated),
+                ]);
+            }
+
+            return redirect()->route('admin.orders.show', $updated)->with('status', $message);
+        } catch (\Throwable $e) {
+            $message = 'Could not switch route: ' . $e->getMessage();
+            if ($request->wantsJson()) {
+                return response()->json(['ok' => false, 'message' => $message], 500);
+            }
+
             return back()->with('error', $message);
         }
     }

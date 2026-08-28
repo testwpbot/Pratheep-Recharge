@@ -1,5 +1,6 @@
 @extends('layouts.dashboard')
 @section('title', 'My Recharges')
+@section('dash_compact', '1')
 
 @section('content')
 
@@ -13,6 +14,8 @@
       <a href="{{ route('dashboard.plans') }}" class="btn-admin btn-admin--gold btn-admin--sm">New Recharge</a>
     </div>
   </div>
+
+  @include('partials.history-period', ['period' => $period])
 
   <div class="table-wrap">
     <table class="data-table">
@@ -51,7 +54,7 @@
           @endphp
           <tr>
             <td>
-              @if ($o->status === 'success' && $o->invoice_path)
+              @if ($o->status === 'success')
                 <a href="{{ route('recharge.invoice', $o) }}" style="color:var(--gold-500); font-weight:700;">{{ $o->reference }}</a>
               @else
                 <a href="{{ route('recharge.show', $o) }}" style="color:var(--gold-500); font-weight:700;">{{ $o->reference }}</a>
@@ -61,7 +64,7 @@
               @if ($o->service->logoUrl)
                 <img src="{{ $o->service->logoUrl }}" alt="" style="width:22px; height:22px; object-fit:contain; vertical-align:middle; margin-right:6px;">
               @endif
-              {{ $o->service->name }}
+              {{ $o->customerServiceName() }}
             </td>
             <td>{{ $o->account_number }}</td>
             <td><b>LKR {{ number_format($o->amount, 2) }}</b></td>
@@ -85,7 +88,7 @@
                 <span style="color:var(--muted); font-weight:600; font-size:12.5px;">—</span>
               @endif
             </td>
-            <td><span class="pill pill--{{ $o->status }}">{{ ucfirst($o->status) }}</span></td>
+            <td><span class="pill pill--{{ $o->status }}">{{ $o->statusLabel() }}</span></td>
             <td><small>{{ $o->created_at->format('Y-m-d H:i') }}<br>{{ $o->created_at->diffForHumans() }}</small></td>
             <td data-label="Receipt">
               @if ($o->status === 'success' && $o->invoice_path)
@@ -125,7 +128,7 @@
                         data-complaint-btn
                         data-order-id="{{ $o->id }}"
                         data-order-ref="{{ $o->reference }}"
-                        data-service="{{ $o->service->name }}"
+                        data-service="{{ $o->customerServiceName() }}"
                         data-mobile="{{ $o->account_number }}"
                         data-amount="{{ number_format((float) $o->amount, 2) }}">
                   <x-icon name="alert" :size="11"/> Complaint

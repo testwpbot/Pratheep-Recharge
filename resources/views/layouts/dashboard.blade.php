@@ -3,14 +3,37 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+@include('partials.app-vh')
 <title>@yield('title', 'My Dashboard') — {{ config('app.name') }}</title>
-<link rel="icon" type="image/png" href="{{ asset('assets/logo-mark.png') }}">
+@include('partials.favicon')
 <link rel="stylesheet" href="{{ asset('css/landing.css') }}">
 <link rel="stylesheet" href="{{ asset('css/loader.css') }}">
 <link rel="stylesheet" href="{{ asset('css/admin.css') }}">
 @stack('styles')
+<style>
+/* Mobile-only tighter first screen for dashboard pages.
+   Plans & Rates does not set dash_compact, so it stays as-is. */
+@media (max-width:720px){
+  [data-dash-compact] .app-content{padding:12px;}
+  [data-dash-compact] .app-topbar{height:54px;}
+  [data-dash-compact] .app-topbar h2{font-size:15px;}
+  [data-dash-compact] .card{padding:14px 12px; border-radius:14px;}
+  [data-dash-compact] .card + .card{margin-top:12px;}
+  [data-dash-compact] .card__head{margin-bottom:12px; gap:8px;}
+  [data-dash-compact] .card__head h3{font-size:15.5px;}
+  [data-dash-compact] .stats-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px; margin-bottom:12px;
+  }
+  [data-dash-compact] .stat{padding:10px 10px; border-radius:12px;}
+  [data-dash-compact] .stat b{font-size:16px;}
+  [data-dash-compact] .stat span{font-size:10px;}
+  [data-dash-compact] .alert{margin-bottom:12px; padding:10px 12px;}
+  [data-dash-compact] .wallet-notice{padding:10px 12px; margin-bottom:12px; border-radius:12px;}
+}
+</style>
 </head>
-<body data-shell="app">
+<body data-shell="app"@if(trim($__env->yieldContent('dash_compact'))) data-dash-compact @endif>
 
 @include('partials.loader')
 
@@ -82,6 +105,15 @@
     </div>
 
     <div class="app-content">
+      @if (!empty($walletNotice) && !request()->routeIs('wallet'))
+        <div class="wallet-notice wallet-notice--{{ $walletNotice['type'] }}">
+          <div class="wallet-notice__text">
+            <b>{{ $walletNotice['title'] }}</b>
+            <p>{{ $walletNotice['message'] }}</p>
+          </div>
+          <a href="{{ route('wallet') }}" class="btn-admin btn-admin--gold btn-admin--sm">Add money</a>
+        </div>
+      @endif
       @if (session('status') || session('success'))
         <div class="alert alert--success">{{ session('status') ?: session('success') }}</div>
       @endif
@@ -102,6 +134,9 @@
 </div>
 
 <script src="{{ asset('js/landing.js') }}"></script>
+@include('partials.hpr-dd')
+@include('partials.whatsapp-float')
+@include('partials.dashboard-alerts')
 @stack('scripts')
 
 {{-- Global Download Receipt modal --}}
@@ -182,7 +217,7 @@
   function showError(){
     iconWrap.innerHTML = '';
     title.textContent = 'Download failed';
-    msg.textContent = 'Something went wrong. Please try again.';
+    msg.textContent = 'The receipt is not ready yet, or the file could not be saved. Open the order and try again after it succeeds.';
     clearTimeout(closeTimer);
     closeTimer = setTimeout(close, 1800);
   }
@@ -215,17 +250,23 @@
     fetch(url, {credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest','Accept':'image/png,*/*'}})
       .then(function(res){
         if (!res.ok) throw new Error('Network error ' + res.status);
-        // Try to read filename from Content-Disposition header
+        var ctype = (res.headers.get('Content-Type') || '').toLowerCase();
+        if (ctype.indexOf('image/') === -1 && ctype.indexOf('octet-stream') === -1) {
+          throw new Error('Receipt is not ready yet');
+        }
         var cd = res.headers.get('Content-Disposition') || '';
         var m = /filename\*?=(?:UTF-8'')?["']?([^"';\r\n]+)/i.exec(cd);
         var filename = m ? decodeURIComponent(m[1].replace(/^"|"$/g,'')) : (a.getAttribute('data-filename') || 'receipt.png');
-        return res.blob().then(function(blob){ return {blob:blob, filename:filename}; });
+        return res.blob().then(function(blob){
+          if (blob.type && blob.type.indexOf('image/') === -1 && blob.type !== 'application/octet-stream') {
+            throw new Error('Receipt is not ready yet');
+          }
+          return {blob:blob, filename:filename};
+        });
       })
       .then(function(res){ showSuccessAndDownload(res.blob, res.filename); })
       .catch(function(err){
-        console.warn('Download fetch failed, falling back to direct navigation:', err);
-        // Fallback: navigate directly so user still gets the file
-        window.location.href = url;
+        console.warn('Download fetch failed:', err);
         showError();
       });
   });
@@ -290,6 +331,7 @@
   }
 
   function set(open){
+    if (open && window.hprSetVvh) window.hprSetVvh();
     sidebar.classList.toggle('is-open', open);
     scrim.classList.toggle('is-open', open);
     if (open){

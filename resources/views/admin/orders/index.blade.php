@@ -19,6 +19,8 @@
   </form>
 </div>
 
+@include('partials.history-period', ['period' => $period, 'keep' => ['q' => request('q'), 'status' => request('status')]])
+
 <div class="card">
   <div class="table-wrap">
     <table class="data-table">
@@ -33,15 +35,22 @@
         <tr>
           <td><b><a href="{{ route('admin.orders.show', $o) }}" style="color:var(--gold-500);">{{ $o->reference }}</a></b></td>
           <td>{{ $o->user->name }}<br><small style="color:var(--muted)">{{ $o->user->email }}</small></td>
-          <td>{{ $o->service->name }}<br><small style="color:var(--muted)">{{ $o->provider->name }}</small></td>
+          <td>
+            {{ $o->customerServiceName() }}
+            <br><small style="color:var(--muted)">{{ $o->provider->name }}
+              @if ($o->sendOpCode() && $o->sendOpCode() !== (string) ($o->service->op_code ?? ''))
+                · via {{ \App\Support\PreferredRoute::adminLabel($o->service, $o->sendOpCode()) }}
+              @endif
+            </small>
+          </td>
           <td>{{ $o->account_number }}</td>
           <td><b>LKR {{ number_format($o->amount, 2) }}</b></td>
           <td>LKR {{ number_format($o->profit, 2) }}</td>
           <td><code style="font-size:12px;">{{ $o->provider_txn_id ?: '—' }}</code></td>
-          <td><span class="pill pill--{{ $o->status }}">{{ ucfirst($o->status) }}</span></td>
+          <td><span class="pill pill--{{ $o->status }}">{{ $o->statusLabel() }}</span></td>
           <td><small>{{ $o->created_at->format('Y-m-d H:i') }}<br>{{ $o->created_at->diffForHumans() }}</small></td>
-          <td style="text-align:right;">
-            <div style="display:flex; gap:6px; justify-content:flex-end; flex-wrap:wrap;">
+          <td class="col-actions">
+            <div class="td-actions">
               <a href="{{ route('admin.orders.show', $o) }}" class="btn-admin btn-admin--ghost btn-admin--sm">View</a>
               @if (in_array($o->status, ['pending','processing']))
                 <form method="POST" action="{{ route('admin.orders.sync', $o) }}" data-ajax data-ajax-refresh="1">
@@ -49,7 +58,7 @@
                   <button class="btn-admin btn-admin--gold btn-admin--sm" type="submit" data-loading="Checking…">Check status</button>
                 </form>
                 @php
-                  $_oIsHrc = $o->provider && (str_contains($o->provider->api_class, 'HappyRechargeCenter') || $o->provider->slug === 'happy-recharge-center');
+                  $_oIsHrc = $o->provider && $o->provider->isHappyRechargeCenter();
                 @endphp
                 @if ($_oIsHrc)
                   <form method="POST" action="{{ route('admin.orders.failover', $o) }}" data-ajax data-ajax-redirect>
@@ -57,12 +66,22 @@
                     <button class="btn-admin btn-admin--danger btn-admin--sm" type="submit" data-loading="Failing…" title="Fail over to Topup Mart">⚠ Failover</button>
                   </form>
                 @endif
+                @php
+                  $_pair = \App\Support\ServicePairs::partnerFromOrder($o);
+                  $_pairLabel = $_pair ? \App\Support\PreferredRoute::adminLabel($_pair) : null;
+                @endphp
+                @if ($_pair)
+                  <form method="POST" action="{{ route('admin.orders.transfer', $o) }}" data-ajax data-ajax-redirect onsubmit="return confirm('Send this pending order through {{ addslashes($_pairLabel) }}? The customer is not charged again.');">
+                    @csrf
+                    <button class="btn-admin btn-admin--primary btn-admin--sm" type="submit" data-loading="Sending…" title="Send via {{ $_pairLabel }}">Send via {{ $_pairLabel }}</button>
+                  </form>
+                @endif
               @endif
             </div>
           </td>
         </tr>
       @empty
-        <tr><td colspan="10" style="text-align:center; padding:30px; color:var(--muted);">No orders match this filter.</td></tr>
+        <tr><td colspan="10" style="text-align:center; padding:30px; color:var(--muted);">{{ $period->emptyMessage('orders') }}</td></tr>
       @endforelse
       </tbody>
     </table>

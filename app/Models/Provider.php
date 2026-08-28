@@ -22,26 +22,112 @@ class Provider extends Model
         return $this->hasMany(Service::class);
     }
 
-    /**
-     * Fetch the live balance from the provider's API, cached for 60s
-     * so repeated page loads within a minute don't hammer the upstream.
-     * Returns null if the API call fails (we show an error badge).
-     */
-    public function fetchBalance(): ?float
+    public function balanceSnapshots(): HasMany
     {
-        if (! $this->is_active || ! $this->api_key || ! $this->base_url) {
-            return null;
-        }
+        return $this->hasMany(ProviderBalanceSnapshot::class);
+    }
 
-        return Cache::remember("provider:{$this->id}:balance", 60, function () {
+    /** Wallet currency used when talking to this API. */
+    public function currency(): string
+    {
+        return strtoupper((string) $this->country) === 'IN' ? 'INR' : 'LKR';
+    }
+
+    public function isHappyRechargeCenter(): bool
+    {
+        $class = (string) $this->api_class;
+
+        return $this->slug === 'happy-recharge-center'
+            || $class === 'happy_recharge_center'
+            || str_contains($class, 'HappyRechargeCenter');
+    }
+
+    public function isTMobiling(): bool
+    {
+        $class = (string) $this->api_class;
+
+        return $this->slug === 'tmobiling'
+            || $class === 'tmobiling'
+            || str_contains($class, 'TMobiling');
+    }
+
+    public function isTopupMart(): bool
+    {
+        $class = (string) $this->api_class;
+
+        return $this->slug === 'topup-mart'
+            || $class === 'topup_mart'
+            || str_contains($class, 'TopupMart');
+    }
+
+    public function hasCredentials(): bool
+    {
+        return filled($this->base_url) && filled($this->api_key);
+    }
+
+    /** Public IP of this server — paste it into TMobiling → Profile → Whitelist IP. */
+    public static function detectedPublicIp(): ?string
+    {
+        return Cache::remember('hpr-public-ip', 3600, function () {
             try {
-                $client = ProviderFactory::make($this);
-                $bal = $client->balance();
-                return $bal === null ? null : round($bal, 2);
+                $ip = trim((string) \Illuminate\Support\Facades\Http::timeout(4)->get('https://api.ipify.org')->body());
+
+                return filter_var($ip, FILTER_VALIDATE_IP) ? $ip : null;
             } catch (\Throwable $e) {
-                Log::warning("Provider balance fetch failed for {$this->name}: " . $e->getMessage());
                 return null;
             }
         });
+    }
+
+    /**
+     * Live wallet balance + error string (cached 60s).
+     * HRC often fails with "IP ADDRESS NOT CORRECT" until they whitelist us.
+     *
+     * @return array{balance:?float,error:?string}
+     */
+    public function fetchBalanceInfo(bool $fresh = false): array
+    {
+        if (! $this->is_active) {
+            return ['balance' => null, 'error' => 'Provider is disabled'];
+        }
+        if (! $this->hasCredentials()) {
+            return ['balance' => null, 'error' => 'No API key'];
+        }
+
+        $key = "provider:{$this->id}:balance_info";
+        if ($fresh) {
+            Cache::forget($key);
+        }
+
+        return Cache::remember($key, 60, function () {
+            try {
+                $client = ProviderFactory::make($this);
+                $bal = $client->balance();
+                $err = method_exists($client, 'lastError') ? $client->lastError() : null;
+                return [
+                    'balance' => $bal === null ? null : round($bal, 2),
+                    'error'   => $bal === null ? ($err ?: 'Could not reach provider') : null,
+                ];
+            } catch (\Throwable $e) {
+                Log::warning("Provider balance fetch failed for {$this->name}: " . $e->getMessage());
+                return ['balance' => null, 'error' => $e->getMessage()];
+            }
+        });
+    }
+
+    public function fetchBalance(): ?float
+    {
+        return $this->fetchBalanceInfo()['balance'] ?? null;
+    }
+
+    /** Short label for the admin table when balance is unavailable. */
+    public static function balanceErrorLabel(?string $error): string
+    {
+        $e = (string) $error;
+        if ($e === '') return 'Unavailable';
+        if (stripos($e, 'IP') !== false) return 'IP not whitelisted';
+        if (stripos($e, 'LOGIN') !== false || stripos($e, 'TOKEN') !== false) return 'Auth failed';
+        if (stripos($e, 'No API') !== false) return 'No API key';
+        return 'Unavailable';
     }
 }

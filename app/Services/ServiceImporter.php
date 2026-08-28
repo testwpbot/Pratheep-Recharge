@@ -51,6 +51,18 @@ class ServiceImporter
                 $catSlug = $item['category_slug'] ?? 'mobile';
                 $category = Category::where('slug', $catSlug)->first();
 
+                $meta = [];
+                if (! empty($item['failover_op_code'])) {
+                    $meta['failover_op_code'] = (string) $item['failover_op_code'];
+                }
+                if (! empty($item['catalog_key'])) {
+                    $meta['catalog_key'] = (string) $item['catalog_key'];
+                }
+                if (! empty($item['bbps'])) {
+                    $meta['bbps'] = true;
+                }
+                $active = array_key_exists('is_active', $item) ? (bool) $item['is_active'] : true;
+
                 $existing = Service::where('provider_id', $provider->id)
                     ->where('op_code', $item['op_code'])
                     ->first();
@@ -64,6 +76,13 @@ class ServiceImporter
                         'category_id'=> $category?->id ?? $existing->category_id,
                         'logo'       => $item['logo'] ?? $existing->logo,
                     ]);
+                    if (! empty($meta)) {
+                        $existing->meta = array_merge($existing->meta ?? [], $meta);
+                    }
+                    // Hidden catalog items (TopupMart DTH failover-only) stay hidden.
+                    if ($active === false) {
+                        $existing->is_active = false;
+                    }
                     $existing->save();
                     $skipped++;
                     continue;
@@ -79,7 +98,8 @@ class ServiceImporter
                     'type'        => $item['type'] ?? 'prepaid',
                     'profit'      => 0,
                     'profit_type' => 'FLAT',
-                    'is_active'   => true,
+                    'is_active'   => $active,
+                    'meta'        => $meta ?: null,
                 ]);
                 $imported++;
             }

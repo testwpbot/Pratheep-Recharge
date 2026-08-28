@@ -23,7 +23,8 @@ class DepositRejected extends Mailable
     public function content(): Content
     {
         return new Content(
-            view: 'emails.deposit_rejected',
+            html: 'emails.deposit_rejected',
+            text: 'emails.text.deposit_rejected',
             with: ['d' => $this->deposit],
         );
     }

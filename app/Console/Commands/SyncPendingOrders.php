@@ -13,7 +13,10 @@ class SyncPendingOrders extends Command
     public function handle(OrderService $svc): int
     {
         $n = $svc->syncPending();
-        $this->info("Updated {$n} orders.");
+        foreach ($svc->lastSyncReport as $line) {
+            $this->line($line);
+        }
+        $this->info("Updated {$n} pending/processing orders.");
         return self::SUCCESS;
     }
 }

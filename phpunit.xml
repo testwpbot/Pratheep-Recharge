@@ -18,6 +18,11 @@
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
+        <env name="APP_KEY" value="base64:2fl+KTV4GSAjRjbfTVTso7dwpXvGBSbWesNZvEN8MYs="/>
+        <env name="HRC_API_KEY" value="334d7b447e9459fcbafe9441a"/>
+        <env name="HRC_BASE_URL" value="http://happyrechargecenter.com/RechargeApi"/>
+        <env name="TMOBILING_API_KEY" value="tmobi-test-key"/>
+        <env name="TMOBILING_BASE_URL" value="https://www.tmobiling.lk/livenew/apis/api_request"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="CACHE_STORE" value="array"/>

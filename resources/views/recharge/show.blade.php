@@ -1,5 +1,6 @@
 @extends(auth()->check() ? 'layouts.dashboard' : 'layouts.app')
 @section('title', "Order {$order->reference}")
+@section('dash_compact', '1')
 
 @section('content')
 
@@ -17,23 +18,31 @@
     </div>
     <div class="order-status order-status--{{ $order->status }}">
       <span class="dot"></span>
-      {{ ucfirst($order->status) }}
+      {{ $order->statusLabel() }}
     </div>
   </div>
 
   <div style="display:flex; align-items:center; gap:16px; padding:14px; border-radius:14px; background:#f7f9fd; margin-bottom:22px;">
     <img src="{{ $order->service->logo ? asset($order->service->logo) : asset('assets/logo-mark.png') }}"
-         alt="{{ $order->service->name }}" style="width:54px; height:54px; object-fit:contain;">
+         alt="{{ $order->customerServiceName() }}" style="width:54px; height:54px; object-fit:contain;">
     <div>
-      <div style="font-weight:800; color:var(--navy-900);">{{ $order->service->name }}</div>
+      <div style="font-weight:800; color:var(--navy-900);">{{ $order->customerServiceName() }}</div>
       <div style="color:var(--muted); font-size:13px;">Account: <b>{{ $order->account_number }}</b></div>
     </div>
     <span style="margin-left:auto; font-size:22px; font-weight:800; color:var(--navy-900);">LKR {{ number_format($order->amount, 2) }}</span>
   </div>
 
-  @if ($order->message)
-    <div class="alert alert--{{ $order->status === 'failed' ? 'error' : 'success' }}">
-      {{ $order->message }}
+  @if ($order->isRefunded())
+    <div class="alert alert--success">
+      {{ $order->publicMessage() }}
+    </div>
+  @elseif (in_array($order->status, ['pending', 'processing'], true))
+    <div class="alert alert--success">
+      {{ $order->publicMessage() }}
+    </div>
+  @elseif ($order->isFailedLike())
+    <div class="alert alert--error">
+      {{ $order->publicMessage() }}
     </div>
   @endif
 
@@ -43,27 +52,27 @@
     <dt>Completed at</dt><dd>{{ $order->completed_at?->format('Y-m-d H:i:s') ?? 'Pending…' }}</dd>
   </dl>
 
-  @if ($order->status === 'success')
-    @if ($order->invoice_path)
-      <div style="margin-top:22px; text-align:center;">
-        <div style="display:inline-block; max-width:520px; border:1px solid var(--line); border-radius:14px; overflow:hidden; box-shadow:var(--shadow-sm);">
-          <a href="{{ route('recharge.invoice', $order) }}">
-            <img src="{{ asset('storage/' . $order->invoice_path) }}?v={{ $order->updated_at->timestamp }}"
-                 alt="Receipt" style="width:100%; display:block;">
-          </a>
-        </div>
+  @if ($order->status === 'success' && !empty($hasInvoice))
+    <div style="margin-top:22px; text-align:center;">
+      <div style="display:inline-block; max-width:520px; border:1px solid var(--line); border-radius:14px; overflow:hidden; box-shadow:var(--shadow-sm);">
+        <a href="{{ route('recharge.invoice', $order) }}">
+          <img src="{{ route('recharge.invoice.file', $order) }}?v={{ $order->updated_at->timestamp }}"
+               alt="Receipt" style="width:100%; display:block;">
+        </a>
       </div>
-    @endif
+    </div>
   @endif
 
   <div style="margin-top:22px; display:flex; gap:10px; flex-wrap:wrap;">
-    @if ($order->status === 'success' && $order->invoice_path)
+    @if ($order->status === 'success')
       <a href="{{ route('recharge.invoice', $order) }}" class="btn-admin btn-admin--ghost btn-admin--sm">
         <x-icon name="bill" :size="13"/> View Receipt
       </a>
-      <a href="{{ route('recharge.invoice.download', $order) }}" data-download class="btn-admin btn-admin--gold">
-        <x-icon name="download" :size="17"/> Download Receipt (PNG)
-      </a>
+      @if (!empty($hasInvoice))
+        <a href="{{ route('recharge.invoice.download', $order) }}" data-download class="btn-admin btn-admin--gold">
+          <x-icon name="download" :size="17"/> Download Receipt (PNG)
+        </a>
+      @endif
     @endif
     <a href="{{ route('dashboard') }}" class="btn-admin btn-admin--primary">Go to Dashboard</a>
     <a href="{{ route('dashboard.plans') }}" class="btn-admin btn-admin--ghost">

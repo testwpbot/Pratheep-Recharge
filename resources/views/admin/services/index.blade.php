@@ -19,9 +19,9 @@
       @endforeach
     </select>
     <select name="status">
-      <option value="">All status</option>
-      <option value="active" {{ request('status') === 'active' ? 'selected' : '' }}>Active</option>
+      <option value="active" {{ request('status', 'active') === 'active' ? 'selected' : '' }}>Active</option>
       <option value="inactive" {{ request('status') === 'inactive' ? 'selected' : '' }}>Inactive</option>
+      <option value="all" {{ request('status') === 'all' ? 'selected' : '' }}>All status</option>
     </select>
     <button class="btn-admin btn-admin--primary" type="submit">Filter</button>
     <a href="{{ route('admin.services.index') }}" class="btn-admin btn-admin--ghost">Reset</a>
@@ -97,16 +97,18 @@
             <br><small style="color:var(--muted);">cashback</small>
           </td>
           <td><span class="pill pill--{{ $s->is_active ? 'success' : 'failed' }}">{{ $s->is_active ? 'Active' : 'Inactive' }}</span></td>
-          <td style="text-align:right; display:flex; gap:6px; justify-content:flex-end;">
-            <a href="{{ route('admin.services.edit', $s) }}" class="btn-admin btn-admin--ghost btn-admin--sm">Edit</a>
-            <form method="POST" action="{{ route('admin.services.toggle', $s) }}" data-ajax data-ajax-refresh="1">
-              @csrf
-              <button class="btn-admin btn-admin--ghost btn-admin--sm" type="submit" data-loading="Updating…">{{ $s->is_active ? 'Disable' : 'Enable' }}</button>
-            </form>
+          <td class="col-actions">
+            <div class="td-actions">
+              <a href="{{ route('admin.services.edit', $s) }}" class="btn-admin btn-admin--ghost btn-admin--sm">Edit</a>
+              <form method="POST" action="{{ route('admin.services.toggle', $s) }}" data-ajax data-ajax-refresh="1">
+                @csrf
+                <button class="btn-admin btn-admin--ghost btn-admin--sm" type="submit" data-loading="Updating…">{{ $s->is_active ? 'Disable' : 'Enable' }}</button>
+              </form>
+            </div>
           </td>
         </tr>
       @empty
-        <tr><td colspan="9" style="text-align:center; padding:30px; color:var(--muted);">No services yet. Go to <b>Providers</b> and click <b>"Import Services"</b> to load the catalog.</td></tr>
+        <tr><td colspan="9" style="text-align:center; padding:30px; color:var(--muted);">No services yet. Go to <b>Providers</b> and click <b>Import Services</b> for Topup Mart and TMobiling.</td></tr>
       @endforelse
       </tbody>
     </table>

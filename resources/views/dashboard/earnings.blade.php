@@ -1,5 +1,6 @@
 @extends('layouts.dashboard')
 @section('title', 'My Earnings')
+@section('dash_compact', '1')
 
 @section('content')
 
@@ -47,22 +48,7 @@
     </span>
   </div>
 
-  <form method="GET" action="{{ route('earnings') }}" class="earn-filters" id="earnFilters">
-    <div class="field">
-      <label>From date</label>
-      <input type="date" name="from" value="{{ $from }}" class="hpr-input">
-    </div>
-    <div class="field">
-      <label>To date</label>
-      <input type="date" name="to" value="{{ $to }}" class="hpr-input">
-    </div>
-    <div class="earn-filters__btns">
-      <button type="submit" class="btn-admin btn-admin--gold btn-admin--sm">
-        <x-icon name="search" :size="13"/> Filter
-      </button>
-      <a href="{{ route('earnings') }}" class="btn-admin btn-admin--ghost btn-admin--sm">Clear</a>
-    </div>
-  </form>
+  @include('partials.history-period', ['period' => $period])
 
   <div class="table-wrap" style="margin-top:18px;">
     <table class="data-table earn-table">
@@ -111,7 +97,7 @@
         @empty
           <tr>
             <td colspan="5" style="text-align:center; padding:40px; color:var(--muted);">
-              No cashback earned yet. Place successful recharges to earn rewards 🎁
+              {{ $period->emptyMessage('cashback rewards') }}
             </td>
           </tr>
         @endforelse
@@ -180,10 +166,13 @@
   .earn-stat:last-child{grid-column:1/-1;}
 }
 @media (max-width:560px){
-  .earn-hero{padding:18px 18px;}
-  .earn-hero__top b{font-size:26px;}
-  .earn-hero__grid{grid-template-columns:1fr;}
-  .earn-filters{grid-template-columns:1fr;}
+  .earn-hero{padding:14px 14px; border-radius:14px; margin-bottom:12px;}
+  .earn-hero__top b{font-size:22px;}
+  .earn-hero__grid{grid-template-columns:1fr 1fr; gap:8px; margin-top:12px;}
+  .earn-stat:last-child{grid-column:1 / -1;}
+  .earn-stat{padding:10px 12px;}
+  .earn-stat b{font-size:15px;}
+  .earn-filters{grid-template-columns:1fr; gap:10px;}
   .earn-filters__btns{justify-content:stretch;}
   .earn-filters__btns .btn-admin{flex:1;}
 }

@@ -3,9 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>@yield('title', 'Sign In · Happy Pratheep Recharge')</title>
-<meta name="description" content="Sign in or create an account on Happy Pratheep Recharge.">
-<link rel="icon" type="image/png" href="{{ asset('assets/logo-mark.png') }}">
+@include('partials.seo')
+@include('partials.favicon')
 <link rel="stylesheet" href="{{ asset('css/landing.css') }}">
 <link rel="stylesheet" href="{{ asset('css/loader.css') }}">
 <link rel="stylesheet" href="{{ asset('css/auth.css') }}">
@@ -22,7 +21,9 @@
 </main>
 
 @include('partials.footer')
+@include('partials.whatsapp-float')
 
 <script src="{{ asset('js/landing.js') }}"></script>
+@stack('scripts')
 </body>
 </html>

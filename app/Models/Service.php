@@ -34,6 +34,77 @@ class Service extends Model
         return $this->hasMany(Plan::class)->where('is_active', true)->orderBy('sort_order')->orderBy('amount');
     }
 
+    public function specialPrices(): HasMany
+    {
+        return $this->hasMany(SpecialPrice::class);
+    }
+
+    /**
+     * Services customers can buy: service On, provider On, not a hidden API twin.
+     */
+    public function scopeForCustomers($query)
+    {
+        return $query->where('services.is_active', true)
+            ->where('type', '!=', 'api')
+            ->whereHas('provider', fn ($q) => $q->where('is_active', true));
+    }
+
+    public function isVisibleToCustomers(): bool
+    {
+        if (! $this->is_active) {
+            return false;
+        }
+        if (strtolower((string) $this->type) === 'api') {
+            return false;
+        }
+
+        $provider = $this->relationLoaded('provider') ? $this->provider : $this->provider()->first();
+
+        return $provider && $provider->is_active;
+    }
+
+    /** Bill / utility operators that TMobiling sends with from_bbps=1. */
+    public function usesBbps(): bool
+    {
+        return (bool) (($this->meta ?? [])['bbps'] ?? false);
+    }
+
+    /**
+     * Default catalog profit vs this user's special commission.
+     *
+     * @return array{profit: float, type: string, special: bool}
+     */
+    public function effectivePricing(?User $user = null): array
+    {
+        $attrs  = $this->getAttributes();
+        $profit = (float) ($attrs['profit'] ?? 0);
+        $type   = (string) ($attrs['profit_type'] ?? 'FLAT');
+        $special = false;
+
+        if ($user) {
+            $row = $this->relationLoaded('specialPrices')
+                ? $this->specialPrices->firstWhere('user_id', $user->id)
+                : SpecialPrice::where('user_id', $user->id)->where('service_id', $this->id)->first();
+            if ($row) {
+                $profit  = (float) $row->profit;
+                $type    = (string) $row->profit_type;
+                $special = true;
+            }
+        }
+
+        return compact('profit', 'type', 'special');
+    }
+
+    /** Mutate this instance's profit fields for display (does not persist). */
+    public function applyEffectivePricing(?User $user): self
+    {
+        $eff = $this->effectivePricing($user);
+        $this->setAttribute('profit', $eff['profit']);
+        $this->setAttribute('profit_type', $eff['type']);
+        $this->setAttribute('has_special_price', $eff['special']);
+        return $this;
+    }
+
     /**
      * Default logo map by op_code so services that were imported before logos
      * were added to the catalog still get a proper brand logo without re-seeding.
@@ -51,7 +122,27 @@ class Service extends Model
         '198' => 'assets/logos/sltmobitel.png',
         // Airtel
         '180' => 'assets/logos/airtel.png', '170' => 'assets/logos/airtel.png',
-        '120' => 'assets/logos/airtel.png', // Airtel DTH (India placeholder)
+        '120' => 'assets/logos/airtel.png', // Airtel DTH (Topup Mart)
+        // TMobiling mobile / TV / router
+        '1'   => 'assets/logos/dialog.png', '12' => 'assets/logos/dialog.png',
+        '5'   => 'assets/logos/dialog.png', '16' => 'assets/logos/dialog.png',
+        '6'   => 'assets/logos/dialog.png', '17' => 'assets/logos/dialog.png',
+        '7'   => 'assets/logos/dialog.png', '18' => 'assets/logos/dialog.png',
+        '2'   => 'assets/logos/airtel.png', '13' => 'assets/logos/airtel.png',
+        '3'   => 'assets/logos/sltmobitel.png', '14' => 'assets/logos/sltmobitel.png',
+        '28'  => 'assets/logos/sltmobitel.png', '19' => 'assets/logos/sltmobitel.png',
+        '4'   => 'assets/logos/hutch.png', '15' => 'assets/logos/hutch.png',
+        '9'   => 'assets/logos/lankabell.png',
+        '10'  => 'assets/logos/pickme.png',
+        '40'  => 'assets/logos/ubereats.png',
+        '23'  => 'assets/logos/airtel.png',
+        '29'  => 'assets/logos/ceb.png',
+        '30'  => 'assets/logos/leco.png',
+        '31'  => 'assets/logos/nwsdb.png',
+        '32'  => 'assets/logos/aia.png',
+        '36'  => 'assets/logos/srilankains.png',
+        '33'  => 'assets/logos/hnbassu.png',
+        '68'  => 'assets/logos/hnbassu.png',
         // Hutch
         '182' => 'assets/logos/hutch.png', '172' => 'assets/logos/hutch.png',
         // Utilities
@@ -67,15 +158,38 @@ class Service extends Model
         '132' => 'assets/logos/ceylinco.png',
         '133' => 'assets/logos/hnbassu.png',
         '134' => 'assets/logos/srilankains.png',
-        // India DTH (placeholder)
+        // India DTH — TopupMart failover placeholders
         '121' => 'assets/logos/dishtv.png',
         '122' => 'assets/logos/sundirect.png',
         '123' => 'assets/logos/tataplay.png',
         '124' => 'assets/logos/d2h.png',
+        // TMobiling Indian DTH
+        '20'  => 'assets/logos/sundirect.png',
+        '21'  => 'assets/logos/d2h.png',
+        '22'  => 'assets/logos/dishtv.png',
+        '79'  => 'assets/logos/tataplay.png',
         // Wallet / Driver payments
         '104' => 'assets/logos/pickme.png',
         '105' => 'assets/logos/ubereats.png',
     ];
+
+    public function isBillLike(): bool
+    {
+        $type = strtolower((string) $this->type);
+        $slug = strtolower((string) ($this->category?->slug ?? ''));
+
+        return in_array($type, ['utility', 'postpaid', 'bill', 'insurance', 'wallet'], true)
+            || in_array($slug, ['utility', 'insurance', 'wallet-topup'], true);
+    }
+
+    /** Mobile reload and postpaid do not use a separate SMS notify number. */
+    public function hidesNotifyNumber(): bool
+    {
+        $slug = strtolower((string) ($this->category?->slug ?? ''));
+        $type = strtolower((string) $this->type);
+
+        return $slug === 'mobile' || $type === 'postpaid';
+    }
 
     /** Public URL for the operator logo */
     public function getLogoUrlAttribute(): string
@@ -104,12 +218,13 @@ class Service extends Model
      * profit_type = FLAT => fixed LKR.
      * profit_type = PCT  => percentage of amount.
      */
-    public function calculateCashback(float $amount): float
+    public function calculateCashback(float $amount, ?User $user = null): float
     {
-        $profit = (float) $this->profit;
+        $eff    = $this->effectivePricing($user);
+        $profit = $eff['profit'];
         if ($profit <= 0) return 0;
 
-        if ($this->profit_type === 'PCT') {
+        if ($eff['type'] === 'PCT') {
             return round(($amount * $profit) / 100, 2);
         }
         return round($profit, 2);

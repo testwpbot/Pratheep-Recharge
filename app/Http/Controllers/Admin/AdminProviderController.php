@@ -25,10 +25,12 @@ class AdminProviderController extends Controller
     public function update(Request $request, Provider $provider): RedirectResponse
     {
         $data = $request->validate([
-            'name'      => 'required|string|max:100',
-            'base_url'  => 'nullable|url|max:255',
-            'api_key'   => 'nullable|string|max:500',
-            'is_active' => 'boolean',
+            'name'         => 'required|string|max:100',
+            'base_url'     => 'nullable|url|max:255',
+            'api_key'      => 'nullable|string|max:500',
+            'is_active'    => 'boolean',
+            'dth_opcodes'  => 'nullable|array',
+            'dth_opcodes.*'=> 'nullable|string|max:20',
         ]);
         $data['is_active'] = $request->boolean('is_active');
 
@@ -41,8 +43,23 @@ class AdminProviderController extends Controller
             'is_active' => $data['is_active'],
         ])->save();
 
+        if ($provider->isHappyRechargeCenter() && is_array($request->input('dth_opcodes'))) {
+            foreach ($request->input('dth_opcodes') as $serviceId => $opCode) {
+                $opCode = trim((string) $opCode);
+                if ($opCode === '') {
+                    continue;
+                }
+                $svc = $provider->services()->whereKey($serviceId)->first();
+                if ($svc && $svc->op_code !== $opCode) {
+                    $svc->op_code = $opCode;
+                    $svc->save();
+                }
+            }
+        }
+
         // Clear cached balance when settings change
         cache()->forget("provider:{$provider->id}:balance");
+        cache()->forget("provider:{$provider->id}:balance_info");
 
         return redirect()->route('admin.providers.index')->with('status', "Provider {$provider->name} updated.");
     }

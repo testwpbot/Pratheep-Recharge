@@ -18,6 +18,8 @@
   </form>
 </div>
 
+@include('partials.history-period', ['period' => $period, 'keep' => ['q' => request('q'), 'status' => $status]])
+
 <div class="card">
   <div class="table-wrap">
     <table class="data-table">
@@ -47,8 +49,8 @@
           <td>{{ $c->mobile ?: '—' }}</td>
           <td><span class="pill {{ $c->statusBadgeClass() }}">{{ $c->statusLabel() }}</span></td>
           <td><small>{{ $c->created_at->format('Y-m-d H:i') }}<br>{{ $c->created_at->diffForHumans() }}</small></td>
-          <td style="text-align:right;">
-            <div style="display:flex; gap:6px; justify-content:flex-end;">
+          <td class="col-actions">
+            <div class="td-actions">
               <a href="{{ route('admin.complaints.show', $c) }}" class="btn-admin btn-admin--ghost btn-admin--sm">
                 {{ in_array($c->status, ['open','in_progress']) ? 'Reply' : 'View' }}
               </a>
@@ -56,7 +58,7 @@
           </td>
         </tr>
       @empty
-        <tr><td colspan="8" style="text-align:center; padding:30px; color:var(--muted);">No complaints match this filter.</td></tr>
+        <tr><td colspan="8" style="text-align:center; padding:30px; color:var(--muted);">{{ $period->emptyMessage('complaints') }}</td></tr>
       @endforelse
       </tbody>
     </table>

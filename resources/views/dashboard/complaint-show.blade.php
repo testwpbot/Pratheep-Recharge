@@ -1,5 +1,6 @@
 @extends('layouts.dashboard')
 @section('title', 'Complaint ' . $complaint->reference)
+@section('dash_compact', '1')
 
 @section('content')
 
@@ -40,7 +41,7 @@
       </div>
       <div class="cmp-kv">
         <span>Service</span>
-        <b>{{ $complaint->order->service->name ?? '—' }}</b>
+        <b>{{ $complaint->order->customerServiceName() }}</b>
       </div>
       <div class="cmp-kv">
         <span>Order Amount</span>
@@ -48,7 +49,7 @@
       </div>
       <div class="cmp-kv">
         <span>Order Status</span>
-        <b><span class="pill pill--{{ $complaint->order->status }}">{{ ucfirst($complaint->order->status) }}</span></b>
+        <b><span class="pill pill--{{ $complaint->order->status }}">{{ $complaint->order->statusLabel() }}</span></b>
       </div>
     @endif
   </div>

@@ -37,15 +37,51 @@ class WalletTransaction extends Model
 
     /**
      * Signed delta (positive = credit, negative = debit).
+     * Admin adjustments can go either way — use before/after when present.
      */
     public function signedAmount(): float
     {
         $a = abs((float) $this->amount);
+        if ($this->balance_before !== null && $this->balance_after !== null) {
+            return ((float) $this->balance_after) >= ((float) $this->balance_before) ? $a : -$a;
+        }
+
         return in_array($this->type, [self::TYPE_DEBIT], true) ? -$a : $a;
     }
 
     public function isCredit(): bool
     {
         return $this->signedAmount() >= 0;
+    }
+
+    /** Short label for wallet history on every customer + admin page. */
+    public function typeLabel(): string
+    {
+        if ($this->type === self::TYPE_ADJUST) {
+            return $this->isCredit() ? 'Manual fund add' : 'Manual funds remove';
+        }
+
+        return match ($this->type) {
+            self::TYPE_DEBIT    => 'Recharge / Order',
+            self::TYPE_DEPOSIT  => 'Deposit',
+            self::TYPE_CASHBACK => 'Cashback',
+            self::TYPE_REFUND   => 'Refund',
+            default             => ucfirst((string) $this->type),
+        };
+    }
+
+    public function typePillClass(): string
+    {
+        if ($this->type === self::TYPE_DEBIT) {
+            return 'failed';
+        }
+        if ($this->type === self::TYPE_REFUND) {
+            return 'refunded';
+        }
+        if ($this->type === self::TYPE_ADJUST) {
+            return $this->isCredit() ? 'success' : 'failed';
+        }
+
+        return 'success';
     }
 }

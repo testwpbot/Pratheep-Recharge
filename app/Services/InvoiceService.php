@@ -29,6 +29,10 @@ class InvoiceService
 
     public function generate(Order $order): string
     {
+        if (! function_exists('imagecreatetruecolor') || ! function_exists('imagepng')) {
+            throw new \RuntimeException('PHP GD is not enabled, so a receipt image cannot be created.');
+        }
+
         $order->loadMissing(['user', 'service', 'provider']);
 
         $rows = $this->buildRows($order);
@@ -81,7 +85,7 @@ class InvoiceService
         $logoX = self::MARGIN;
         $logoY = 50; // extra top padding so the resample kernel can't paint above the canvas
         $logoW = 0;
-        if (File::exists($logoPath)) {
+        if ($this->safeIsFile($logoPath)) {
             $logo = $this->loadImage($logoPath);
             if ($logo) {
                 imagealphablending($logo, true);
@@ -155,9 +159,6 @@ class InvoiceService
         $y = $contentStart + 25;
         $valueX = self::MARGIN + 420;
 
-        $fontRegular = $this->findFont(false);
-        $fontBold    = $this->findFont(true);
-
         foreach ($rows as $r) {
             if (!empty($r['section'])) {
                 $this->text($img, $r['section'], self::MARGIN, $y, 18, $navy, true);
@@ -177,19 +178,178 @@ class InvoiceService
         $this->text($img, 'Thank you for your recharge!', self::MARGIN, $fy + 20, 18, $navy, true);
         $this->text($img, 'This is a computer-generated receipt. For support, contact support@happypratheep.lk', self::MARGIN, $fy + 60, 12, $muted);
 
-        // Save
-        $dir = storage_path('app/public/' . self::INVOICE_DIR);
-        File::ensureDirectoryExists($dir);
+        // Save — Laravel storage first, then public/storage (DirectAdmin).
         $name = $order->reference . '.png';
-        $abs = $dir . '/' . $name;
-        imagepng($img, $abs);
+        $rel = self::INVOICE_DIR . '/' . $name;
+        $written = null;
+        foreach ($this->writeTargets($rel) as $abs) {
+            try {
+                File::ensureDirectoryExists(dirname($abs));
+                if (! $this->safeIsDir(dirname($abs)) || ! $this->safeIsWritable(dirname($abs))) {
+                    continue;
+                }
+                if (imagepng($img, $abs) && $this->safeIsFile($abs) && @filesize($abs) > 100) {
+                    $written = $abs;
+                    break;
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Receipt image write failed at '.$abs.': '.$e->getMessage());
+            }
+        }
         imagedestroy($img);
 
-        $rel = self::INVOICE_DIR . '/' . $name;
+        if (! $written) {
+            throw new \RuntimeException('Could not write the receipt image file.');
+        }
+
         $order->invoice_path = $rel;
         $order->save();
+        $this->publishPublicCopy($order);
 
         return $rel;
+    }
+
+    public function relativePath(Order $order): string
+    {
+        if ($order->invoice_path) {
+            return ltrim((string) $order->invoice_path, '/');
+        }
+
+        return self::INVOICE_DIR . '/' . $order->reference . '.png';
+    }
+
+    /** Every place the PNG might already live (Laravel storage or public_html/storage). */
+    public function candidatePaths(Order $order): array
+    {
+        $rels = array_unique(array_filter([
+            $order->invoice_path ? ltrim((string) $order->invoice_path, '/') : null,
+            self::INVOICE_DIR . '/' . $order->reference . '.png',
+        ]));
+
+        $paths = [];
+        foreach ($rels as $rel) {
+            $paths[] = storage_path('app/public/' . $rel);
+            $paths[] = public_path('storage/' . $rel);
+        }
+
+        return array_values(array_unique($paths));
+    }
+
+    public function absolutePath(Order $order): ?string
+    {
+        foreach ($this->candidatePaths($order) as $path) {
+            if ($this->safeIsFile($path) && @filesize($path) > 100) {
+                return $path;
+            }
+        }
+
+        return null;
+    }
+
+    public function fileIsReady(Order $order): bool
+    {
+        return $this->absolutePath($order) !== null;
+    }
+
+    /** Make the PNG even if the public/storage symlink is missing (DirectAdmin). */
+    public function ensureGenerated(Order $order): ?string
+    {
+        if ($order->status !== Order::STATUS_SUCCESS && $order->status !== 'success') {
+            return null;
+        }
+
+        if ($this->fileIsReady($order)) {
+            if (! $order->invoice_path) {
+                $order->invoice_path = $this->relativePath($order);
+                $order->save();
+            }
+            $this->publishPublicCopy($order);
+
+            return $order->invoice_path;
+        }
+
+        return $this->generate($order);
+    }
+
+    public function publishPublicCopy(Order $order): void
+    {
+        $abs = $this->absolutePath($order);
+        if (! $abs) {
+            return;
+        }
+
+        $dest = public_path('storage/' . $this->relativePath($order));
+        if ($this->sameFile($abs, $dest)) {
+            return;
+        }
+
+        try {
+            File::ensureDirectoryExists(dirname($dest));
+            if (! $this->safeIsDir(dirname($dest)) || ! $this->safeIsWritable(dirname($dest))) {
+                return;
+            }
+            if (! $this->safeIsFile($dest) || @filesize($dest) !== @filesize($abs)) {
+                File::copy($abs, $dest);
+            }
+        } catch (\Throwable $e) {
+            // Broken public/storage symlink on DirectAdmin must not kill the receipt.
+            Log::warning('Could not copy receipt into public/storage: '.$e->getMessage());
+        }
+    }
+
+    protected function writeTargets(string $rel): array
+    {
+        $rel = ltrim($rel, '/');
+
+        return array_values(array_unique([
+            storage_path('app/public/' . $rel),
+            public_path('storage/' . $rel),
+        ]));
+    }
+
+    protected function sameFile(string $a, string $b): bool
+    {
+        try {
+            return @realpath($a) && @realpath($a) === @realpath($b);
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    protected function safeIsFile(string $path): bool
+    {
+        if ($path === '') {
+            return false;
+        }
+        try {
+            return @is_file($path);
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    protected function safeIsDir(string $path): bool
+    {
+        if ($path === '') {
+            return false;
+        }
+        try {
+            return @is_dir($path);
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    protected function safeIsWritable(string $path): bool
+    {
+        if ($path === '') {
+            return false;
+        }
+        try {
+            return @is_writable($path);
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     protected function buildRows(Order $order): array
@@ -202,7 +362,7 @@ class InvoiceService
         $rows[] = ['label' => 'Mobile / Account', 'value' => $order->account_number];
 
         $rows[] = ['section' => 'Order Details'];
-        $rows[] = ['label' => 'Service',          'value' => $order->service->name ?? '—'];
+        $rows[] = ['label' => 'Service',          'value' => $order->customerServiceName()];
         // Do NOT expose third-party provider names to customers — show the brand instead.
         $rows[] = ['label' => 'Processed via',    'value' => 'Happy Pratheep Recharge'];
         if ($order->notify_number && $order->notify_number !== $order->account_number) {
@@ -232,34 +392,30 @@ class InvoiceService
         if ($bold && static::$_fontBold !== null) return static::$_fontBold;
         if (!$bold && static::$_fontReg !== null) return static::$_fontReg;
 
+        // Prefer fonts shipped in the repo. DirectAdmin open_basedir blocks
+        // /usr/share/fonts — a bare file_exists() there becomes an ErrorException
+        // in Laravel and used to abort the whole receipt image.
         $candidates = $bold
             ? [
-                '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
-                '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
-                '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+                resource_path('fonts/DejaVuSans-Bold.ttf'),
+                base_path('resources/fonts/DejaVuSans-Bold.ttf'),
+                public_path('fonts/DejaVuSans-Bold.ttf'),
+                'C:/Windows/Fonts/arialbd.ttf',
+                'C:/Windows/Fonts/calibrib.ttf',
               ]
             : [
-                '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
-                '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
+                resource_path('fonts/DejaVuSans.ttf'),
+                base_path('resources/fonts/DejaVuSans.ttf'),
+                public_path('fonts/DejaVuSans.ttf'),
+                'C:/Windows/Fonts/arial.ttf',
+                'C:/Windows/Fonts/calibri.ttf',
               ];
-
-        // On Windows/local (dev): try a few common paths
-        $candidates[] = 'C:/Windows/Fonts/calibri.ttf';
-        $candidates[] = 'C:/Windows/Fonts/arial.ttf';
 
         $found = null;
         foreach ($candidates as $p) {
-            if (file_exists($p)) { $found = $p; break; }
-        }
-
-        // If still nothing, glob common folders
-        if (!$found) {
-            foreach (['/usr/share/fonts/truetype/dejavu/','/usr/share/fonts/truetype/liberation/','/usr/share/fonts/TTF/'] as $d) {
-                if (is_dir($d)) {
-                    $pattern = $d . ($bold ? '*Bold*.ttf' : '*.ttf');
-                    $matches = glob($pattern);
-                    if (!empty($matches)) { $found = $matches[0]; break; }
-                }
+            if ($this->safeIsFile($p)) {
+                $found = $p;
+                break;
             }
         }
 
@@ -326,7 +482,7 @@ class InvoiceService
 
     protected function loadImage(string $path)
     {
-        if (!file_exists($path)) return null;
+        if (! $this->safeIsFile($path)) return null;
         $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
         if ($ext === 'png' && function_exists('imagecreatefrompng'))  return @imagecreatefrompng($path);
         if (($ext === 'jpg' || $ext === 'jpeg') && function_exists('imagecreatefromjpeg')) return @imagecreatefromjpeg($path);

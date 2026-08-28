@@ -21,14 +21,22 @@ class DatabaseSeeder extends Seeder
             'api_key'    => '',
             'is_active'  => true,
         ]);
-        Provider::firstOrCreate(['slug' => 'happy-recharge-center'], [
-            'name'       => 'Happy Recharge Center',
-            'country'    => 'IN',
-            'api_class'  => 'happy_recharge_center',
-            'base_url'   => 'http://happyrechargecenter.com/RechargeApi',
-            'api_key'    => '334d7b447e9459fcbafe9441a',
-            'is_active'  => false,
+
+        Provider::firstOrCreate(['slug' => 'tmobiling'], [
+            'name'      => 'TMobiling',
+            'country'   => 'LK',
+            'api_class' => 'tmobiling',
+            'base_url'  => env('TMOBILING_BASE_URL', 'https://www.tmobiling.lk/livenew/apis/api_request'),
+            'api_key'   => env('TMOBILING_API_KEY', ''),
+            'is_active' => true,
         ]);
+
+        // Retired. Keep the row so old DTH orders can still be checked.
+        $hrc = Provider::where('slug', 'happy-recharge-center')->first();
+        if ($hrc) {
+            $hrc->is_active = false;
+            $hrc->save();
+        }
 
         // Categories
         foreach ([
@@ -48,13 +56,18 @@ class DatabaseSeeder extends Seeder
             ]);
         }
 
-        // Default admin account
-        User::firstOrCreate(['email' => 'admin@happypratheep.lk'], [
-            'name'       => 'Admin',
-            'phone'      => '+94770000000',
-            'password'   => Hash::make('admin123'),
-            'is_admin'   => true,
+        // Default owner account
+        $owner = User::firstOrCreate(['email' => 'admin@happypratheep.lk'], [
+            'name'              => 'Admin',
+            'phone'             => '+94770000000',
+            'password'          => Hash::make('admin123'),
+            'is_admin'          => true,
+            'admin_role'        => User::ADMIN_ROLE_MAIN,
+            'email_verified_at' => now(),
         ]);
+        if ($owner->is_admin && $owner->admin_role !== User::ADMIN_ROLE_MAIN) {
+            $owner->forceFill(['admin_role' => User::ADMIN_ROLE_MAIN])->save();
+        }
 
         // Seed the services catalog (op_codes) from providers BEFORE plans,
         // because PlansSeeder attaches plans to existing Service rows.

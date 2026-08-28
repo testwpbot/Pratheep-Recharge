@@ -3,15 +3,17 @@
 namespace App\Services;
 
 use App\Models\Provider;
-use App\Services\Providers\ProviderInterface;
-use App\Services\Providers\TopupMart;
 use App\Services\Providers\HappyRechargeCenter;
+use App\Services\Providers\ProviderInterface;
+use App\Services\Providers\TMobiling;
+use App\Services\Providers\TopupMart;
 use InvalidArgumentException;
 
 class ProviderFactory
 {
     protected static array $map = [
-        'topup_mart'          => TopupMart::class,
+        'topup_mart' => TopupMart::class,
+        'tmobiling' => TMobiling::class,
         'happy_recharge_center' => HappyRechargeCenter::class,
     ];
 

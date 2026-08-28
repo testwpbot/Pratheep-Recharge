@@ -172,10 +172,11 @@
 .fld-dd{position:relative;width:100%;}
 .fld-dd__btn{
   display:flex; align-items:center; gap:8px;
-  width:100%; height:44px; padding:0 38px 0 14px; border-radius:10px;
+  width:100%; height:44px; padding:0 38px 0 12px; border-radius:10px;
   border:1.6px solid rgba(11,42,91,.16); background:#fff;
   font:inherit; font-size:14.5px; font-weight:500; color:var(--ink);
   cursor:pointer; transition:border-color .2s, box-shadow .2s; text-align:left;
+  overflow:hidden; box-sizing:border-box;
 }
 .fld-dd__btn:hover{border-color:var(--gold-500); background:#fffdf6;}
 .fld-dd.is-open .fld-dd__btn,
@@ -184,12 +185,22 @@
   box-shadow:0 0 0 4px rgba(232,163,23,.18);
 }
 .fld-dd__btn .fld-dd__label{
-  flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  flex:1; min-width:0; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   color:var(--navy-800); font-weight:600;
-  display:inline-flex; align-items:center; gap:6px;
+  display:inline-flex; align-items:center; gap:8px;
+  height:100%;
 }
-.fld-dd__btn .fld-dd__label > svg{flex:none; color:var(--gold-500);}
+.fld-dd__btn .fld-dd__label > svg{flex:none; color:var(--gold-500); width:16px; height:16px;}
 .fld-dd__btn .fld-dd__label > span{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.fld-dd__logo,
+.fld-dd__btn img,
+.fld-dd__btn .fld-dd__label img,
+.fld-dd__item img{
+  width:22px; height:22px; max-width:22px; max-height:22px;
+  object-fit:contain; flex:none; display:block;
+  padding:2px; box-sizing:border-box;
+  border:1px solid var(--line); border-radius:6px; background:#fff;
+}
 .fld-dd__btn .fld-dd__label.is-placeholder{color:var(--muted); font-weight:500;}
 .fld-dd__btn .fld-dd__caret{
   position:absolute; right:12px; top:50%; transform:translateY(-50%);
@@ -211,8 +222,7 @@
   background:transparent; font:inherit; font-weight:600; font-size:13.5px;
   color:var(--navy-800); text-align:left; cursor:pointer; transition:.15s;
 }
-.fld-dd__item img{width:20px; height:20px; object-fit:contain; flex:none;}
-.fld-dd__item svg{color:var(--gold-500); flex:none;}
+.fld-dd__item svg{color:var(--gold-500); flex:none; width:16px; height:16px;}
 .fld-dd__item:hover{background:rgba(11,42,91,.06);}
 .fld-dd__item.is-active{
   background:linear-gradient(135deg,var(--navy-700),var(--navy-900)); color:#fff;
@@ -454,9 +464,7 @@
               <button type="button" class="fld-dd__item is-active" data-value="" data-label="— Select service —">— Select service —</button>
               @foreach ($services as $s)
                 <button type="button" class="fld-dd__item" data-value="{{ $s->id }}" data-label="{{ $s->name }} ({{ ucfirst($s->type) }})">
-                  @if ($s->logo)
-                    <img src="{{ $s->logoUrl }}" alt="" onerror="this.style.display='none'">
-                  @endif
+                  <img class="fld-dd__logo" src="{{ $s->logoUrl }}" alt="" onerror="this.style.display='none'">
                   <span>{{ $s->name }} ({{ ucfirst($s->type) }})</span>
                 </button>
               @endforeach
@@ -761,10 +769,20 @@
         var text = sp ? sp.textContent : (it.dataset.label || it.textContent.trim());
         if (ic){
           var icClone = ic.cloneNode(true);
+          if (icClone.tagName === 'IMG'){
+            icClone.classList.add('fld-dd__logo');
+            icClone.removeAttribute('width');
+            icClone.removeAttribute('height');
+            icClone.style.width = '22px';
+            icClone.style.height = '22px';
+            icClone.style.maxWidth = '22px';
+            icClone.style.maxHeight = '22px';
+            icClone.style.objectFit = 'contain';
+            icClone.style.flex = 'none';
+          }
           label.innerHTML = '';
           label.appendChild(icClone);
           var ts = document.createElement('span');
-          ts.style.marginLeft = '6px';
           ts.textContent = text;
           label.appendChild(ts);
         } else {

@@ -2,6 +2,11 @@
 
 namespace App\Providers;
 
+use App\Models\Alert;
+use App\Models\Wallet;
+use App\Support\WalletLimits;
+use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -20,5 +25,31 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         date_default_timezone_set(config('app.timezone', 'Asia/Colombo'));
+        Paginator::defaultView('pagination.hpr');
+        Paginator::defaultSimpleView('pagination.hpr');
+
+        View::composer('layouts.app', function ($view) {
+            if (! $view->offsetExists('contact')) {
+                $view->with('contact', \App\Models\Setting::contact());
+            }
+        });
+
+        View::composer('layouts.dashboard', function ($view) {
+            $user = auth()->user();
+            if (! $user) {
+                $view->with('walletNotice', null);
+                $view->with('dashboardAlerts', collect());
+                return;
+            }
+
+            if ($user->isAdmin()) {
+                $view->with('walletNotice', null);
+            } else {
+                $wallet = $user->wallet ?: Wallet::firstOrCreate(['user_id' => $user->id]);
+                $view->with('walletNotice', WalletLimits::notice($user, $wallet));
+            }
+
+            $view->with('dashboardAlerts', Alert::forDashboard($user));
+        });
     }
 }

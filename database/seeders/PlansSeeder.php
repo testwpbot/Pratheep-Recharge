@@ -34,9 +34,14 @@ class PlansSeeder extends Seeder
         // ===== TV =====
         $this->seedPlans('192', $this->dialogTvPlans()); // Dialog TV Prepaid
 
-        // ===== INDIAN DTH placeholder =====
-        foreach (['120', '121', '122', '123', '124'] as $op) {
-            $this->seedPlans($op, $this->indianDthPlaceholderPlans());
+        // ===== INDIAN DTH (any active DTH service — HRC codes after import) =====
+        $dthOps = Service::where('is_active', true)
+            ->where('type', 'dth')
+            ->pluck('op_code')
+            ->unique()
+            ->all();
+        foreach ($dthOps as $op) {
+            $this->seedPlans((string) $op, $this->indianDthPlaceholderPlans());
         }
     }
 

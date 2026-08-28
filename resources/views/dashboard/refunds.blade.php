@@ -1,5 +1,6 @@
 @extends('layouts.dashboard')
 @section('title', 'My Refunds')
+@section('dash_compact', '1')
 
 @section('content')
 
@@ -47,22 +48,7 @@
     </span>
   </div>
 
-  <form method="GET" action="{{ route('refunds') }}" class="earn-filters" id="refFilters">
-    <div class="field">
-      <label>From date</label>
-      <input type="date" name="from" value="{{ $from }}" class="hpr-input">
-    </div>
-    <div class="field">
-      <label>To date</label>
-      <input type="date" name="to" value="{{ $to }}" class="hpr-input">
-    </div>
-    <div class="earn-filters__btns">
-      <button type="submit" class="btn-admin btn-admin--gold btn-admin--sm">
-        <x-icon name="search" :size="13"/> Filter
-      </button>
-      <a href="{{ route('refunds') }}" class="btn-admin btn-admin--ghost btn-admin--sm">Clear</a>
-    </div>
-  </form>
+  @include('partials.history-period', ['period' => $period])
 
   <div class="table-wrap" style="margin-top:18px;">
     <table class="data-table earn-table">
@@ -114,7 +100,7 @@
         @empty
           <tr>
             <td colspan="5" style="text-align:center; padding:40px; color:var(--muted);">
-              No refunds yet — that's a good thing! 👍
+              {{ $period->emptyMessage('refunds') }}
             </td>
           </tr>
         @endforelse
@@ -184,10 +170,13 @@
   .ref-stat:last-child{grid-column:1/-1;}
 }
 @media (max-width:560px){
-  .ref-hero{padding:18px 18px;}
-  .ref-hero__top b{font-size:26px;}
-  .ref-hero__grid{grid-template-columns:1fr;}
-  .earn-filters{grid-template-columns:1fr;}
+  .ref-hero{padding:14px 14px; border-radius:14px; margin-bottom:12px;}
+  .ref-hero__top b{font-size:22px;}
+  .ref-hero__grid{grid-template-columns:1fr 1fr; gap:8px; margin-top:12px;}
+  .ref-stat:last-child{grid-column:1 / -1;}
+  .ref-stat{padding:10px 12px;}
+  .ref-stat b{font-size:15px;}
+  .earn-filters{grid-template-columns:1fr; gap:10px;}
   .earn-filters__btns{justify-content:stretch;}
   .earn-filters__btns .btn-admin{flex:1;}
 }

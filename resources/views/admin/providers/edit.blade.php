@@ -27,15 +27,31 @@
       </div>
 
       <div class="field" style="grid-column:1/-1;">
-        <label>API Key</label>
-        <input type="text" name="api_key" value="{{ old('api_key', $provider->api_key) }}" placeholder="Enter API key (leave blank to keep current)">
-        <div class="hint">Stored in the database. The key is sent with every recharge / status / balance request.</div>
+        <label>API Key / Apitoken</label>
+        <input type="text" name="api_key" value="{{ old('api_key', $provider->api_key) }}" placeholder="Enter API key (leave blank to keep current)" autocomplete="off">
+        <div class="hint">Stored in the database. Sent with every recharge, status and balance request. Leave blank to keep the current key.</div>
       </div>
 
       <div class="field field-inline">
         <input type="checkbox" name="is_active" id="is_active" value="1" {{ old('is_active', $provider->is_active) ? 'checked' : '' }}>
         <label for="is_active" style="margin:0;">Provider is active</label>
       </div>
+
+      @if ($provider->isTMobiling())
+        @php $serverIp = \App\Models\Provider::detectedPublicIp() ?: '139.99.61.90'; @endphp
+        <div class="field" style="grid-column:1/-1;">
+          <label>TMobiling setup</label>
+          <div class="hint" style="margin-bottom:8px;">
+            1. Paste your API key above.<br>
+            2. In TMobiling → Profile → My Profile → <b>Whitelist IP</b>, add this server IP:
+            <code style="font-weight:800;">{{ $serverIp }}</code>
+            (0 means any IP — do not use 0 on a live site).<br>
+            3. Set <b>Response URL</b> to:
+            <code>{{ url('/webhooks/tmobiling') }}</code>
+            so finished recharges come back here automatically.
+          </div>
+        </div>
+      @endif
     </div>
 
     <div style="margin-top:22px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
