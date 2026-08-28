@@ -1082,3 +1082,33 @@ html.hpr-pop-lock .hpr-alert-pop__stage{
   .hist-period{width:100%;}
   .hist-period__dd{width:100%;}
 }
+
+/* ----- Pagination (admin + customer) ----- */
+.hpr-pager{
+  display:flex; flex-wrap:wrap; align-items:center; gap:6px;
+}
+.hpr-pager__pages{display:flex; flex-wrap:wrap; align-items:center; gap:6px;}
+.hpr-pager__btn{
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width:36px; height:36px; padding:0 12px;
+  border-radius:10px; border:1.6px solid rgba(11,42,91,.16);
+  background:#fff; color:var(--navy-800);
+  font:inherit; font-weight:700; font-size:13px; text-decoration:none;
+  line-height:1;
+}
+.hpr-pager__btn:hover{border-color:var(--gold-500); background:#fffdf6;}
+.hpr-pager__btn.is-on{
+  background:linear-gradient(135deg,var(--navy-700),var(--navy-900));
+  color:#fff; border-color:transparent;
+}
+.hpr-pager__btn.is-off{opacity:.38; pointer-events:none;}
+.hpr-pager__gap{padding:0 4px; color:var(--muted); font-weight:800;}
+.hpr-pager svg{width:14px; height:14px;}
+/* Laravel default Tailwind pager (if old view is still cached) */
+nav[aria-label="Pagination Navigation"] svg,
+nav[role="navigation"] svg{
+  width:14px !important; height:14px !important; max-width:14px; max-height:14px;
+}
+@media (max-width:560px){
+  .hpr-pager__btn{min-width:32px; height:34px; padding:0 10px; font-size:12.5px;}
+}

@@ -19,21 +19,13 @@ class EarningsController extends Controller
     {
         $user   = auth()->user();
         $wallet = Wallet::firstOrCreate(['user_id' => $user->id]);
-
-        $from = $request->query('from');
-        $to   = $request->query('to');
+        $period = HistoryPeriod::fromRequest($request);
 
         $q = $wallet->transactions()
             ->with('transactable')
             ->where('type', 'cashback')
             ->latest();
-
-        if ($from && preg_match('/^\d{4}-\d{2}-\d{2}$/', $from)) {
-            $q->whereDate('created_at', '>=', $from);
-        }
-        if ($to && preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) {
-            $q->whereDate('created_at', '<=', $to);
-        }
+        $period->apply($q);
 
         $earnings = $q->paginate(20)->appends($request->query());
 

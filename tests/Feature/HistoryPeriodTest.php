@@ -135,6 +135,18 @@ class HistoryPeriodTest extends TestCase
             ->assertDontSee('Old deposit yesterday', false);
     }
 
+    public function test_earnings_page_loads(): void
+    {
+        $user = User::factory()->create();
+        Wallet::create(['user_id' => $user->id, 'balance' => 100]);
+
+        $this->actingAs($user)
+            ->get(route('earnings'))
+            ->assertOk()
+            ->assertSee('Cashback History', false)
+            ->assertSee('data-hpr-dd', false);
+    }
+
     protected function seedService(): void
     {
         $cat = Category::create(['name' => 'Mobile', 'slug' => 'mobile', 'sort_order' => 1, 'is_active' => true]);

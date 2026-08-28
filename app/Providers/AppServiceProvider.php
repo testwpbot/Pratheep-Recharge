@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\Alert;
 use App\Models\Wallet;
 use App\Support\WalletLimits;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
@@ -24,6 +25,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         date_default_timezone_set(config('app.timezone', 'Asia/Colombo'));
+        Paginator::defaultView('pagination.hpr');
+        Paginator::defaultSimpleView('pagination.hpr');
 
         View::composer('layouts.app', function ($view) {
             if (! $view->offsetExists('contact')) {
