@@ -1034,34 +1034,51 @@ html.hpr-pop-lock .hpr-alert-pop__stage{
 }
 
 
-/* ----- History day filter (today / older days) ----- */
-.hist-period{margin:0 0 16px;}
-.hist-period__chips{
-  display:flex; flex-wrap:wrap; gap:8px;
-  padding:6px; background:#f7f9fd; border:1px solid var(--line); border-radius:14px;
+/* ----- History day filter dropdown (admin + customer) ----- */
+.hist-period{
+  display:flex; flex-wrap:wrap; align-items:center; gap:10px;
+  margin:0 0 16px;
 }
-.hist-period__chip{
-  display:inline-flex; align-items:center; justify-content:center;
-  padding:8px 14px; border-radius:10px; border:0;
-  background:transparent; color:var(--navy-800);
-  font:inherit; font-weight:700; font-size:13.5px; text-decoration:none;
-  transition:.15s;
+.hist-period__label{
+  font-size:11.5px; font-weight:800; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--muted);
 }
-.hist-period__chip:hover{background:rgba(11,42,91,.06);}
-.hist-period__chip.is-on{
+.hist-period__dd{
+  width:220px; max-width:100%;
+}
+.hist-period__dd .hpr-dd__btn{
+  height:42px;
+  padding-left:16px;
+  background:#fff;
+  border-color:rgba(11,42,91,.16);
+  box-shadow:0 1px 0 rgba(7,27,61,.04);
+}
+.hist-period__dd .hpr-dd__btn:hover{
+  border-color:var(--gold-500);
+  background:#fffdf6;
+}
+.hist-period__dd.is-open .hpr-dd__btn{
+  border-color:var(--gold-500);
+  box-shadow:0 0 0 4px rgba(232,163,23,.18);
+}
+.hist-period__dd .hpr-dd__label{
+  font-weight:800; color:var(--navy-900);
+}
+.hist-period__dd .hpr-dd__menu{
+  z-index:240;
+  padding:8px;
+  border-radius:14px;
+}
+.hist-period__dd .hpr-dd__item{
+  padding:10px 12px;
+  font-weight:700;
+  border-radius:10px;
+}
+.hist-period__dd .hpr-dd__item.is-active{
   background:linear-gradient(135deg,var(--gold-300),var(--gold-500));
-  color:#2a1a00; box-shadow:0 4px 10px rgba(232,163,23,.28);
+  color:#2a1a00;
 }
-.hist-period__custom{
-  display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:10px;
-}
-.hist-period__custom .hpr-input{width:auto; min-width:150px; height:38px;}
-.hist-period__to{font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase;}
-.hist-period__hint{
-  margin:10px 0 0; font-size:12.5px; font-weight:600; color:var(--muted); line-height:1.45;
-}
-.hist-period__hint b{color:var(--navy-800);}
 @media (max-width:560px){
-  .hist-period__chip{flex:1 1 calc(50% - 8px); padding:10px 8px; font-size:13px;}
-  .hist-period__custom .hpr-input{min-width:0; flex:1 1 140px;}
+  .hist-period{width:100%;}
+  .hist-period__dd{width:100%;}
 }

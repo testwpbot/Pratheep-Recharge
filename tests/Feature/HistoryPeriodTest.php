@@ -61,7 +61,10 @@ class HistoryPeriodTest extends TestCase
             ->assertOk()
             ->assertSee('HPR-TODAY-1', false)
             ->assertDontSee('HPR-OLD-1', false)
-            ->assertSee('Today', false);
+            ->assertSee('Today', false)
+            ->assertSee('data-hpr-dd', false)
+            ->assertDontSee('Show these dates', false)
+            ->assertDontSee('From date', false);
 
         $this->actingAs($user)
             ->get(route('recharge.history', ['period' => 'all']))
