@@ -8,6 +8,7 @@ use App\Mail\DepositRejected;
 use App\Models\WalletDeposit;
 use App\Services\FundHealthService;
 use App\Services\WalletService;
+use App\Support\HistoryPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\View\View;
@@ -17,9 +18,15 @@ class AdminDepositController extends Controller
     public function index(Request $request): View
     {
         $status = $request->query('status', 'pending');
+        $period = HistoryPeriod::fromRequest($request);
 
-        $deposits = WalletDeposit::with('user')
-            ->when($status !== 'all', fn ($q) => $q->where('status', $status))
+        $query = WalletDeposit::with('user')
+            ->when($status !== 'all', fn ($q) => $q->where('status', $status));
+        if ($status !== 'pending') {
+            $period->apply($query, 'created_at', fn ($q) => $q->where('status', 'pending'));
+        }
+
+        $deposits = $query
             ->latest()
             ->paginate(20)
             ->appends($request->query());
@@ -30,7 +37,7 @@ class AdminDepositController extends Controller
             'rejected' => WalletDeposit::where('status', 'rejected')->count(),
         ];
 
-        return view('admin.deposits.index', compact('deposits', 'status', 'counts'));
+        return view('admin.deposits.index', compact('deposits', 'status', 'counts', 'period'));
     }
 
     public function show(WalletDeposit $deposit): View

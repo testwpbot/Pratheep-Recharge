@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Services\WalletService;
+use App\Support\HistoryPeriod;
 use App\Support\WalletLimits;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -119,19 +120,28 @@ class AdminUserController extends Controller
             ->with('success', $user->name . ' was added.' . $hint);
     }
 
-    public function show(User $user): View
+    public function show(Request $request, User $user): View
     {
         $wallet = Wallet::firstOrCreate(['user_id' => $user->id]);
         $user->setRelation('wallet', $wallet);
+        $period = HistoryPeriod::fromRequest($request);
 
-        $transactions = $wallet->transactions()->latest('id')->paginate(20, ['*'], 'tx_page')->withQueryString();
-        $orders = $user->orders()->with('service')->limit(15)->get();
-        $deposits = $user->deposits()->limit(10)->get();
+        $txQuery = $wallet->transactions();
+        $period->apply($txQuery);
+        $transactions = $txQuery->latest('id')->paginate(20, ['*'], 'tx_page')->withQueryString();
+
+        $orderQuery = $user->orders()->with('service');
+        $period->apply($orderQuery, 'created_at', fn ($q) => $q->whereIn('status', ['pending', 'processing']));
+        $orders = $orderQuery->latest()->limit(15)->get();
+
+        $depQuery = $user->deposits();
+        $period->apply($depQuery, 'created_at', fn ($q) => $q->where('status', 'pending'));
+        $deposits = $depQuery->latest()->limit(10)->get();
         $min = WalletLimits::minBalance();
         $notice = WalletLimits::notice($user, $wallet);
 
         return view('admin.users.show', compact(
-            'user', 'wallet', 'transactions', 'orders', 'deposits', 'min', 'notice'
+            'user', 'wallet', 'transactions', 'orders', 'deposits', 'min', 'notice', 'period'
         ));
     }
 

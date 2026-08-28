@@ -9,6 +9,7 @@ use App\Models\Order;
 use App\Models\Plan;
 use App\Models\Service;
 use App\Models\Wallet;
+use App\Support\HistoryPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
@@ -19,18 +20,23 @@ class DashboardController extends Controller
      * Customer dashboard — stats, wallet, ALL categories + services loaded
      * up-front so tab switching is instant (no page reload).
      */
-    public function index(): View
+    public function index(Request $request): View
     {
         $user = auth()->user();
         $wallet = Wallet::firstOrCreate(['user_id' => $user->id]);
+        $period = HistoryPeriod::fromRequest($request);
 
-        $orders = $user->orders()->with(['service', 'provider'])->latest()->limit(10)->get();
+        $orderQuery = $user->orders()->with(['service', 'provider']);
+        $period->apply($orderQuery, 'created_at', fn ($q) => $q->whereIn('status', ['pending', 'processing']));
+        $orders = $orderQuery->latest()->limit(10)->get();
 
+        $todayOrders = $user->orders();
+        $period->apply($todayOrders);
         $totalCashbackEarned = (float) $user->orders()->where('status', 'success')->sum('profit');
         $stats = [
-            'total_orders'     => $user->orders()->count(),
-            'successful'       => $user->orders()->where('status', 'success')->count(),
-            'total_spent'      => $user->orders()->where('status', 'success')->sum('amount'),
+            'total_orders'     => (clone $todayOrders)->count(),
+            'successful'       => (clone $todayOrders)->where('status', 'success')->count(),
+            'total_spent'      => (clone $todayOrders)->where('status', 'success')->sum('amount'),
             'total_cashback'   => $totalCashbackEarned,
             'balance'          => (float) $wallet->balance,
         ];
@@ -57,7 +63,7 @@ class DashboardController extends Controller
         });
 
         return view('dashboard.index', compact(
-            'user', 'wallet', 'orders', 'stats',
+            'user', 'wallet', 'orders', 'stats', 'period',
             'categories', 'activeCategory', 'servicesByCategory'
         ));
     }

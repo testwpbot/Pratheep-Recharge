@@ -9,6 +9,7 @@ use App\Models\ProviderBalanceSnapshot;
 use App\Models\Setting;
 use App\Models\WalletTransaction;
 use App\Services\FundHealthService;
+use App\Support\HistoryPeriod;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -27,19 +28,27 @@ class AdminFundsController extends Controller
             $tab = 'snapshots';
         }
 
-        $snapshots = ProviderBalanceSnapshot::with('provider')
-            ->when($providerId, fn ($q) => $q->where('provider_id', $providerId))
+        $period = HistoryPeriod::fromRequest($request);
+
+        $snapQuery = ProviderBalanceSnapshot::with('provider')
+            ->when($providerId, fn ($q) => $q->where('provider_id', $providerId));
+        $period->apply($snapQuery);
+        $snapshots = $snapQuery
             ->latest('id')
             ->paginate(20, ['*'], 'snap_page')
             ->withQueryString();
 
-        $walletTx = WalletTransaction::with(['wallet.user'])
+        $walletQuery = WalletTransaction::with(['wallet.user']);
+        $period->apply($walletQuery);
+        $walletTx = $walletQuery
             ->latest('id')
             ->paginate(20, ['*'], 'wallet_page')
             ->withQueryString();
 
-        $orders = Order::with(['user', 'service', 'provider'])
-            ->when($providerId, fn ($q) => $q->where('provider_id', $providerId))
+        $orderQuery = Order::with(['user', 'service', 'provider'])
+            ->when($providerId, fn ($q) => $q->where('provider_id', $providerId));
+        $period->apply($orderQuery, 'created_at', fn ($q) => $q->whereIn('status', ['pending', 'processing']));
+        $orders = $orderQuery
             ->latest('id')
             ->paginate(20, ['*'], 'order_page')
             ->withQueryString();
@@ -49,7 +58,7 @@ class AdminFundsController extends Controller
 
         return view('admin.funds.index', compact(
             'health', 'snapshots', 'walletTx', 'orders',
-            'providers', 'providerId', 'tab', 'settings'
+            'providers', 'providerId', 'tab', 'settings', 'period'
         ));
     }
 

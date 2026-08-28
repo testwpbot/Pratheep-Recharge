@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\OrderService;
+use App\Support\HistoryPeriod;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -30,9 +31,15 @@ class AdminOrderController extends Controller
             });
         }
 
+        $period = HistoryPeriod::fromRequest($request);
+        $status = (string) $request->input('status', '');
+        if (! in_array($status, ['pending', 'processing'], true)) {
+            $period->apply($query, 'created_at', fn ($q) => $q->whereIn('status', ['pending', 'processing']));
+        }
+
         $orders = $query->latest()->paginate(50)->withQueryString();
 
-        return view('admin.orders.index', compact('orders'));
+        return view('admin.orders.index', compact('orders', 'period'));
     }
 
     public function show(Order $order): View

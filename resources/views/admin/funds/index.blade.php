@@ -45,10 +45,12 @@
     </form>
   </div>
 
+  @include('partials.history-period', ['period' => $period, 'keep' => ['tab' => $tab, 'provider_id' => $providerId]])
+
   <div class="cmp-tabs" style="padding-top:0; margin-bottom:12px;">
-    <a class="cmp-tab {{ $tab==='snapshots' ? 'is-active' : '' }}" href="{{ route('admin.funds.index', array_filter(['tab'=>'snapshots','provider_id'=>$providerId])) }}">Provider balance history</a>
-    <a class="cmp-tab {{ $tab==='wallets' ? 'is-active' : '' }}" href="{{ route('admin.funds.index', array_filter(['tab'=>'wallets','provider_id'=>$providerId])) }}">Customer money in / out</a>
-    <a class="cmp-tab {{ $tab==='orders' ? 'is-active' : '' }}" href="{{ route('admin.funds.index', array_filter(['tab'=>'orders','provider_id'=>$providerId])) }}">Recharge orders</a>
+    <a class="cmp-tab {{ $tab==='snapshots' ? 'is-active' : '' }}" href="{{ route('admin.funds.index', array_filter(['tab'=>'snapshots','provider_id'=>$providerId] + request()->only('period','from','to'))) }}">Provider balance history</a>
+    <a class="cmp-tab {{ $tab==='wallets' ? 'is-active' : '' }}" href="{{ route('admin.funds.index', array_filter(['tab'=>'wallets','provider_id'=>$providerId] + request()->only('period','from','to'))) }}">Customer money in / out</a>
+    <a class="cmp-tab {{ $tab==='orders' ? 'is-active' : '' }}" href="{{ route('admin.funds.index', array_filter(['tab'=>'orders','provider_id'=>$providerId] + request()->only('period','from','to'))) }}">Recharge orders</a>
   </div>
 
   @if($tab === 'snapshots')

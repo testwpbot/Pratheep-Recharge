@@ -14,6 +14,8 @@
   <div class="stat"><b>{{ number_format($stats['pending']) }}</b><span>Pending Orders</span></div>
 </div>
 
+@include('partials.history-period', ['period' => $period])
+
 <div class="card">
   <div class="card__head">
     <div>

@@ -147,6 +147,7 @@
   <div class="card__head">
     <h3>Wallet activity</h3>
   </div>
+  @include('partials.history-period', ['period' => $period])
   <div class="table-wrap">
     <table class="data-table">
       <thead>
@@ -175,7 +176,7 @@
           <td><small>{{ $t->description }}</small></td>
         </tr>
       @empty
-        <tr><td colspan="5" style="text-align:center; padding:24px; color:var(--muted);">No wallet activity yet.</td></tr>
+        <tr><td colspan="5" style="text-align:center; padding:24px; color:var(--muted);">{{ $period->emptyMessage('wallet activity') }}</td></tr>
       @endforelse
       </tbody>
     </table>

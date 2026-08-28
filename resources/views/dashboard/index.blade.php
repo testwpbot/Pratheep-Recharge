@@ -14,7 +14,7 @@
     <a href="{{ route('earnings') }}" class="wcard wcard--gold" style="text-decoration:none; color:inherit;">
       <small>Total Cashback Earned</small>
       <b>LKR {{ number_format($stats['total_cashback'], 2) }}</b>
-      <span>From successful recharges · View history →</span>
+      <span>All-time total · wallet balance never resets · View history →</span>
     </a>
     <a href="{{ route('wallet') }}" class="wcard" style="text-decoration:none; color:inherit;">
       <small>Wallet Balance</small>
@@ -30,10 +30,10 @@
 
 {{-- STATS --}}
 <div class="stats-grid">
-  <div class="stat"><b>{{ $stats['total_orders'] }}</b><span>Total Orders</span></div>
-  <div class="stat"><b>{{ $stats['successful'] }}</b><span>Successful</span></div>
-  <div class="stat"><b>LKR {{ number_format($stats['total_spent'], 2) }}</b><span>Total Spent</span></div>
-  <div class="stat"><b>{{ $stats['total_orders'] ? number_format(($stats['successful'] / $stats['total_orders']) * 100, 0) : 0 }}%</b><span>Success Rate</span></div>
+  <div class="stat"><b>{{ $stats['total_orders'] }}</b><span>{{ $period->period === 'today' ? "Today's orders" : 'Orders' }}</span></div>
+  <div class="stat"><b>{{ $stats['successful'] }}</b><span>{{ $period->period === 'today' ? 'Successful today' : 'Successful' }}</span></div>
+  <div class="stat"><b>LKR {{ number_format($stats['total_spent'], 2) }}</b><span>{{ $period->period === 'today' ? 'Spent today' : 'Spent' }}</span></div>
+  <div class="stat"><b>{{ $stats['total_orders'] ? number_format(($stats['successful'] / $stats['total_orders']) * 100, 0) : 0 }}%</b><span>Success rate</span></div>
 </div>
 
 {{-- QUICK RECHARGE — all categories loaded, JS-driven tab switch --}}
@@ -127,6 +127,7 @@
     <h3>Recent Orders</h3>
     <a href="{{ route('recharge.history') }}" class="btn-admin btn-admin--ghost btn-admin--sm">View all</a>
   </div>
+  @include('partials.history-period', ['period' => $period])
   <div class="table-wrap">
     <table class="data-table">
       <thead>
@@ -144,7 +145,7 @@
             <td><small>{{ $o->created_at->format('Y-m-d H:i') }}</small></td>
           </tr>
         @empty
-          <tr><td colspan="7" style="text-align:center; padding:24px; color:var(--muted);">No orders yet. Pick a service above to start your first recharge 🚀</td></tr>
+          <tr><td colspan="7" style="text-align:center; padding:24px; color:var(--muted);">{{ $period->emptyMessage('orders') }}</td></tr>
         @endforelse
       </tbody>
     </table>

@@ -19,6 +19,8 @@
   </form>
 </div>
 
+@include('partials.history-period', ['period' => $period, 'keep' => ['q' => request('q'), 'status' => request('status')]])
+
 <div class="card">
   <div class="table-wrap">
     <table class="data-table">
@@ -79,7 +81,7 @@
           </td>
         </tr>
       @empty
-        <tr><td colspan="10" style="text-align:center; padding:30px; color:var(--muted);">No orders match this filter.</td></tr>
+        <tr><td colspan="10" style="text-align:center; padding:30px; color:var(--muted);">{{ $period->emptyMessage('orders') }}</td></tr>
       @endforelse
       </tbody>
     </table>

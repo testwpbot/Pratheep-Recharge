@@ -21,7 +21,7 @@
   <div class="wallet-hero__grid">
     <div><span>Cashback Earned</span><i>LKR {{ number_format($totalEarned, 2) }}</i></div>
     <div><span>Total Credited</span><i>LKR {{ number_format($totalDeposited + $totalEarned, 2) }}</i></div>
-    <div><span>Pending Deposits</span><i>{{ $deposits->where('status','pending')->count() }}</i></div>
+    <div><span>Pending Deposits</span><i>{{ $pendingDepositCount }}</i></div>
   </div>
 </div>
 
@@ -184,6 +184,7 @@
         </a>
       </div>
     </div>
+    @include('partials.history-period', ['period' => $period])
     <div class="tx-list">
       @forelse($transactions as $t)
         @php
@@ -205,7 +206,7 @@
           </span>
         </div>
       @empty
-        <div style="text-align:center; padding:30px; color:var(--muted); font-weight:600;">No transactions yet.</div>
+        <div style="text-align:center; padding:30px; color:var(--muted); font-weight:600;">{{ $period->emptyMessage('wallet activity') }}</div>
       @endforelse
     </div>
     @if($transactions->hasPages())
@@ -233,7 +234,7 @@
           @endif
         </div>
       @empty
-        <div style="text-align:center; padding:30px; color:var(--muted); font-weight:600;">No deposits yet.</div>
+        <div style="text-align:center; padding:30px; color:var(--muted); font-weight:600;">{{ $period->emptyMessage('deposit requests') }}</div>
       @endforelse
     </div>
     @if($deposits->hasPages())

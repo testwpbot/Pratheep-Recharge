@@ -9,6 +9,7 @@ use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Services\InvoiceService;
 use App\Services\OrderService;
+use App\Support\HistoryPeriod;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -256,10 +257,13 @@ class RechargeController extends Controller
     }
 
     /** Customer order history */
-    public function history(): View
+    public function history(Request $request): View
     {
         $user = auth()->user();
-        $orders = $user->orders()->with(['service', 'cashback', 'complaints'])->latest()->paginate(25);
+        $period = HistoryPeriod::fromRequest($request);
+        $orderQuery = $user->orders()->with(['service', 'cashback', 'complaints']);
+        $period->apply($orderQuery, 'created_at', fn ($q) => $q->whereIn('status', ['pending', 'processing']));
+        $orders = $orderQuery->latest()->paginate(25)->withQueryString();
 
         // Look up wallet transactions tied to these orders (cashback credits,
         // and any future order-payment debits) so we can show before→after
@@ -280,6 +284,6 @@ class RechargeController extends Controller
             $o->setRelation('wallet_txs', collect($txByOrder[$o->id] ?? []));
         }
 
-        return view('recharge.history', compact('orders'));
+        return view('recharge.history', compact('orders', 'period'));
     }
 }

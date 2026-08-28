@@ -48,22 +48,7 @@
     </span>
   </div>
 
-  <form method="GET" action="{{ route('earnings') }}" class="earn-filters" id="earnFilters">
-    <div class="field">
-      <label>From date</label>
-      <input type="date" name="from" value="{{ $from }}" class="hpr-input">
-    </div>
-    <div class="field">
-      <label>To date</label>
-      <input type="date" name="to" value="{{ $to }}" class="hpr-input">
-    </div>
-    <div class="earn-filters__btns">
-      <button type="submit" class="btn-admin btn-admin--gold btn-admin--sm">
-        <x-icon name="search" :size="13"/> Filter
-      </button>
-      <a href="{{ route('earnings') }}" class="btn-admin btn-admin--ghost btn-admin--sm">Clear</a>
-    </div>
-  </form>
+  @include('partials.history-period', ['period' => $period])
 
   <div class="table-wrap" style="margin-top:18px;">
     <table class="data-table earn-table">
@@ -112,7 +97,7 @@
         @empty
           <tr>
             <td colspan="5" style="text-align:center; padding:40px; color:var(--muted);">
-              No cashback earned yet. Place successful recharges to earn rewards 🎁
+              {{ $period->emptyMessage('cashback rewards') }}
             </td>
           </tr>
         @endforelse

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Mail\ComplaintStatusUpdated;
 use App\Models\Complaint;
+use App\Support\HistoryPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\View\View;
@@ -33,6 +34,11 @@ class AdminComplaintController extends Controller
                       $o->where('reference', 'like', "%{$search}%")
                         ->orWhere('account_number', 'like', "%{$search}%"));
             });
+        }
+
+        $period = HistoryPeriod::fromRequest($request);
+        if (! in_array($status, ['open', 'in_progress'], true)) {
+            $period->apply($query, 'created_at', fn ($q) => $q->whereIn('status', ['open', 'in_progress']));
         }
 
         $complaints = $query->latest()->paginate(30)->withQueryString();

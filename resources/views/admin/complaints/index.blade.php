@@ -18,6 +18,8 @@
   </form>
 </div>
 
+@include('partials.history-period', ['period' => $period, 'keep' => ['q' => request('q'), 'status' => $status]])
+
 <div class="card">
   <div class="table-wrap">
     <table class="data-table">
@@ -56,7 +58,7 @@
           </td>
         </tr>
       @empty
-        <tr><td colspan="8" style="text-align:center; padding:30px; color:var(--muted);">No complaints match this filter.</td></tr>
+        <tr><td colspan="8" style="text-align:center; padding:30px; color:var(--muted);">{{ $period->emptyMessage('complaints') }}</td></tr>
       @endforelse
       </tbody>
     </table>

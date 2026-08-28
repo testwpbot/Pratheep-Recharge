@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
 use App\Models\Wallet;
+use App\Support\HistoryPeriod;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -18,20 +19,13 @@ class RefundsController extends Controller
         $user   = auth()->user();
         $wallet = Wallet::firstOrCreate(['user_id' => $user->id]);
 
-        $from = $request->query('from');
-        $to   = $request->query('to');
+        $period = HistoryPeriod::fromRequest($request);
 
         $q = $wallet->transactions()
             ->with('transactable')
             ->where('type', 'refund')
             ->latest();
-
-        if ($from && preg_match('/^\d{4}-\d{2}-\d{2}$/', $from)) {
-            $q->whereDate('created_at', '>=', $from);
-        }
-        if ($to && preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) {
-            $q->whereDate('created_at', '<=', $to);
-        }
+        $period->apply($q);
 
         $refunds = $q->paginate(20)->appends($request->query());
 
@@ -43,7 +37,7 @@ class RefundsController extends Controller
         $filteredTotal = (float) (clone $q)->sum('amount');
 
         return view('dashboard.refunds', compact(
-            'wallet', 'refunds', 'from', 'to',
+            'wallet', 'refunds', 'period',
             'totalRefunded', 'thisMonth', 'filteredTotal'
         ));
     }

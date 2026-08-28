@@ -26,9 +26,10 @@
   <div class="card__head">
     <h3>{{ ucfirst($status) }} Deposits</h3>
   </div>
+  @include('partials.history-period', ['period' => $period, 'keep' => ['status' => $status]])
 
   @if($deposits->isEmpty())
-    <div style="text-align:center; padding:40px; color:var(--muted);">No {{ $status }} deposits.</div>
+    <div style="text-align:center; padding:40px; color:var(--muted);">{{ $period->emptyMessage($status.' deposits') }}</div>
   @else
     <div class="table-wrap">
     <table class="data-table">

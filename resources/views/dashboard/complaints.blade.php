@@ -20,6 +20,8 @@
     </a>
   </div>
 
+  @include('partials.history-period', ['period' => $period, 'keep' => ['status' => $status]])
+
   {{-- Status tabs --}}
   <div class="cmp-tabs">
     @foreach ([
@@ -56,7 +58,7 @@
   @else
     <div class="cmp-empty">
       <x-icon name="check-circle" :size="48" style="color:var(--green); margin-bottom:8px;"/>
-      <b style="font-size:16px; color:var(--navy-900);">No complaints here yet 👍</b>
+      <b style="font-size:16px; color:var(--navy-900);">{{ $period->emptyMessage('complaints') }}</b>
       <small style="color:var(--muted); margin-top:4px;">If you run into an issue with a recharge, you can raise a complaint from the My Recharges page.</small>
     </div>
   @endif

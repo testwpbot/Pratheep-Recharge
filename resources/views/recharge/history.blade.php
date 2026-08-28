@@ -15,6 +15,8 @@
     </div>
   </div>
 
+  @include('partials.history-period', ['period' => $period])
+
   <div class="table-wrap">
     <table class="data-table">
       <thead>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
 use App\Models\Wallet;
+use App\Support\HistoryPeriod;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -44,7 +45,7 @@ class EarningsController extends Controller
         $filteredTotal = (float) (clone $q)->sum('amount');
 
         return view('dashboard.earnings', compact(
-            'wallet', 'earnings', 'from', 'to',
+            'wallet', 'earnings', 'period',
             'totalEarned', 'thisMonth', 'filteredTotal'
         ));
     }
