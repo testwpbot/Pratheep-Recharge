@@ -51,7 +51,7 @@ class AdminComplaintController extends Controller
             'rejected'    => Complaint::where('status', 'rejected')->count(),
         ];
 
-        return view('admin.complaints.index', compact('complaints', 'counts', 'status'));
+        return view('admin.complaints.index', compact('complaints', 'counts', 'status', 'period'));
     }
 
     public function show(Complaint $complaint): View

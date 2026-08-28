@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Category;
+use App\Models\Complaint;
 use App\Models\Order;
 use App\Models\Provider;
 use App\Models\Service;
@@ -144,6 +145,26 @@ class HistoryPeriodTest extends TestCase
             ->get(route('earnings'))
             ->assertOk()
             ->assertSee('Cashback History', false)
+            ->assertSee('data-hpr-dd', false);
+    }
+
+    public function test_admin_complaints_page_loads(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $customer = User::factory()->create();
+
+        Complaint::create([
+            'reference' => 'CMP-TEST-1',
+            'user_id' => $customer->id,
+            'subject' => 'Slow recharge',
+            'reason' => 'Waited too long for this recharge.',
+            'status' => 'open',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.complaints.index'))
+            ->assertOk()
+            ->assertSee('CMP-TEST-1', false)
             ->assertSee('data-hpr-dd', false);
     }
 
