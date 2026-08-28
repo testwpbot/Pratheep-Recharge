@@ -32,11 +32,11 @@ class ServicesSeeder extends Seeder
             ));
         }
 
-        $hrc = Provider::where('slug', 'happy-recharge-center')->first();
-        if ($hrc) {
-            $res = $importer->importFromProvider($hrc);
+        $tmobi = Provider::where('slug', 'tmobiling')->first();
+        if ($tmobi) {
+            $res = $importer->importFromProvider($tmobi);
             $this->command?->info(sprintf(
-                '[ServicesSeeder] Happy Recharge Center (DTH only): %d imported, %d updated.',
+                '[ServicesSeeder] TMobiling: %d imported, %d updated.',
                 $res['imported'],
                 $res['skipped']
             ));

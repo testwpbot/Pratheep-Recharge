@@ -65,16 +65,15 @@ class HappyRechargeDthTest extends TestCase
         $this->assertSame('Airtel DTH', $items[0]['name']);
     }
 
-    public function test_import_hides_topup_mart_dth_from_catalog(): void
+    public function test_hrc_import_does_not_hide_topup_mart_dth(): void
     {
         $ctx = $this->seedProviders();
-        // Pretend Topup Mart DTH was visible
         $ctx['tmDth']->update(['is_active' => true]);
 
         $result = (new ServiceImporter())->importFromProvider($ctx['hrc']);
 
         $this->assertGreaterThanOrEqual(0, $result['imported']);
-        $this->assertFalse($ctx['tmDth']->fresh()->is_active);
+        $this->assertTrue($ctx['tmDth']->fresh()->is_active);
         $this->assertTrue($ctx['hrcDth']->fresh()->is_active);
     }
 

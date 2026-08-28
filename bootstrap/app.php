@@ -19,6 +19,9 @@ $app = Application::configure(basePath: dirname(__DIR__))
             'admin' => AdminMiddleware::class,
             'verified.otp' => EnsureEmailVerified::class,
         ]);
+        $middleware->validateCsrfTokens(except: [
+            'webhooks/tmobiling',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

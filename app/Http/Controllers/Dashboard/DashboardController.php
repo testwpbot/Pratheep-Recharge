@@ -41,10 +41,10 @@ class DashboardController extends Controller
             'balance'          => (float) $wallet->balance,
         ];
 
-        // Load ALL active categories with their active services + plans (one query)
+        // Active services on an active provider only. Turning a provider Off
+        // hides every service that belongs to it.
         $categories = Category::where('is_active', true)
-            ->withWhereHas('services', fn ($q) => $q->where('is_active', true)
-                ->where('type', '!=', 'api')
+            ->withWhereHas('services', fn ($q) => $q->forCustomers()
                 ->with(['plans', 'specialPrices' => fn ($sp) => $sp->where('user_id', $user->id)])
                 ->orderBy('name'))
             ->orderBy('sort_order')
@@ -112,28 +112,28 @@ class DashboardController extends Controller
             (object) [
                 'key' => 'dialog', 'label' => 'Dialog',
                 'logo' => 'assets/logos/dialog.png',
-                'primary_op' => '181', 'bill_ops' => ['171'], 'other_ops' => ['921'],
+                'primary_op' => '181', 'fallback_ops' => ['1'], 'bill_ops' => ['171', '12'], 'other_ops' => ['921'],
                 'category' => 'mobile', 'is_bill_only' => false,
                 'bill_label' => 'Postpaid bill payment',
             ],
             (object) [
                 'key' => 'mobitel', 'label' => 'Mobitel',
                 'logo' => 'assets/logos/sltmobitel.png',
-                'primary_op' => '183', 'bill_ops' => ['173'], 'other_ops' => [],
+                'primary_op' => '183', 'fallback_ops' => ['3'], 'bill_ops' => ['173', '14'], 'other_ops' => [],
                 'category' => 'mobile', 'is_bill_only' => false,
                 'bill_label' => 'Postpaid bill payment',
             ],
             (object) [
                 'key' => 'hutch', 'label' => 'Hutch',
                 'logo' => 'assets/logos/hutch.png',
-                'primary_op' => '182', 'bill_ops' => ['172'], 'other_ops' => [],
+                'primary_op' => '182', 'fallback_ops' => ['4'], 'bill_ops' => ['172', '15'], 'other_ops' => [],
                 'category' => 'mobile', 'is_bill_only' => false,
                 'bill_label' => 'Postpaid bill payment',
             ],
             (object) [
                 'key' => 'airtel', 'label' => 'Airtel',
                 'logo' => 'assets/logos/airtel.png',
-                'primary_op' => '180', 'bill_ops' => ['170'], 'other_ops' => [],
+                'primary_op' => '180', 'fallback_ops' => ['2'], 'bill_ops' => ['170', '13'], 'other_ops' => [],
                 'category' => 'mobile', 'is_bill_only' => false,
                 'bill_label' => 'Postpaid bill payment',
             ],
@@ -143,7 +143,7 @@ class DashboardController extends Controller
                 'key' => 'dialog-hbb-prepaid', 'label' => 'Dialog Home Broadband',
                 'logo' => 'assets/logos/dialog.png',
                 'tag' => 'Prepaid',
-                'primary_op' => '102', 'bill_ops' => [], 'other_ops' => ['922'],
+                'primary_op' => '102', 'fallback_ops' => ['6'], 'bill_ops' => [], 'other_ops' => ['922'],
                 'category' => 'broadband', 'is_bill_only' => false,
                 'bill_label' => null,
             ],
@@ -151,7 +151,7 @@ class DashboardController extends Controller
                 'key' => 'dialog-hbb-postpaid', 'label' => 'Dialog Home Broadband',
                 'logo' => 'assets/logos/dialog.png',
                 'tag' => 'Postpaid',
-                'primary_op' => '101', 'bill_ops' => [], 'other_ops' => [],
+                'primary_op' => '101', 'fallback_ops' => ['17'], 'bill_ops' => [], 'other_ops' => [],
                 'category' => 'broadband', 'is_bill_only' => false,
                 'bill_label' => null,
             ],
@@ -159,7 +159,7 @@ class DashboardController extends Controller
                 'key' => 'slt-router-prepaid', 'label' => 'SLT-Mobitel 4G Router',
                 'logo' => 'assets/logos/sltmobitel.png',
                 'tag' => 'Prepaid',
-                'primary_op' => '103', 'bill_ops' => [], 'other_ops' => [],
+                'primary_op' => '103', 'fallback_ops' => ['28'], 'bill_ops' => [], 'other_ops' => [],
                 'category' => 'broadband', 'is_bill_only' => false,
                 'bill_label' => null,
             ],
@@ -180,7 +180,7 @@ class DashboardController extends Controller
             (object) [
                 'key' => 'dialog-tv', 'label' => 'Dialog TV',
                 'logo' => 'assets/logos/dialog.png',
-                'primary_op' => '192', 'bill_ops' => ['191'], 'other_ops' => ['923'],
+                'primary_op' => '192', 'fallback_ops' => ['5'], 'bill_ops' => ['191', '16'], 'other_ops' => ['923'],
                 'category' => 'tv', 'is_bill_only' => false,
                 'bill_label' => 'Postpaid bill payment',
             ],
@@ -203,21 +203,21 @@ class DashboardController extends Controller
             (object) [
                 'key' => 'ceb', 'label' => 'CEB Electricity',
                 'logo' => 'assets/logos/ceb.png',
-                'primary_op' => null, 'bill_ops' => ['195'], 'other_ops' => [],
+                'primary_op' => null, 'bill_ops' => ['195', '29'], 'other_ops' => [],
                 'category' => 'utility', 'is_bill_only' => true,
                 'bill_label' => 'Pay CEB bill',
             ],
             (object) [
                 'key' => 'leco', 'label' => 'LECO Electricity',
                 'logo' => 'assets/logos/leco.png',
-                'primary_op' => null, 'bill_ops' => ['196'], 'other_ops' => [],
+                'primary_op' => null, 'bill_ops' => ['196', '30'], 'other_ops' => [],
                 'category' => 'utility', 'is_bill_only' => true,
                 'bill_label' => 'Pay LECO bill',
             ],
             (object) [
                 'key' => 'nwsdb', 'label' => 'Water (NWSDB)',
                 'logo' => 'assets/logos/nwsdb.png',
-                'primary_op' => null, 'bill_ops' => ['197'], 'other_ops' => [],
+                'primary_op' => null, 'bill_ops' => ['197', '31'], 'other_ops' => [],
                 'category' => 'utility', 'is_bill_only' => true,
                 'bill_label' => 'Pay water bill',
             ],
@@ -230,53 +230,61 @@ class DashboardController extends Controller
             ],
 
             // ===== INSURANCE =====
-            (object) ['key' => 'aia', 'label' => 'AIA Life',           'logo' => 'assets/logos/aia.png',        'primary_op' => null, 'bill_ops' => ['130'], 'category' => 'insurance', 'is_bill_only' => true, 'bill_label' => 'Pay premium'],
+            (object) ['key' => 'aia', 'label' => 'AIA Life',           'logo' => 'assets/logos/aia.png',        'primary_op' => null, 'bill_ops' => ['130', '32'], 'category' => 'insurance', 'is_bill_only' => true, 'bill_label' => 'Pay premium'],
             (object) ['key' => 'arpico','label' => 'Arpico Insurance', 'logo' => 'assets/logos/arpico.png',    'primary_op' => null, 'bill_ops' => ['131'], 'category' => 'insurance', 'is_bill_only' => true, 'bill_label' => 'Pay premium'],
             (object) ['key' => 'ceylinco','label' => 'Ceylinco Life',  'logo' => 'assets/logos/ceylinco.png',  'primary_op' => null, 'bill_ops' => ['132'], 'category' => 'insurance', 'is_bill_only' => true, 'bill_label' => 'Pay premium'],
-            (object) ['key' => 'hnb', 'label' => 'HNB Assurance',      'logo' => 'assets/logos/hnbassu.png',   'primary_op' => null, 'bill_ops' => ['133'], 'category' => 'insurance', 'is_bill_only' => true, 'bill_label' => 'Pay premium'],
-            (object) ['key' => 'sli', 'label' => 'Sri Lanka Insurance','logo' => 'assets/logos/srilankains.png','primary_op' => null, 'bill_ops' => ['134'], 'category' => 'insurance', 'is_bill_only' => true, 'bill_label' => 'Pay premium'],
+            (object) ['key' => 'hnb', 'label' => 'HNB Assurance',      'logo' => 'assets/logos/hnbassu.png',   'primary_op' => null, 'bill_ops' => ['133', '68'], 'category' => 'insurance', 'is_bill_only' => true, 'bill_label' => 'Pay premium'],
+            (object) ['key' => 'sli', 'label' => 'Sri Lanka Insurance','logo' => 'assets/logos/srilankains.png','primary_op' => null, 'bill_ops' => ['134', '36'], 'category' => 'insurance', 'is_bill_only' => true, 'bill_label' => 'Pay premium'],
 
             // ===== WALLET / DRIVER TOPUPS =====
-            (object) ['key' => 'pickme', 'label' => 'PickMe',    'logo' => 'assets/logos/pickme.png',   'primary_op' => null, 'bill_ops' => ['104'], 'category' => 'wallet-topup', 'is_bill_only' => true, 'bill_label' => 'Top up PickMe wallet'],
-            (object) ['key' => 'uber',   'label' => 'Uber Eats', 'logo' => 'assets/logos/ubereats.png', 'primary_op' => null, 'bill_ops' => ['105'], 'category' => 'wallet-topup', 'is_bill_only' => true, 'bill_label' => 'Top up Uber Eats'],
+            (object) ['key' => 'pickme', 'label' => 'PickMe',    'logo' => 'assets/logos/pickme.png',   'primary_op' => null, 'bill_ops' => ['104', '10'], 'category' => 'wallet-topup', 'is_bill_only' => true, 'bill_label' => 'Top up PickMe wallet'],
+            (object) ['key' => 'uber',   'label' => 'Uber Eats', 'logo' => 'assets/logos/ubereats.png', 'primary_op' => null, 'bill_ops' => ['105', '40'], 'category' => 'wallet-topup', 'is_bill_only' => true, 'bill_label' => 'Top up Uber Eats'],
 
         ];
 
-        // ===== INDIAN DTH (Happy Recharge Center) =====
-        // Built from live active DTH services so operator-code edits in admin
-        // are reflected here. Topup Mart DTH rows are inactive (failover only).
-        $dthServices = Service::where('is_active', true)
-            ->where(function ($q) {
-                $q->where('type', 'dth')
-                  ->orWhereHas('category', fn ($c) => $c->where('slug', 'dth'));
-            })
-            ->whereHas('provider', function ($q) {
-                $q->where('slug', 'happy-recharge-center')
-                  ->orWhere('api_class', 'happy_recharge_center');
-            })
+        $viewer = auth()->user();
+        $visibleServices = Service::forCustomers()
+            ->with(['plans', 'category', 'specialPrices' => fn ($sp) => $sp->where('user_id', $viewer?->id)])
             ->orderBy('name')
-            ->get();
-        foreach ($dthServices as $svc) {
+            ->get()
+            ->each(fn (Service $s) => $s->applyEffectivePricing($viewer));
+
+        $usedOps = collect($groups)->flatMap(function ($g) {
+            return array_filter(array_merge(
+                [(string) ($g->primary_op ?? '')],
+                array_map('strval', $g->fallback_ops ?? []),
+                array_map('strval', $g->bill_ops ?? []),
+                array_map('strval', $g->other_ops ?? [])
+            ));
+        })->unique()->all();
+
+        foreach ($visibleServices as $svc) {
+            $op = (string) $svc->op_code;
+            if (in_array($op, $usedOps, true)) {
+                continue;
+            }
+            $usedOps[] = $op;
+            $isDth = strtolower((string) $svc->type) === 'dth' || ($svc->category?->slug === 'dth');
+            $billLike = $svc->isBillLike();
             $groups[] = (object) [
-                'key'          => 'dth-' . $svc->id,
+                'key'          => ($isDth ? 'dth-' : 'svc-').$svc->id,
                 'label'        => $svc->name,
                 'logo'         => $svc->logo ?: null,
-                'primary_op'   => $svc->op_code,
+                'primary_op'   => $op,
                 'bill_ops'     => [],
                 'other_ops'    => [],
-                'category'     => 'dth',
-                'is_bill_only' => false,
-                'bill_label'   => null,
+                'category'     => $svc->category?->slug ?: ($isDth ? 'dth' : 'mobile'),
+                'is_bill_only' => $billLike && ! in_array(strtolower((string) $svc->type), ['prepaid', 'broadband', 'tv', 'dth'], true),
+                'bill_label'   => $billLike ? 'Pay now' : null,
             ];
         }
 
-        // Load ALL services keyed by op_code for fast lookup
-        $viewer = auth()->user();
         $allServices = Service::where('is_active', true)
+            ->whereHas('provider', fn ($q) => $q->where('is_active', true))
             ->with(['plans', 'specialPrices' => fn ($sp) => $sp->where('user_id', $viewer?->id)])
             ->get()
             ->each(fn (Service $s) => $s->applyEffectivePricing($viewer))
-            ->keyBy(fn (Service $s) => $s->op_code);
+            ->keyBy(fn (Service $s) => (string) $s->op_code);
 
         // Build categories collection keyed by slug (same structure as before)
         // but with grouped "services" so existing tab code keeps working.
@@ -292,12 +300,21 @@ class DashboardController extends Controller
                     // Resolve primary service. For bill-only groups with no primary_op,
                     // point at the first bill service so the CTA doesn't 404.
                     $primary = null;
-                    if ($g->primary_op) {
-                        $primary = $allServices->get($g->primary_op);
+                    foreach (array_filter(array_merge(
+                        [(string) ($g->primary_op ?? '')],
+                        array_map('strval', $g->fallback_ops ?? [])
+                    )) as $op) {
+                        $hit = $allServices->get((string) $op);
+                        if ($hit) {
+                            $primary = $hit;
+                            break;
+                        }
                     }
                     $billServices = collect($g->bill_ops ?? [])
-                        ->map(fn ($op) => $allServices->get($op))
-                        ->filter();
+                        ->map(fn ($op) => $allServices->get((string) $op))
+                        ->filter()
+                        ->unique('id')
+                        ->values();
 
                     if (! $primary && $g->is_bill_only && $billServices->isNotEmpty()) {
                         $primary = $billServices->first();
@@ -361,12 +378,15 @@ class DashboardController extends Controller
 
                     $g->planCount = $plansCollection->count();
                 }
-                return $catGroups;
+                return $catGroups->filter(function ($g) {
+                    return $g->primary
+                        || ($g->billServices && $g->billServices->count());
+                })->values();
             });
 
         // Build a clean list of categories that actually have groups
         $visibleCategories = $categories
-            ->filter(fn ($c) => $groupsByCategory->has($c->slug))
+            ->filter(fn ($c) => ($groupsByCategory->get($c->slug)?->count() ?? 0) > 0)
             ->map(function ($c) use ($groupsByCategory) {
                 $c->groups = $groupsByCategory->get($c->slug, collect());
                 return $c;

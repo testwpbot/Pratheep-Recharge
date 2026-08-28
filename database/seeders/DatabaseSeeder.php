@@ -22,21 +22,21 @@ class DatabaseSeeder extends Seeder
             'is_active'  => true,
         ]);
 
-        $hrc = Provider::firstOrNew(['slug' => 'happy-recharge-center']);
-        $missingKey = ! filled($hrc->api_key);
-        $hrc->fill([
-            'name'      => $hrc->name ?: 'Happy Recharge Center',
-            'country'   => $hrc->country ?: 'IN',
-            'api_class' => 'happy_recharge_center',
+        Provider::firstOrCreate(['slug' => 'tmobiling'], [
+            'name'      => 'TMobiling',
+            'country'   => 'LK',
+            'api_class' => 'tmobiling',
+            'base_url'  => env('TMOBILING_BASE_URL', 'https://www.tmobiling.lk/livenew/apis/api_request'),
+            'api_key'   => env('TMOBILING_API_KEY', ''),
+            'is_active' => true,
         ]);
-        if (! filled($hrc->base_url)) {
-            $hrc->base_url = env('HRC_BASE_URL', 'http://happyrechargecenter.com/RechargeApi');
+
+        // Retired. Keep the row so old DTH orders can still be checked.
+        $hrc = Provider::where('slug', 'happy-recharge-center')->first();
+        if ($hrc) {
+            $hrc->is_active = false;
+            $hrc->save();
         }
-        if ($missingKey) {
-            $hrc->api_key   = env('HRC_API_KEY', '334d7b447e9459fcbafe9441a');
-            $hrc->is_active = true;
-        }
-        $hrc->save();
 
         // Categories
         foreach ([

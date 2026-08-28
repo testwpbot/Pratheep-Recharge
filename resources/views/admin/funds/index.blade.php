@@ -199,9 +199,9 @@
         <input type="number" name="cooldown_hours" min="1" max="48" value="{{ old('cooldown_hours', $settings['cooldown_hours']) }}" required>
       </div>
       <div class="field">
-        <label>Lowest HRC wallet (INR)</label>
+        <label>Lowest INR wallet</label>
         <input type="number" step="0.01" min="0" name="min_inr" value="{{ old('min_inr', $settings['min_inr']) }}" required>
-        <div class="hint">DTH uses Indian rupees. Email if Happy Recharge Center goes below this.</div>
+        <div class="hint">Only used if a provider wallet is in Indian rupees. Email if it goes below this.</div>
       </div>
       <div class="field">
         <label>INR to LKR rate (optional)</label>

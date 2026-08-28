@@ -67,7 +67,7 @@
     </table>
   </div>
   <div style="padding:14px 18px; font-size:12px; color:var(--muted); border-top:1px solid var(--line);">
-    Balance refreshes every 60 seconds. Happy Recharge Center only works from a <b>whitelisted IP</b> — if you see “IP not whitelisted”, ask them to add this server’s public IP. Toggle & Import save without reloading.
+    Turn a provider <b>Off</b> to hide every service that belongs to it from the website. Turn a service Off on the Services page to hide just that operator. Customers never see the provider name. TMobiling needs this server’s public IP in their whitelist (Profile → Whitelist IP) and the Response URL set to <code>{{ url('/webhooks/tmobiling') }}</code>. Toggle &amp; Import save without reloading.
   </div>
 </div>
 

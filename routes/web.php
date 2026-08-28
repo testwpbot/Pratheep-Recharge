@@ -25,6 +25,7 @@ use App\Http\Controllers\Dashboard\WalletController;
 use App\Http\Controllers\CronController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\RechargeController;
+use App\Http\Controllers\TMobilingCallbackController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -37,6 +38,11 @@ Route::get('/', [PageController::class, 'home'])->name('home');
 // DirectAdmin wget/curl clock — same jobs as `php artisan schedule:run`
 Route::get('/cron.php', CronController::class)->middleware('throttle:8,1')->name('cron.run');
 Route::get('/cron', CronController::class)->middleware('throttle:8,1');
+
+// TMobiling automatic recharge response (GET + POST). No login. CSRF skipped in bootstrap/app.php.
+Route::match(['get', 'post'], '/webhooks/tmobiling', TMobilingCallbackController::class)
+    ->middleware('throttle:60,1')
+    ->name('webhooks.tmobiling');
 
 Route::get('/support', [PageController::class, 'support'])->name('support');
 Route::get('/privacy', [PageController::class, 'privacy'])->name('privacy');

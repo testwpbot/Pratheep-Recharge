@@ -32,7 +32,7 @@ class RechargeController extends Controller
         }
 
         $categories = Category::where('is_active', true)
-            ->withWhereHas('services', fn ($q) => $q->where('is_active', true)->where('type', '!=', 'api'))
+            ->withWhereHas('services', fn ($q) => $q->forCustomers())
             ->orderBy('sort_order')->get();
 
         $activeCategory = $categorySlug
@@ -41,8 +41,7 @@ class RechargeController extends Controller
 
         $services = $activeCategory
             ? Service::where('category_id', $activeCategory->id)
-                ->where('is_active', true)
-                ->where('type', '!=', 'api')
+                ->forCustomers()
                 ->with('provider')
                 ->orderBy('name')
                 ->get()
@@ -55,6 +54,10 @@ class RechargeController extends Controller
     public function form(Service $service): View
     {
         abort_unless($service->is_active, 404);
+        $service->loadMissing('provider');
+        if (! auth()->user()?->is_admin) {
+            abort_unless($service->isVisibleToCustomers(), 404);
+        }
         if (strtolower((string) $service->type) === 'api' && ! auth()->user()?->is_admin) {
             abort(404);
         }
@@ -74,7 +77,14 @@ class RechargeController extends Controller
         ]);
 
         $user = $request->user();
-        $service = Service::where('is_active', true)->with('category')->findOrFail($data['service_id']);
+        $service = Service::where('is_active', true)->with(['category', 'provider'])->findOrFail($data['service_id']);
+        if (! $service->isVisibleToCustomers()) {
+            $msg = 'That service is not available right now.';
+            if ($request->wantsJson()) {
+                return response()->json(['ok' => false, 'message' => $msg], 422);
+            }
+            return back()->withInput()->with('error', $msg);
+        }
         if ($service->hidesNotifyNumber()) {
             $data['notify_number'] = null;
         }

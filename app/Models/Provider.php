@@ -42,6 +42,15 @@ class Provider extends Model
             || str_contains($class, 'HappyRechargeCenter');
     }
 
+    public function isTMobiling(): bool
+    {
+        $class = (string) $this->api_class;
+
+        return $this->slug === 'tmobiling'
+            || $class === 'tmobiling'
+            || str_contains($class, 'TMobiling');
+    }
+
     public function isTopupMart(): bool
     {
         $class = (string) $this->api_class;
@@ -54,6 +63,20 @@ class Provider extends Model
     public function hasCredentials(): bool
     {
         return filled($this->base_url) && filled($this->api_key);
+    }
+
+    /** Public IP of this server — paste it into TMobiling → Profile → Whitelist IP. */
+    public static function detectedPublicIp(): ?string
+    {
+        return Cache::remember('hpr-public-ip', 3600, function () {
+            try {
+                $ip = trim((string) \Illuminate\Support\Facades\Http::timeout(4)->get('https://api.ipify.org')->body());
+
+                return filter_var($ip, FILTER_VALIDATE_IP) ? $ip : null;
+            } catch (\Throwable $e) {
+                return null;
+            }
+        });
     }
 
     /**

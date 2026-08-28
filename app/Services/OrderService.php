@@ -25,32 +25,14 @@ class OrderService
     public array $lastSyncReport = [];
 
     /**
-     * Resolve the effective provider for a service.
-     *
-     * BUSINESS RULE (from Danuka): DTH TV (India) services are always routed to
-     * Happy Recharge Center, regardless of which provider the Service row is
-     * attached to. All other services go through their own provider (TopupMart
-     * for SL services). We only override to HRC if HRC is active + has creds,
-     * otherwise we fall back to the service's default provider so we don't
-     * break the UI before the admin configures HRC.
+     * Orders always go through the provider on the service row.
+     * Admin turns a provider Off to hide that provider's services from customers.
      */
     protected function resolveProvider(Service $service): Provider
     {
         $default = $service->provider;
-        $type    = strtolower((string) $service->type);
-        $catSlug = $service->category?->slug;
-        $isDth   = ($type === 'dth' || $catSlug === 'dth');
-
-        if ($isDth) {
-            $hrc = Provider::query()
-                ->where(function ($q) {
-                    $q->where('slug', 'happy-recharge-center')
-                      ->orWhere('api_class', 'happy_recharge_center');
-                })
-                ->first();
-            if ($hrc && $hrc->is_active && $hrc->hasCredentials()) {
-                return $hrc;
-            }
+        if (! $default) {
+            throw new \RuntimeException('This service has no provider set.');
         }
 
         return $default;
@@ -61,12 +43,18 @@ class OrderService
     {
         /** @var Service $picked */
         $picked = Service::where('is_active', true)->with(['provider', 'category'])->findOrFail($serviceId);
+        if (! $picked->provider || ! $picked->provider->is_active) {
+            throw new \RuntimeException('That service is not available right now.');
+        }
         $service = PreferredRoute::faceService($picked);
         $send = PreferredRoute::startService($service);
         $provider = $this->resolveProvider($send);
 
         if (! $provider->is_active) {
-            throw new \RuntimeException('Selected provider is currently unavailable.');
+            throw new \RuntimeException('That service is not available right now.');
+        }
+        if (! $provider->hasCredentials()) {
+            throw new \RuntimeException('That service is not available right now.');
         }
 
         // ----- WALLET: balance check -----

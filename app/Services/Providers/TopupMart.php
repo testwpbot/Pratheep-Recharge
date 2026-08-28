@@ -69,8 +69,9 @@ class TopupMart implements ProviderInterface
             ['op_code' => '133', 'name' => 'HNB Assurance',      'type' => 'insurance', 'category_slug' => 'insurance', 'logo' => 'assets/logos/hnbassu.png'],
             ['op_code' => '134', 'name' => 'Sri Lanka Insurance','type' => 'insurance', 'category_slug' => 'insurance', 'logo' => 'assets/logos/srilankains.png'],
 
-            // DTH is routed through Happy Recharge Center. These rows exist only
-            // so admin failover can re-send a stuck HRC order via Topup Mart.
+            // Indian DTH on Topup Mart stays off until admin turns a row on.
+            // TMobiling also has these operators — customers only see a service
+            // when BOTH the provider and the service are On.
             ['op_code' => '120', 'name' => 'Airtel DTH',   'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/airtel.png',    'is_active' => false],
             ['op_code' => '121', 'name' => 'DishTV',       'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/dishtv.png',    'is_active' => false],
             ['op_code' => '122', 'name' => 'Sun Direct',   'type' => 'dth', 'category_slug' => 'dth', 'logo' => 'assets/logos/sundirect.png', 'is_active' => false],

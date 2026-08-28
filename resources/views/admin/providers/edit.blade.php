@@ -29,7 +29,7 @@
       <div class="field" style="grid-column:1/-1;">
         <label>API Key / Apitoken</label>
         <input type="text" name="api_key" value="{{ old('api_key', $provider->api_key) }}" placeholder="Enter API key (leave blank to keep current)" autocomplete="off">
-        <div class="hint">Stored in the database. The key is sent with every recharge / status / balance request. HRC calls this <code>Apitoken</code> — each IP must be whitelisted with them.</div>
+        <div class="hint">Stored in the database. Sent with every recharge, status and balance request. Leave blank to keep the current key.</div>
       </div>
 
       <div class="field field-inline">
@@ -37,30 +37,19 @@
         <label for="is_active" style="margin:0;">Provider is active</label>
       </div>
 
-      @if ($provider->isHappyRechargeCenter())
+      @if ($provider->isTMobiling())
+        @php $serverIp = \App\Models\Provider::detectedPublicIp() ?: '139.99.61.90'; @endphp
         <div class="field" style="grid-column:1/-1;">
-          <label>DTH operator codes (Happy Recharge Center)</label>
-          <div class="hint" style="margin-bottom:10px;">
-            Import only brings <b>Airtel DTH</b>. Default OperatorCode is <b>20</b>
-            (HRC docs: code <b>1 = Airtel mobile</b>, not DTH). If their operator-list page differs,
-            Ctrl+F “Airtel DTH” / “Digital TV” on
-            <a href="http://happyrechargecenter.com/apiuser/api_operator.aspx" target="_blank" rel="noopener">api_operator.aspx</a>
-            and update the code here. Each IP must be whitelisted with HRC or Balance/Recharge will fail.
+          <label>TMobiling setup</label>
+          <div class="hint" style="margin-bottom:8px;">
+            1. Paste your API key above.<br>
+            2. In TMobiling → Profile → My Profile → <b>Whitelist IP</b>, add this server IP:
+            <code style="font-weight:800;">{{ $serverIp }}</code>
+            (0 means any IP — do not use 0 on a live site).<br>
+            3. Set <b>Response URL</b> to:
+            <code>{{ url('/webhooks/tmobiling') }}</code>
+            so finished recharges come back here automatically.
           </div>
-          @php $dthServices = $provider->services()->where('type', 'dth')->orderBy('name')->get(); @endphp
-          @if ($dthServices->isEmpty())
-            <em style="color:var(--muted);">No DTH services yet — click “Import Services Now” below.</em>
-          @else
-            <div style="display:grid; gap:8px;">
-              @foreach ($dthServices as $svc)
-                <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-                  <span style="min-width:140px; font-weight:700;">{{ $svc->name }}</span>
-                  <input type="text" name="dth_opcodes[{{ $svc->id }}]" value="{{ old('dth_opcodes.'.$svc->id, $svc->op_code) }}" style="width:90px;" maxlength="20">
-                  <small style="color:var(--muted);">failover → Topup Mart op {{ $svc->meta['failover_op_code'] ?? '—' }}</small>
-                </div>
-              @endforeach
-            </div>
-          @endif
         </div>
       @endif
     </div>

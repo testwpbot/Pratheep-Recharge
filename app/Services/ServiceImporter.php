@@ -55,6 +55,12 @@ class ServiceImporter
                 if (! empty($item['failover_op_code'])) {
                     $meta['failover_op_code'] = (string) $item['failover_op_code'];
                 }
+                if (! empty($item['catalog_key'])) {
+                    $meta['catalog_key'] = (string) $item['catalog_key'];
+                }
+                if (! empty($item['bbps'])) {
+                    $meta['bbps'] = true;
+                }
                 $active = array_key_exists('is_active', $item) ? (bool) $item['is_active'] : true;
 
                 $existing = Service::where('provider_id', $provider->id)
@@ -99,35 +105,6 @@ class ServiceImporter
             }
         });
 
-        if ($provider->isHappyRechargeCenter()) {
-            $keep = collect($items)->pluck('op_code')->map(fn ($c) => (string) $c)->filter()->all();
-            Service::where('provider_id', $provider->id)
-                ->when($keep, fn ($q) => $q->whereNotIn('op_code', $keep))
-                ->update(['is_active' => false]);
-            $this->hideTopupMartDthFromCatalog();
-        }
-
         return compact('imported', 'skipped', 'catCount');
-    }
-
-    /** Deactivate Topup Mart DTH services so customers only see HRC DTH. */
-    public function hideTopupMartDthFromCatalog(): int
-    {
-        $topup = Provider::query()
-            ->where(function ($q) {
-                $q->where('slug', 'topup-mart')->orWhere('api_class', 'topup_mart');
-            })
-            ->first();
-        if (! $topup) {
-            return 0;
-        }
-
-        return Service::where('provider_id', $topup->id)
-            ->where(function ($q) {
-                $q->where('type', 'dth')
-                  ->orWhereIn('op_code', ['120', '121', '122', '123', '124'])
-                  ->orWhereHas('category', fn ($c) => $c->where('slug', 'dth'));
-            })
-            ->update(['is_active' => false]);
     }
 }

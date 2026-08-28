@@ -108,7 +108,7 @@
           </td>
         </tr>
       @empty
-        <tr><td colspan="9" style="text-align:center; padding:30px; color:var(--muted);">No services yet. Go to <b>Providers</b> and click <b>"Import Services"</b> to load the catalog.</td></tr>
+        <tr><td colspan="9" style="text-align:center; padding:30px; color:var(--muted);">No services yet. Go to <b>Providers</b> and click <b>Import Services</b> for Topup Mart and TMobiling.</td></tr>
       @endforelse
       </tbody>
     </table>
