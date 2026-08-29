@@ -375,10 +375,12 @@ class InvoiceService
 
         $rows[] = ['section' => 'Payment Summary'];
         $rows[] = ['label' => 'Recharge Amount',  'value' => 'LKR ' . number_format((float) $order->amount, 2)];
-        if ((float) $order->profit > 0) {
+        if ($order->hasFee()) {
+            $rows[] = ['label' => 'Service Fee',      'value' => 'LKR ' . number_format($order->feeAmount(), 2)];
+        } elseif ((float) $order->profit > 0) {
             $rows[] = ['label' => 'Cashback Earned', 'value' => 'LKR ' . number_format((float) $order->profit, 2)];
         }
-        $rows[] = ['label' => 'Total',            'value' => 'LKR ' . number_format((float) $order->amount, 2), 'bold' => true];
+        $rows[] = ['label' => 'Total',            'value' => 'LKR ' . number_format($order->totalPaid(), 2), 'bold' => true];
         return $rows;
     }
 

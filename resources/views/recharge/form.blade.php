@@ -211,12 +211,30 @@
     }
   }catch(e){}
 
+  const allowsFee = {{ $service->allowsFee() ? 'true' : 'false' }};
+
+  function feeFor(amt){
+    if (!allowsFee || profit >= 0) return 0;
+    const f = Math.abs(profit);
+    return profitType === 'PCT' ? (amt * f / 100) : f;
+  }
+
   function updateCashback(){
     const amt = parseFloat(input.value || '0');
     if (picker) picker.querySelectorAll('.pick').forEach(b => {
       b.classList.toggle('active', Math.abs(parseFloat(b.dataset.value) - amt) < 0.01);
     });
-    if (!amt || profit <= 0){ note.style.display='none'; return; }
+    if (!amt){ note.style.display='none'; return; }
+
+    // Negative profit on a bill service = a customer service fee shown up front.
+    const fee = feeFor(amt);
+    if (fee > 0){
+      txt.textContent = `A service fee of LKR ${fee.toFixed(2)} applies. Total to pay: LKR ${(amt+fee).toFixed(2)} (bill LKR ${amt.toFixed(2)} + fee LKR ${fee.toFixed(2)}).`;
+      note.style.display='flex';
+      return;
+    }
+
+    if (profit <= 0){ note.style.display='none'; return; }
     const cb = profitType === 'PCT' ? (amt*profit/100) : profit;
     txt.textContent = `You'll earn LKR ${cb.toFixed(2)} cashback on a successful order.`;
     note.style.display='flex';
@@ -234,7 +252,15 @@
       if (!form.reportValidity()) return;
       var amt = parseFloat(input.value || '0');
       var num = (acc && acc.value) ? acc.value.trim() : '';
-      confirmText.textContent = 'Pay LKR ' + amt.toFixed(2) + ' to ' + num + ' for {{ addslashes($service->name) }} from your wallet?';
+      var fee = feeFor(amt);
+      if (fee > 0){
+        confirmText.innerHTML = 'Pay for <b>{{ addslashes($service->name) }}</b> to <b>' + num + '</b>:<br>'
+          + 'Bill amount: LKR ' + amt.toFixed(2) + '<br>'
+          + 'Service fee: LKR ' + fee.toFixed(2) + '<br>'
+          + '<b>Total from wallet: LKR ' + (amt+fee).toFixed(2) + '</b>';
+      } else {
+        confirmText.textContent = 'Pay LKR ' + amt.toFixed(2) + ' to ' + num + ' for {{ addslashes($service->name) }} from your wallet?';
+      }
       confirmBox.hidden = false;
     });
     confirmBox.querySelectorAll('[data-bill-back]').forEach(function(btn){

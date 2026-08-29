@@ -39,8 +39,14 @@
     <dt>Provider</dt><dd>{{ $order->provider->name }}</dd>
     <dt>Recharge number</dt><dd>{{ $order->account_number }}</dd>
     <dt>Notify number</dt><dd>{{ $order->notify_number ?? '—' }}</dd>
-    <dt>Amount</dt><dd><b>LKR {{ number_format($order->amount, 2) }}</b></dd>
-    <dt>Cashback</dt><dd>LKR {{ number_format($order->profit, 2) }} @if($order->cashback) <span class="pill pill--success" style="margin-left:6px;">Credited</span> @endif</dd>
+    @if ($order->hasFee())
+      <dt>Bill amount (to provider)</dt><dd><b>LKR {{ number_format($order->amount, 2) }}</b></dd>
+      <dt>Service fee (kept)</dt><dd style="color:#c0392b; font-weight:700;">LKR {{ number_format($order->feeAmount(), 2) }}</dd>
+      <dt>Total charged to wallet</dt><dd><b>LKR {{ number_format($order->totalPaid(), 2) }}</b></dd>
+    @else
+      <dt>Amount</dt><dd><b>LKR {{ number_format($order->amount, 2) }}</b></dd>
+      <dt>Cashback</dt><dd>LKR {{ number_format($order->profit, 2) }} @if($order->cashback) <span class="pill pill--success" style="margin-left:6px;">Credited</span> @endif</dd>
+    @endif
     <dt>Provider Txn ID</dt><dd><code>{{ $order->provider_txn_id ?: '—' }}</code></dd>
     <dt>Placed at</dt><dd>{{ $order->created_at->format('Y-m-d H:i:s') }} ({{ $order->created_at->diffForHumans() }})</dd>
     <dt>Processed at</dt><dd>{{ $order->processed_at?->format('Y-m-d H:i:s') ?? '—' }}</dd>
@@ -66,7 +72,7 @@
 
   @if ($order->isRefunded())
     <div class="alert alert--success" style="margin-top:16px; margin-bottom:0;">
-      This recharge did not go through. LKR {{ number_format((float) $order->amount, 2) }} was put back in the customer wallet.
+      This recharge did not go through. LKR {{ number_format($order->totalPaid(), 2) }} was put back in the customer wallet.
     </div>
   @endif
 
@@ -202,7 +208,7 @@
     <div style="color:var(--navy-800); font-weight:600; font-size:14px; line-height:1.6; margin-bottom:14px;">
       <p style="margin:0 0 8px;">This will:</p>
       <ul style="margin:0; padding-left:20px;">
-        <li>Put <b>LKR {{ number_format((float) $order->amount, 2) }}</b> back into the customer wallet.</li>
+        <li>Put <b>LKR {{ number_format($order->totalPaid(), 2) }}</b> back into the customer wallet.</li>
         <li>Mark this order as <b>Refunded</b> and reverse any cashback it earned.</li>
         <li><b>Not</b> reclaim money from the provider — you must reconcile that side yourself.</li>
       </ul>

@@ -40,7 +40,10 @@
         <dt>Service</dt><dd>{{ $order->customerServiceName() }}</dd>
         <dt>Account</dt><dd>{{ $order->account_number }}</dd>
         <dt>Amount</dt><dd>LKR {{ number_format((float) $order->amount, 2) }}</dd>
-        @if ((float) $order->profit > 0)
+        @if ($order->hasFee())
+          <dt>Service fee</dt><dd>LKR {{ number_format($order->feeAmount(), 2) }}</dd>
+          <dt>Total paid</dt><dd>LKR {{ number_format($order->totalPaid(), 2) }}</dd>
+        @elseif ((float) $order->profit > 0)
           <dt>Cashback</dt><dd>LKR {{ number_format((float) $order->profit, 2) }}</dd>
         @endif
         <dt>Status</dt><dd>{{ $order->statusLabel() }}</dd>

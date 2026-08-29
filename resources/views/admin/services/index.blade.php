@@ -47,11 +47,13 @@
           <option value="FLAT">LKR (flat)</option>
           <option value="PCT">% (percent)</option>
         </select>
-        <input type="number" step="0.01" min="0" name="profit" placeholder="Profit amount"
+        <input type="number" step="0.01" name="profit" placeholder="Profit / -fee"
+               title="Positive = cashback. Negative = customer fee (bill services only)."
                style="height:36px; border-radius:9px; border:1.6px solid rgba(11,42,91,.16); padding:0 10px; width:120px;">
         <button class="btn-admin btn-admin--primary btn-admin--sm" type="submit" data-loading="Applying…">Apply to selected</button>
       </div>
     </div>
+    @error('profit')<div class="hint" style="color:var(--danger,#c0392b); padding:0 20px 10px;">{{ $message }}</div>@enderror
 
     <div class="table-wrap">
     <table class="data-table">
@@ -63,7 +65,7 @@
           <th>Op Code</th>
           <th>Category</th>
           <th>Provider</th>
-          <th>Profit (cashback to customer)</th>
+          <th>Profit (cashback +) / Fee (−)</th>
           <th>Status</th>
           <th style="text-align:right">Actions</th>
         </tr>
@@ -89,12 +91,20 @@
             <span class="pill pill--{{ $s->provider->is_active ? 'success' : 'failed' }}">{{ $s->provider->name }}</span>
           </td>
           <td>
+            @php $isFee = (float) $s->profit < 0; @endphp
             @if ($s->profit_type === 'PCT')
-              <b>{{ number_format($s->profit, 2) }}%</b>
+              <b style="{{ $isFee ? 'color:#c0392b;' : '' }}">{{ number_format(abs($s->profit), 2) }}%</b>
             @else
-              <b>LKR {{ number_format($s->profit, 2) }}</b>
+              <b style="{{ $isFee ? 'color:#c0392b;' : '' }}">LKR {{ number_format(abs($s->profit), 2) }}</b>
             @endif
-            <br><small style="color:var(--muted);">cashback</small>
+            <br>
+            @if ($isFee)
+              <small style="color:#c0392b; font-weight:700;">customer fee</small>
+            @elseif ((float) $s->profit > 0)
+              <small style="color:var(--muted);">cashback</small>
+            @else
+              <small style="color:var(--muted);">no cashback</small>
+            @endif
           </td>
           <td><span class="pill pill--{{ $s->is_active ? 'success' : 'failed' }}">{{ $s->is_active ? 'Active' : 'Inactive' }}</span></td>
           <td class="col-actions">

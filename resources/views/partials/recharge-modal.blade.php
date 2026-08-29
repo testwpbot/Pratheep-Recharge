@@ -276,6 +276,8 @@ button.service-card{
   var mConfirmBack = document.getElementById('rcConfirmBack');
   var mConfirmYes = document.getElementById('rcConfirmYes');
   var currentMode = 'reload';
+  var currentFee = 0;         // flat LKR fee (when fee type is FLAT)
+  var currentFeePct = 0;      // percent fee (when fee type is PCT)
   var mAmount  = document.getElementById('rcAmount');
   var mSubmit  = document.getElementById('rcSubmit');
   var mSpinner = mSubmit.querySelector('.btn-spinner');
@@ -345,6 +347,9 @@ button.service-card{
     var cb     = card.dataset.cb;
     var mode   = card.dataset.mode || 'reload';
     currentMode = mode;
+    // Customer service fee (surcharge) for bill services with negative profit.
+    currentFee = parseFloat(card.dataset.feeFlat || '0') || 0;
+    currentFeePct = parseFloat(card.dataset.feePct || '0') || 0;
     var hideNotify = card.dataset.hideNotify === '1'
       || (card.dataset.category || '') === 'mobile';
     var details;
@@ -493,16 +498,30 @@ button.service-card{
     if (currentMode === 'plan' && mPlanBox) mPlanBox.style.display = '';
     else if (currentMode !== 'plan' && mHint) mHint.hidden = false;
   }
+  function feeForAmount(amt){
+    if (currentFeePct > 0) return Math.round(amt * currentFeePct) / 100;
+    if (currentFee > 0) return currentFee;
+    return 0;
+  }
+
   function showOrderConfirm(){
     var amt = parseFloat(mAmount.value || '0');
     var acc = (mAcc.value || '').trim();
     var op = (mOpName.textContent || '').trim();
     var isBill = currentMode === 'bill';
+    var fee = feeForAmount(amt);
     var title = document.getElementById('rcConfirmTitle') || document.querySelector('#rcConfirm h4');
     if (title) title.textContent = isBill ? 'Confirm this payment?' : 'Confirm this reload?';
     if (mConfirmText){
-      mConfirmText.textContent = (isBill ? 'Are you sure you want to pay' : 'Are you sure you want to reload')
-        + ' LKR ' + amt.toFixed(2) + ' to ' + acc + (op ? (' for ' + op) : '') + ' from your wallet?';
+      if (fee > 0){
+        mConfirmText.innerHTML = 'Pay for ' + (op || 'this service') + ' to <b>' + acc + '</b>:<br>'
+          + 'Bill amount: LKR ' + amt.toFixed(2) + '<br>'
+          + 'Service fee: LKR ' + fee.toFixed(2) + '<br>'
+          + '<b>Total from wallet: LKR ' + (amt + fee).toFixed(2) + '</b>';
+      } else {
+        mConfirmText.textContent = (isBill ? 'Are you sure you want to pay' : 'Are you sure you want to reload')
+          + ' LKR ' + amt.toFixed(2) + ' to ' + acc + (op ? (' for ' + op) : '') + ' from your wallet?';
+      }
     }
     if (mConfirmYes) mConfirmYes.textContent = isBill ? 'Yes, pay now' : 'Yes, reload now';
     mForm.style.display = 'none';

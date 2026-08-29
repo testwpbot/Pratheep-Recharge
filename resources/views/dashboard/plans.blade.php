@@ -265,6 +265,8 @@
                      data-acc-label="{{ $g->primary->accountFieldLabel() }}"
                      data-acc-placeholder="{{ $g->primary->accountFieldPlaceholder() }}"
                      data-acc-hint="{{ $g->primary->accountFieldHint() }}"
+                     data-fee-flat="{{ $g->primary->feeFlat(auth()->user()) }}"
+                     data-fee-pct="{{ $g->primary->feePct(auth()->user()) }}"
                      data-mode="reload">
                     <x-icon name="bolt-nav" :size="13"/> {{ $isReloadOnly ? 'Recharge now' : 'Custom amount' }}
                   </button>
@@ -282,6 +284,8 @@
                        data-acc-label="{{ $billSvc->accountFieldLabel() }}"
                        data-acc-placeholder="{{ $billSvc->accountFieldPlaceholder() }}"
                        data-acc-hint="{{ $billSvc->accountFieldHint() }}"
+                       data-fee-flat="{{ $billSvc->feeFlat(auth()->user()) }}"
+                       data-fee-pct="{{ $billSvc->feePct(auth()->user()) }}"
                        data-mode="bill">
                       <x-icon name="bill" :size="13"/>
                       {{ $g->bill_label ?? ('Pay ' . $billSvc->name) }}
@@ -301,6 +305,8 @@
                      data-acc-label="{{ $g->primary->accountFieldLabel() }}"
                      data-acc-placeholder="{{ $g->primary->accountFieldPlaceholder() }}"
                      data-acc-hint="{{ $g->primary->accountFieldHint() }}"
+                     data-fee-flat="{{ $g->primary->feeFlat(auth()->user()) }}"
+                     data-fee-pct="{{ $g->primary->feePct(auth()->user()) }}"
                      data-mode="bill">
                     <x-icon name="bill" :size="13"/>
                     {{ $g->bill_label ?? ('Pay ' . $g->label) }}
@@ -1339,6 +1345,8 @@
   var mConfirmBack = document.getElementById('rcConfirmBack');
   var mConfirmYes = document.getElementById('rcConfirmYes');
   var currentMode = 'plan';
+  var currentFee = 0;
+  var currentFeePct = 0;
   var mAmount  = document.getElementById('rcAmount');
   var mSubmit  = document.getElementById('rcSubmit');
   var mSpinner = mSubmit.querySelector('.btn-spinner');
@@ -1432,6 +1440,8 @@
     var cb     = card.dataset.cb;
     var mode   = card.dataset.mode || 'plan';
     currentMode = mode;
+    currentFee = parseFloat(card.dataset.feeFlat || '0') || 0;
+    currentFeePct = parseFloat(card.dataset.feePct || '0') || 0;
     var hideNotify = card.dataset.hideNotify === '1' || /postpaid/i.test(card.dataset.opName || '');
     var details;
     try { details = JSON.parse(card.dataset.details || '[]'); } catch(e){ details = []; }
@@ -1616,16 +1626,30 @@
     if (currentMode === 'plan' && mPlanBox) mPlanBox.style.display = '';
     else if (currentMode !== 'plan' && mHint) mHint.hidden = false;
   }
+  function feeForAmount(amt){
+    if (currentFeePct > 0) return Math.round(amt * currentFeePct) / 100;
+    if (currentFee > 0) return currentFee;
+    return 0;
+  }
+
   function showOrderConfirm(){
     var amt = parseFloat(mAmount.value || '0');
     var acc = (mAcc.value || '').trim();
     var op = (mOpName.textContent || '').trim();
     var isBill = currentMode === 'bill';
+    var fee = feeForAmount(amt);
     var title = document.getElementById('rcConfirmTitle') || document.querySelector('#rcConfirm h4');
     if (title) title.textContent = isBill ? 'Confirm this payment?' : 'Confirm this reload?';
     if (mConfirmText){
-      mConfirmText.textContent = (isBill ? 'Are you sure you want to pay' : 'Are you sure you want to reload')
-        + ' LKR ' + amt.toFixed(2) + ' to ' + acc + (op ? (' for ' + op) : '') + ' from your wallet?';
+      if (fee > 0){
+        mConfirmText.innerHTML = 'Pay for ' + (op || 'this service') + ' to <b>' + acc + '</b>:<br>'
+          + 'Bill amount: LKR ' + amt.toFixed(2) + '<br>'
+          + 'Service fee: LKR ' + fee.toFixed(2) + '<br>'
+          + '<b>Total from wallet: LKR ' + (amt + fee).toFixed(2) + '</b>';
+      } else {
+        mConfirmText.textContent = (isBill ? 'Are you sure you want to pay' : 'Are you sure you want to reload')
+          + ' LKR ' + amt.toFixed(2) + ' to ' + acc + (op ? (' for ' + op) : '') + ' from your wallet?';
+      }
     }
     if (mConfirmYes) mConfirmYes.textContent = isBill ? 'Yes, pay now' : 'Yes, reload now';
     mForm.style.display = 'none';

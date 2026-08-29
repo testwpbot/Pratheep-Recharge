@@ -57,6 +57,16 @@ class OrderService
             throw new \RuntimeException('That service is not available right now.');
         }
 
+        // Cashback (profit) amount per this order — credited ONLY after order success.
+        $profit = $service->calculateCashback($amount, $user);
+
+        // Customer service fee (surcharge) for bill-like services where the admin
+        // set a NEGATIVE profit. The provider is still sent exactly `amount`;
+        // the wallet is charged `amount + fee`. Fee and cashback are mutually
+        // exclusive (a negative profit yields a fee and zero cashback).
+        $fee = $service->calculateFee($amount, $user);
+        $totalCharge = round($amount + $fee, 2);
+
         // ----- WALLET: balance check -----
         // Customers pay from their wallet balance. We debit ATOMICALLY with
         // the order creation (below). If the provider then fails/declines we
@@ -64,21 +74,18 @@ class OrderService
         $wallet = Wallet::firstOrCreate(['user_id' => $user->id]);
         $wallet = Wallet::whereKey($wallet->id)->lockForUpdate()->first() ?? $wallet;
 
-        WalletLimits::assertCanDebit($user, $wallet, $amount);
-
-        // Cashback (profit) amount per this order — credited ONLY after order success.
-        $profit = $service->calculateCashback($amount, $user);
+        WalletLimits::assertCanDebit($user, $wallet, $totalCharge);
 
         // Atomically create order + debit wallet + write debit transaction
         // record in ONE DB transaction so they can never go out of sync.
         $order = null;
         $balanceBeforeDebit = (float) $wallet->balance;
-        DB::transaction(function () use ($user, $service, $send, $provider, $accountNumber, $notifyNumber, $amount, $profit, $wallet, $balanceBeforeDebit, &$order) {
+        DB::transaction(function () use ($user, $service, $send, $provider, $accountNumber, $notifyNumber, $amount, $profit, $fee, $totalCharge, $wallet, $balanceBeforeDebit, &$order) {
             // Re-lock wallet inside the transaction (the lock above was outside)
             $w = Wallet::whereKey($wallet->id)->lockForUpdate()->first() ?? $wallet;
-            WalletLimits::assertCanDebit($user, $w, $amount);
+            WalletLimits::assertCanDebit($user, $w, $totalCharge);
             $before = (float) $w->balance;
-            $w->balance = $before - $amount;
+            $w->balance = $before - $totalCharge;
             $w->cashback_balance = 0;
             $w->save();
 
@@ -91,21 +98,28 @@ class OrderService
                 'notify_number'   => $notifyNumber,
                 'amount'          => $amount,
                 'profit'          => $profit,
+                'fee'             => $fee,
                 'status'          => 'processing',
                 'provider_status' => 'processing',
                 'processed_at'    => now(),
                 'provider_response' => PreferredRoute::orderMeta($service, $send),
             ]);
 
+            $debitDesc = 'Recharge: ' . ($service->name ?? 'Service') . ' ' . $accountNumber;
+            if ($fee > 0) {
+                $debitDesc = 'Bill payment: ' . ($service->name ?? 'Service') . ' ' . $accountNumber
+                    . ' (incl. LKR ' . number_format($fee, 2) . ' service fee)';
+            }
+
             WalletTransaction::create([
                 'wallet_id'         => $w->id,
                 'transactable_type' => Order::class,
                 'transactable_id'   => $order->id,
                 'type'              => 'debit',
-                'amount'            => $amount,
+                'amount'            => $totalCharge,
                 'balance_before'    => $before,
                 'balance_after'     => (float) $w->balance,
-                'description'       => 'Recharge: ' . ($service->name ?? 'Service') . ' ' . $accountNumber,
+                'description'       => $debitDesc,
             ]);
         });
 
@@ -330,7 +344,7 @@ class OrderService
         $order->loadMissing(['user', 'service', 'provider']);
 
         if ($order->isRefunded()) {
-            return ['refunded' => true, 'already' => true, 'cashback_reversed' => 0.0, 'amount' => (float) $order->amount];
+            return ['refunded' => true, 'already' => true, 'cashback_reversed' => 0.0, 'amount' => $order->totalPaid()];
         }
 
         $prevStatus = $order->status;
@@ -346,7 +360,7 @@ class OrderService
                 throw new \RuntimeException('Order not found.');
             }
             if ($locked->status === Order::STATUS_REFUNDED) {
-                return ['refunded' => true, 'already' => true, 'cashback_reversed' => 0.0, 'amount' => (float) $locked->amount];
+                return ['refunded' => true, 'already' => true, 'cashback_reversed' => 0.0, 'amount' => $locked->totalPaid()];
             }
 
             $wallet = Wallet::firstOrCreate(['user_id' => $locked->user_id]);
@@ -412,7 +426,7 @@ class OrderService
                     'by_admin_id'       => $admin->id,
                     'by_admin_name'     => $admin->name,
                     'from_status'       => $prevStatus,
-                    'amount'            => (float) $locked->amount,
+                    'amount'            => $locked->totalPaid(),
                     'cashback_reversed' => $cashbackReversed,
                     'note'              => $note,
                 ],
@@ -429,7 +443,7 @@ class OrderService
                 'refunded'          => (bool) $refunded,
                 'already'           => false,
                 'cashback_reversed' => $cashbackReversed,
-                'amount'            => (float) $locked->amount,
+                'amount'            => $locked->totalPaid(),
             ];
         });
 

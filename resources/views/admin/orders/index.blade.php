@@ -27,7 +27,7 @@
       <thead>
         <tr>
           <th>Ref</th><th>Customer</th><th>Service</th><th>Account</th>
-          <th>Amount</th><th>Cashback</th><th>Provider Txn</th><th>Status</th><th>Date</th><th style="text-align:right;">Actions</th>
+          <th>Amount</th><th>Cashback / Fee</th><th>Provider Txn</th><th>Status</th><th>Date</th><th style="text-align:right;">Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -44,8 +44,19 @@
             </small>
           </td>
           <td>{{ $o->account_number }}</td>
-          <td><b>LKR {{ number_format($o->amount, 2) }}</b></td>
-          <td>LKR {{ number_format($o->profit, 2) }}</td>
+          <td>
+            <b>LKR {{ number_format($o->totalPaid(), 2) }}</b>
+            @if ($o->hasFee())
+              <br><small style="color:var(--muted);">bill {{ number_format($o->amount, 2) }} + fee {{ number_format($o->feeAmount(), 2) }}</small>
+            @endif
+          </td>
+          <td>
+            @if ($o->hasFee())
+              <span style="color:#c0392b; font-weight:700;">+LKR {{ number_format($o->feeAmount(), 2) }} fee</span>
+            @else
+              LKR {{ number_format($o->profit, 2) }}
+            @endif
+          </td>
           <td><code style="font-size:12px;">{{ $o->provider_txn_id ?: '—' }}</code></td>
           <td><span class="pill pill--{{ $o->status }}">{{ $o->statusLabel() }}</span></td>
           <td><small>{{ $o->created_at->format('Y-m-d H:i') }}<br>{{ $o->created_at->diffForHumans() }}</small></td>
@@ -58,7 +69,7 @@
                         data-refund-btn
                         data-ref="{{ $o->reference }}"
                         data-customer="{{ $o->user->name }}"
-                        data-amount="{{ number_format($o->amount, 2) }}"
+                        data-amount="{{ number_format($o->totalPaid(), 2) }}"
                         data-status="{{ $o->statusLabel() }}"
                         data-warning="{{ $o->manualRefundWarning() }}"
                         data-action="{{ route('admin.orders.refund', $o) }}">

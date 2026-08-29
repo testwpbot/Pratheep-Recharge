@@ -307,4 +307,56 @@ class Service extends Model
         }
         return round($profit, 2);
     }
+
+    /**
+     * Only bill-like services (utility / postpaid / insurance / wallet) may
+     * charge the customer an extra fee. Mobile reloads stay cashback-only.
+     */
+    public function allowsFee(): bool
+    {
+        return $this->isBillLike();
+    }
+
+    /** Flat LKR fee for the modal (0 unless a FLAT negative profit fee applies). */
+    public function feeFlat(?User $user = null): float
+    {
+        if (! $this->allowsFee()) return 0.0;
+        $eff = $this->effectivePricing($user);
+        if ($eff['profit'] >= 0 || $eff['type'] === 'PCT') return 0.0;
+        return round(abs($eff['profit']), 2);
+    }
+
+    /** Percentage fee for the modal (0 unless a PCT negative profit fee applies). */
+    public function feePct(?User $user = null): float
+    {
+        if (! $this->allowsFee()) return 0.0;
+        $eff = $this->effectivePricing($user);
+        if ($eff['profit'] >= 0 || $eff['type'] !== 'PCT') return 0.0;
+        return round(abs($eff['profit']), 2);
+    }
+
+    /**
+     * Customer service fee (surcharge) for a given order amount. A NEGATIVE
+     * profit means "charge the customer extra" — the magnitude of that negative
+     * profit is the fee. Returns a positive LKR value (0 when no fee applies).
+     *
+     * Fees are only honoured for bill-like services; a negative profit on a
+     * mobile reload is ignored (treated as zero) to avoid surprise surcharges.
+     */
+    public function calculateFee(float $amount, ?User $user = null): float
+    {
+        if (! $this->allowsFee()) {
+            return 0.0;
+        }
+
+        $eff    = $this->effectivePricing($user);
+        $profit = $eff['profit'];
+        if ($profit >= 0) return 0.0;
+
+        $fee = abs($profit);
+        if ($eff['type'] === 'PCT') {
+            return round(($amount * $fee) / 100, 2);
+        }
+        return round($fee, 2);
+    }
 }

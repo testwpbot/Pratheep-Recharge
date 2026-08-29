@@ -67,9 +67,16 @@
               {{ $o->customerServiceName() }}
             </td>
             <td>{{ $o->account_number }}</td>
-            <td><b>LKR {{ number_format($o->amount, 2) }}</b></td>
             <td>
-              @if ((float) $o->profit > 0)
+              <b>LKR {{ number_format($o->totalPaid(), 2) }}</b>
+              @if ($o->hasFee())
+                <br><small style="color:var(--muted);">incl. LKR {{ number_format($o->feeAmount(), 2) }} fee</small>
+              @endif
+            </td>
+            <td>
+              @if ($o->hasFee())
+                <span class="tx-delta tx-delta--neg">−LKR {{ number_format($o->feeAmount(), 2) }} fee</span>
+              @elseif ((float) $o->profit > 0)
                 <span class="tx-delta tx-delta--pos">+LKR {{ number_format($o->profit, 2) }}</span>
               @else
                 <span style="color:var(--muted);">—</span>

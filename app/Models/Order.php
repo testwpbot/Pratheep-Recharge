@@ -15,7 +15,7 @@ class Order extends Model
 {
     protected $fillable = [
         'reference', 'user_id', 'service_id', 'provider_id',
-        'account_number', 'notify_number', 'amount', 'profit',
+        'account_number', 'notify_number', 'amount', 'profit', 'fee',
         'provider_txn_id', 'status', 'provider_status', 'message',
         'provider_response', 'invoice_path', 'processed_at', 'completed_at',
     ];
@@ -23,6 +23,7 @@ class Order extends Model
     protected $casts = [
         'amount'            => 'decimal:2',
         'profit'            => 'decimal:2',
+        'fee'               => 'decimal:2',
         'provider_response' => 'array',
         'processed_at'      => 'datetime',
         'completed_at'      => 'datetime',
@@ -67,6 +68,27 @@ class Order extends Model
     public function isFailedLike(): bool
     {
         return in_array($this->status, [self::STATUS_FAILED, self::STATUS_REFUNDED], true);
+    }
+
+    /** Customer service fee (surcharge) that was added on top of the bill amount. */
+    public function feeAmount(): float
+    {
+        return round((float) $this->fee, 2);
+    }
+
+    /** True when this order carried a customer surcharge. */
+    public function hasFee(): bool
+    {
+        return $this->feeAmount() > 0.0;
+    }
+
+    /**
+     * Total the customer's wallet was charged: the bill/recharge amount plus
+     * any service fee. `amount` alone is always what the provider is sent.
+     */
+    public function totalPaid(): float
+    {
+        return round((float) $this->amount + $this->feeAmount(), 2);
     }
 
     /** True once an admin has manually refunded this order's wallet charge. */
@@ -253,7 +275,7 @@ class Order extends Model
         }
 
         if ($this->isRefunded()) {
-            return 'This recharge did not go through. LKR '.number_format((float) $this->amount, 2)
+            return 'This recharge did not go through. LKR '.number_format($this->totalPaid(), 2)
                 .' was put back in your wallet.';
         }
 

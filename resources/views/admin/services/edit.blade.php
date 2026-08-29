@@ -70,10 +70,15 @@
       </div>
 
       <div class="field">
-        <label>Profit / Cashback amount</label>
-        <input type="number" step="0.01" min="0" name="profit" value="{{ old('profit', $service->profit) }}" required>
+        <label>Profit / Cashback / Fee</label>
+        <input type="number" step="0.01" name="profit" id="profitInput" value="{{ old('profit', $service->profit) }}" required>
+        @error('profit')<div class="hint" style="color:var(--danger,#c0392b);">{{ $message }}</div>@enderror
         <div class="hint" id="profitHint">
-          This amount is automatically credited to the customer as cashback when an order for this service completes successfully.
+          <b>Positive</b> = cashback credited to the customer on success.
+          <b>Negative</b> = a customer fee (surcharge) added on top of the bill amount — only allowed for bill-type services (utility, postpaid, insurance, wallet).
+        </div>
+        <div class="hint" id="feeNote" style="color:var(--gold-600, #a67c00); font-weight:700; display:none;">
+          ↳ This service will CHARGE the customer extra. Example: a LKR 5,000 bill with fee <span id="feeExample"></span> means the customer pays <span id="feeTotal"></span> and the provider still receives LKR 5,000.
         </div>
       </div>
 
@@ -98,14 +103,32 @@
 </div>
 
 <script>
-document.getElementById('profitType')?.addEventListener('change', function(){
-  const hint = document.getElementById('profitHint');
-  if (this.value === 'PCT'){
-    hint.textContent = 'Percentage of the recharge amount credited as cashback (e.g. 2 = 2% cashback).';
-  } else {
-    hint.textContent = 'Fixed LKR amount credited as cashback on every successful order of this service.';
+(function(){
+  var typeSel = document.getElementById('profitType');
+  var input   = document.getElementById('profitInput');
+  var feeNote = document.getElementById('feeNote');
+  var feeEx   = document.getElementById('feeExample');
+  var feeTot  = document.getElementById('feeTotal');
+
+  function money(n){ return 'LKR ' + Number(n).toLocaleString('en-LK', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+
+  function update(){
+    var val = parseFloat(input.value || '0');
+    if (val < 0){
+      var isPct = typeSel.value === 'PCT';
+      var feeOnBill = isPct ? (5000 * Math.abs(val) / 100) : Math.abs(val);
+      feeEx.textContent = isPct ? (Math.abs(val) + '% = ' + money(feeOnBill)) : money(feeOnBill);
+      feeTot.textContent = money(5000 + feeOnBill);
+      feeNote.style.display = '';
+    } else {
+      feeNote.style.display = 'none';
+    }
   }
-});
+
+  typeSel?.addEventListener('change', update);
+  input?.addEventListener('input', update);
+  update();
+})();
 </script>
 
 @endsection

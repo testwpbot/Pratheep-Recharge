@@ -29,8 +29,14 @@
       <div style="font-weight:800; color:var(--navy-900);">{{ $order->customerServiceName() }}</div>
       <div style="color:var(--muted); font-size:13px;">Account: <b>{{ $order->account_number }}</b></div>
     </div>
-    <span style="margin-left:auto; font-size:22px; font-weight:800; color:var(--navy-900);">LKR {{ number_format($order->amount, 2) }}</span>
+    <span style="margin-left:auto; font-size:22px; font-weight:800; color:var(--navy-900);">LKR {{ number_format($order->totalPaid(), 2) }}</span>
   </div>
+
+  @if ($order->hasFee())
+    <div style="margin-top:-6px; margin-bottom:6px; font-size:13px; color:var(--muted); text-align:right;">
+      Bill LKR {{ number_format($order->amount, 2) }} + service fee LKR {{ number_format($order->feeAmount(), 2) }}
+    </div>
+  @endif
 
   @if ($order->isRefunded())
     <div class="alert alert--success">
@@ -47,7 +53,13 @@
   @endif
 
   <dl class="kv">
-    <dt>Cashback earned</dt><dd>LKR {{ number_format($order->profit, 2) }} @if($order->cashback && $order->cashback->status === 'credited')<span class="pill pill--success">Credited</span>@endif</dd>
+    @if ($order->hasFee())
+      <dt>Bill amount</dt><dd>LKR {{ number_format($order->amount, 2) }}</dd>
+      <dt>Service fee</dt><dd>LKR {{ number_format($order->feeAmount(), 2) }}</dd>
+      <dt>Total paid</dt><dd><b>LKR {{ number_format($order->totalPaid(), 2) }}</b></dd>
+    @else
+      <dt>Cashback earned</dt><dd>LKR {{ number_format($order->profit, 2) }} @if($order->cashback && $order->cashback->status === 'credited')<span class="pill pill--success">Credited</span>@endif</dd>
+    @endif
     <dt>Notify number</dt><dd>{{ $order->notify_number ?? '—' }}</dd>
     <dt>Completed at</dt><dd>{{ $order->completed_at?->format('Y-m-d H:i:s') ?? 'Pending…' }}</dd>
   </dl>

@@ -157,6 +157,8 @@ class RechargeController extends Controller
                     'service_name' => $order->customerServiceName(),
                     'account'      => $order->account_number,
                     'amount'       => (float) $order->amount,
+                    'fee'          => $order->feeAmount(),
+                    'total_paid'   => $order->totalPaid(),
                     'cashback'     => (float) $order->profit,
                     'redirect'     => route('recharge.show', $order),
                 ],
