@@ -1517,6 +1517,22 @@
       mHint.hidden = false;
     }
 
+    // Per-service field labels: DTH needs a smart-card number, insurance a
+    // policy number, electricity a CEB/LECO account number, etc. These come
+    // from the card's data attributes and override the mode defaults above.
+    var accLabel = card.dataset.accLabel || '';
+    var accPlaceholder = card.dataset.accPlaceholder || '';
+    var accHint = card.dataset.accHint || '';
+    if (accLabel){
+      mAccLabel.innerHTML = accLabel + ' <span class="req">*</span>';
+    }
+    if (accPlaceholder){
+      mAccountInput.placeholder = accPlaceholder;
+    }
+    if (accHint && mode !== 'plan' && !mHint.hidden){
+      mHintText.textContent = accHint;
+    }
+
     // Reset success / generating state / form errors
     modal.classList.remove('is-success', 'is-generating');
     mSuccess.hidden = true;
