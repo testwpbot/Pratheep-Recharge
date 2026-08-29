@@ -15,7 +15,7 @@ class Order extends Model
 {
     protected $fillable = [
         'reference', 'user_id', 'service_id', 'provider_id',
-        'account_number', 'notify_number', 'amount', 'profit', 'fee',
+        'account_number', 'notify_number', 'amount', 'profit', 'fee', 'fx_rate',
         'provider_txn_id', 'status', 'provider_status', 'message',
         'provider_response', 'invoice_path', 'processed_at', 'completed_at',
     ];
@@ -24,6 +24,7 @@ class Order extends Model
         'amount'            => 'decimal:2',
         'profit'            => 'decimal:2',
         'fee'               => 'decimal:2',
+        'fx_rate'           => 'decimal:4',
         'provider_response' => 'array',
         'processed_at'      => 'datetime',
         'completed_at'      => 'datetime',
@@ -86,9 +87,33 @@ class Order extends Model
      * Total the customer's wallet was charged: the bill/recharge amount plus
      * any service fee. `amount` alone is always what the provider is sent.
      */
+    /** INR->LKR rate used on this order (1 for non-DTH). */
+    public function fxRate(): float
+    {
+        $r = (float) $this->fx_rate;
+        return $r > 0 ? $r : 1.0;
+    }
+
+    /** True when this order was converted from INR (a DTH recharge). */
+    public function isForeignCurrency(): bool
+    {
+        return $this->fxRate() != 1.0;
+    }
+
+    /** The LKR value of the entered amount after INR->LKR conversion. */
+    public function convertedAmount(): float
+    {
+        return round((float) $this->amount * $this->fxRate(), 2);
+    }
+
+    /**
+     * Total the customer's wallet was charged in LKR: the (converted) amount
+     * plus any service fee. For DTH this is INR amount x rate; for everything
+     * else it is amount + fee.
+     */
     public function totalPaid(): float
     {
-        return round((float) $this->amount + $this->feeAmount(), 2);
+        return round($this->convertedAmount() + $this->feeAmount(), 2);
     }
 
     /** True once an admin has manually refunded this order's wallet charge. */

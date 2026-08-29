@@ -308,6 +308,35 @@ class Service extends Model
         return round($profit, 2);
     }
 
+    /** True for Indian DTH services (priced in INR, wallet charged in LKR). */
+    public function isDth(): bool
+    {
+        $type = strtolower((string) $this->type);
+        $slug = strtolower((string) ($this->category?->slug ?? ''));
+
+        return $type === 'dth' || $slug === 'dth';
+    }
+
+    /**
+     * INR -> LKR rate that applies to this service. DTH services convert the
+     * INR pack value the customer enters into a LKR wallet charge; every other
+     * service is 1:1 (LKR).
+     */
+    public function fxRate(): float
+    {
+        return $this->isDth() ? \App\Models\Setting::dthInrRate() : 1.0;
+    }
+
+    /**
+     * What the customer's wallet is charged in LKR for a given entered amount.
+     * For DTH the entered amount is INR, so LKR = amount x fxRate. For other
+     * services it equals the amount (plus any fee is added separately).
+     */
+    public function walletChargeFor(float $amount): float
+    {
+        return round($amount * $this->fxRate(), 2);
+    }
+
     /**
      * Only bill-like services (utility / postpaid / insurance / wallet) may
      * charge the customer an extra fee. Mobile reloads stay cashback-only.

@@ -221,6 +221,7 @@
                            data-acc-label="{{ $g->primary->accountFieldLabel() }}"
                            data-acc-placeholder="{{ $g->primary->accountFieldPlaceholder() }}"
                            data-acc-hint="{{ $g->primary->accountFieldHint() }}"
+                           data-fx-rate="{{ $g->primary->fxRate() }}"
                            @endif
                            data-cb="{{ number_format($cb, 2) }}"
                            data-details="{{ json_encode($metaDetails, JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT) }}">
@@ -267,6 +268,7 @@
                      data-acc-hint="{{ $g->primary->accountFieldHint() }}"
                      data-fee-flat="{{ $g->primary->feeFlat(auth()->user()) }}"
                      data-fee-pct="{{ $g->primary->feePct(auth()->user()) }}"
+                     data-fx-rate="{{ $g->primary->fxRate() }}"
                      data-mode="reload">
                     <x-icon name="bolt-nav" :size="13"/> {{ $isReloadOnly ? 'Recharge now' : 'Custom amount' }}
                   </button>

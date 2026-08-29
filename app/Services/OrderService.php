@@ -65,7 +65,12 @@ class OrderService
         // the wallet is charged `amount + fee`. Fee and cashback are mutually
         // exclusive (a negative profit yields a fee and zero cashback).
         $fee = $service->calculateFee($amount, $user);
-        $totalCharge = round($amount + $fee, 2);
+
+        // INR -> LKR conversion for DTH. The customer enters the INR pack value
+        // (stored on the order as `amount` and sent to the provider as-is), but
+        // the LKR wallet is charged amount x rate. Non-DTH services have rate 1.
+        $fxRate = $service->fxRate();
+        $totalCharge = round(($amount * $fxRate) + $fee, 2);
 
         // ----- WALLET: balance check -----
         // Customers pay from their wallet balance. We debit ATOMICALLY with
@@ -80,7 +85,7 @@ class OrderService
         // record in ONE DB transaction so they can never go out of sync.
         $order = null;
         $balanceBeforeDebit = (float) $wallet->balance;
-        DB::transaction(function () use ($user, $service, $send, $provider, $accountNumber, $notifyNumber, $amount, $profit, $fee, $totalCharge, $wallet, $balanceBeforeDebit, &$order) {
+        DB::transaction(function () use ($user, $service, $send, $provider, $accountNumber, $notifyNumber, $amount, $profit, $fee, $fxRate, $totalCharge, $wallet, $balanceBeforeDebit, &$order) {
             // Re-lock wallet inside the transaction (the lock above was outside)
             $w = Wallet::whereKey($wallet->id)->lockForUpdate()->first() ?? $wallet;
             WalletLimits::assertCanDebit($user, $w, $totalCharge);
@@ -99,6 +104,7 @@ class OrderService
                 'amount'          => $amount,
                 'profit'          => $profit,
                 'fee'             => $fee,
+                'fx_rate'         => $fxRate,
                 'status'          => 'processing',
                 'provider_status' => 'processing',
                 'processed_at'    => now(),
@@ -106,7 +112,10 @@ class OrderService
             ]);
 
             $debitDesc = 'Recharge: ' . ($service->name ?? 'Service') . ' ' . $accountNumber;
-            if ($fee > 0) {
+            if ($fxRate != 1.0) {
+                $debitDesc = 'DTH recharge: ' . ($service->name ?? 'Service') . ' ' . $accountNumber
+                    . ' (' . number_format($amount, 2) . ' INR x ' . rtrim(rtrim(number_format($fxRate, 4), '0'), '.') . ')';
+            } elseif ($fee > 0) {
                 $debitDesc = 'Bill payment: ' . ($service->name ?? 'Service') . ' ' . $accountNumber
                     . ' (incl. LKR ' . number_format($fee, 2) . ' service fee)';
             }

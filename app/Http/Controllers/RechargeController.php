@@ -94,11 +94,14 @@ class RechargeController extends Controller
         // bills/insurance/wallet topups can go as low as LKR 10.
         $type = strtolower((string) $service->type);
         $isBillLike = in_array($type, ['utility', 'postpaid', 'bill', 'insurance', 'wallet'], true);
-        $minAmount = $isBillLike ? 10 : 50;
+        $isDth = $service->isDth();
+        // DTH amounts are entered in INR (min pack ~10 INR); bills LKR 10; else LKR 50.
+        $minAmount = ($isBillLike || $isDth) ? 10 : 50;
+        $cur = $isDth ? 'INR' : 'LKR';
 
         if ((float) $data['amount'] < $minAmount) {
-            $msg = $isBillLike
-                ? "Minimum amount for bill payments is LKR {$minAmount}."
+            $msg = ($isBillLike || $isDth)
+                ? "Minimum amount is {$cur} {$minAmount}."
                 : "Minimum recharge amount is LKR {$minAmount}. Please enter LKR {$minAmount} or more.";
             if ($request->wantsJson()) {
                 return response()->json(['ok' => false, 'message' => $msg], 422);
@@ -158,6 +161,7 @@ class RechargeController extends Controller
                     'account'      => $order->account_number,
                     'amount'       => (float) $order->amount,
                     'fee'          => $order->feeAmount(),
+                    'fx_rate'      => $order->fxRate(),
                     'total_paid'   => $order->totalPaid(),
                     'cashback'     => (float) $order->profit,
                     'redirect'     => route('recharge.show', $order),

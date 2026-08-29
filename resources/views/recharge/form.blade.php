@@ -47,11 +47,22 @@
         </div>
         @endunless
 
+        @php $isDth = $service->isDth(); $fxRate = $service->fxRate(); @endphp
         <div class="field">
-          <label>Amount (LKR) <span class="req">*</span></label>
+          <label>{{ $isDth ? 'Pack Amount (INR)' : 'Amount (LKR)' }} <span class="req">*</span></label>
           <input type="number" step="0.01" min="10" max="100000" name="amount" id="amount"
-                 value="{{ old('amount') }}" placeholder="e.g. 100" required>
-          <div class="hint">Pick a plan below or enter a custom amount. You pay exactly this amount.</div>
+                 data-fx-rate="{{ $fxRate }}"
+                 value="{{ old('amount') }}" placeholder="{{ $isDth ? 'e.g. 500 (INR)' : 'e.g. 100' }}" required>
+          <div class="hint">
+            @if($isDth)
+              Enter the DTH pack value in Indian Rupees (INR). Your LKR wallet is charged INR × {{ $fxRate }}.
+            @else
+              Pick a plan below or enter a custom amount. You pay exactly this amount.
+            @endif
+          </div>
+          @if($isDth)
+          <div class="hint" id="fxNote" style="display:none; font-weight:600; color:var(--gold, #c9a227);"></div>
+          @endif
         </div>
       </div>
 
@@ -212,6 +223,8 @@
   }catch(e){}
 
   const allowsFee = {{ $service->allowsFee() ? 'true' : 'false' }};
+  const fxRate = parseFloat(input.dataset.fxRate || '1') || 1;
+  const fxNote = document.getElementById('fxNote');
 
   function feeFor(amt){
     if (!allowsFee || profit >= 0) return 0;
@@ -224,6 +237,19 @@
     if (picker) picker.querySelectorAll('.pick').forEach(b => {
       b.classList.toggle('active', Math.abs(parseFloat(b.dataset.value) - amt) < 0.01);
     });
+
+    // DTH: show live INR -> LKR wallet conversion.
+    if (fxRate > 1 && fxNote){
+      if (amt > 0){
+        const lkr = Math.round(amt * fxRate * 100) / 100;
+        fxNote.textContent = 'INR ' + amt.toFixed(2) + ' × ' + fxRate
+          + ' = LKR ' + lkr.toLocaleString('en-LK', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' from your wallet.';
+        fxNote.style.display = '';
+      } else {
+        fxNote.style.display = 'none';
+      }
+    }
+
     if (!amt){ note.style.display='none'; return; }
 
     // Negative profit on a bill service = a customer service fee shown up front.

@@ -50,6 +50,12 @@
                  value="{{ old('min_wallet_balance', $general['min_wallet_balance'] ?? 100) }}" required>
           <div class="hint">This amount must stay in the wallet after a recharge. Example: LKR 100 reserve + LKR 50 recharge = LKR 150 needed. Default 100.</div>
         </div>
+        <div class="field">
+          <label>DTH rate — INR to LKR</label>
+          <input type="number" name="dth_inr_rate" min="0.01" max="100" step="0.01"
+                 value="{{ old('dth_inr_rate', $general['dth_inr_rate'] ?? '3.65') }}" required>
+          <div class="hint">DTH packs are priced in Indian Rupees. The customer enters the INR amount and their LKR wallet is charged INR × this rate. Example: 500 INR × 3.65 = LKR 1,825.</div>
+        </div>
         <div class="field" style="grid-column:1/-1;">
           <label>Deposit note (shown to customers)</label>
           <textarea name="deposit_note" rows="3">{{ old('deposit_note', $general['deposit_note'] ?? '') }}</textarea>

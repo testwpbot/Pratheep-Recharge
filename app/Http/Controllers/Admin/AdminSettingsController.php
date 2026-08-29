@@ -186,6 +186,7 @@ class AdminSettingsController extends Controller
             'support_phone'       => 'nullable|string|max:40',
             'deposit_note'        => 'nullable|string|max:2000',
             'min_wallet_balance'  => 'required|numeric|min:0|max:10000',
+            'dth_inr_rate'        => 'required|numeric|min:0.01|max:100',
         ]);
 
         foreach ($data as $k => $v) {

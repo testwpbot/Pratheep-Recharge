@@ -278,6 +278,7 @@ button.service-card{
   var currentMode = 'reload';
   var currentFee = 0;         // flat LKR fee (when fee type is FLAT)
   var currentFeePct = 0;      // percent fee (when fee type is PCT)
+  var currentFxRate = 1;      // INR->LKR rate for DTH (1 = no conversion)
   var mAmount  = document.getElementById('rcAmount');
   var mSubmit  = document.getElementById('rcSubmit');
   var mSpinner = mSubmit.querySelector('.btn-spinner');
@@ -350,6 +351,8 @@ button.service-card{
     // Customer service fee (surcharge) for bill services with negative profit.
     currentFee = parseFloat(card.dataset.feeFlat || '0') || 0;
     currentFeePct = parseFloat(card.dataset.feePct || '0') || 0;
+    currentFxRate = parseFloat(card.dataset.fxRate || '1') || 1;
+    var isDth = currentFxRate > 1;
     var hideNotify = card.dataset.hideNotify === '1'
       || (card.dataset.category || '') === 'mobile';
     var details;
@@ -394,16 +397,18 @@ button.service-card{
     } else if (mode === 'reload'){
       mTitle.textContent = 'Recharge — ' + op;
       mAccLabel.innerHTML = 'Mobile / Account Number <span class="req">*</span>';
-      mAmountLabel.innerHTML = 'Amount (LKR) <span class="req">*</span>';
+      mAmountLabel.innerHTML = (isDth ? 'Pack Amount (INR)' : 'Amount (LKR)') + ' <span class="req">*</span>';
       mAccountInput.placeholder = 'e.g. 0771234567';
-      mAmountInput.placeholder = 'Enter amount (e.g. 250)';
+      mAmountInput.placeholder = isDth ? 'Enter INR pack value (e.g. 500)' : 'Enter amount (e.g. 250)';
       mAmountInput.readOnly = false;
-      mAmountInput.min = '50';
+      mAmountInput.min = isDth ? '10' : '50';
       mAmountInput.value = '';
       mSubmitLabel.innerHTML = iconSvg.bolt + ' Recharge Now';
       mPlanBox.style.display = 'none';
       mHintIc.innerHTML = iconSvg.bolt;
-      mHintText.textContent = 'Minimum recharge is LKR 50. Enter the amount to send. You pay exactly this amount.';
+      mHintText.textContent = isDth
+        ? 'Enter the DTH pack value in Indian Rupees (INR). Your LKR wallet is charged INR × ' + currentFxRate + '.'
+        : 'Minimum recharge is LKR 50. Enter the amount to send. You pay exactly this amount.';
       mHint.hidden = false;
     } else {
       mTitle.textContent = op;
@@ -513,7 +518,13 @@ button.service-card{
     var title = document.getElementById('rcConfirmTitle') || document.querySelector('#rcConfirm h4');
     if (title) title.textContent = isBill ? 'Confirm this payment?' : 'Confirm this reload?';
     if (mConfirmText){
-      if (fee > 0){
+      if (currentFxRate > 1){
+        var lkr = Math.round(amt * currentFxRate * 100) / 100;
+        mConfirmText.innerHTML = 'Recharge ' + (op || 'this service') + ' to <b>' + acc + '</b>:<br>'
+          + 'Pack value: INR ' + amt.toFixed(2) + '<br>'
+          + 'Rate: INR 1 = LKR ' + currentFxRate + '<br>'
+          + '<b>Total from wallet: LKR ' + lkr.toFixed(2) + '</b>';
+      } else if (fee > 0){
         mConfirmText.innerHTML = 'Pay for ' + (op || 'this service') + ' to <b>' + acc + '</b>:<br>'
           + 'Bill amount: LKR ' + amt.toFixed(2) + '<br>'
           + 'Service fee: LKR ' + fee.toFixed(2) + '<br>'

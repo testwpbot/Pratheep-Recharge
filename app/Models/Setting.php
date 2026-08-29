@@ -133,6 +133,20 @@ class Setting extends Model
      *
      * @return array{last_run_at:string,label:string,ok:bool,never:bool,age_minutes:?int,note:string}
      */
+    /**
+     * INR -> LKR conversion rate used for DTH (Indian Direct-To-Home)
+     * recharges. The customer enters the INR pack value; the LKR wallet is
+     * charged INR x this rate. Admin-configurable in general settings.
+     */
+    public static function dthInrRate(): float
+    {
+        $raw = static::get('general', 'dth_inr_rate', 3.65);
+        $rate = is_numeric($raw) ? (float) $raw : 3.65;
+
+        // A rate of 0 (or negative) would make DTH free — never allow that.
+        return $rate > 0 ? round($rate, 4) : 3.65;
+    }
+
     public static function cronStatus(): array
     {
         $at = '';
