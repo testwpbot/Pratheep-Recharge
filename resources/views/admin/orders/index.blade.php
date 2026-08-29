@@ -52,6 +52,19 @@
           <td class="col-actions">
             <div class="td-actions">
               <a href="{{ route('admin.orders.show', $o) }}" class="btn-admin btn-admin--ghost btn-admin--sm">View</a>
+              @if ($o->canManualRefund())
+                <button type="button"
+                        class="btn-admin btn-admin--danger btn-admin--sm"
+                        data-refund-btn
+                        data-ref="{{ $o->reference }}"
+                        data-customer="{{ $o->user->name }}"
+                        data-amount="{{ number_format($o->amount, 2) }}"
+                        data-status="{{ $o->statusLabel() }}"
+                        data-warning="{{ $o->manualRefundWarning() }}"
+                        data-action="{{ route('admin.orders.refund', $o) }}">
+                  ↩ Refund
+                </button>
+              @endif
               @if (in_array($o->status, ['pending','processing']))
                 <form method="POST" action="{{ route('admin.orders.sync', $o) }}" data-ajax data-ajax-refresh="1">
                   @csrf
@@ -89,4 +102,82 @@
   <div style="margin-top:18px;">{{ $orders->links() }}</div>
 </div>
 
+{{-- Manual refund confirmation modal (shared for every row) --}}
+<div class="rc-modal" id="refundModal" hidden>
+  <div class="rc-modal__backdrop" data-refund-close></div>
+  <div class="rc-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="refundHead">
+    <button class="rc-modal__close" data-refund-close aria-label="Close">✕</button>
+    <div class="rc-modal__head">
+      <h3 id="refundHead">Refund this order?</h3>
+      <small id="refundSub">—</small>
+    </div>
+
+    <div class="alert alert--error" id="refundWarning" style="margin-bottom:14px; line-height:1.6;">—</div>
+
+    <div style="color:var(--navy-800); font-weight:600; font-size:14px; line-height:1.6; margin-bottom:14px;">
+      <p style="margin:0 0 8px;">This will:</p>
+      <ul style="margin:0; padding-left:20px;">
+        <li>Put <b id="refundAmount">—</b> back into the customer wallet.</li>
+        <li>Mark this order as <b>Refunded</b> and reverse any cashback it earned.</li>
+        <li><b>Not</b> reclaim money from the provider — you must reconcile that side yourself.</li>
+      </ul>
+    </div>
+
+    <form method="POST" id="refundForm" action="" data-ajax data-ajax-refresh="1">
+      @csrf
+      <div class="field" style="margin-bottom:12px;">
+        <label>Reason / admin note (optional)</label>
+        <textarea name="note" rows="2" class="hpr-input hpr-input--ta" placeholder="Why you are refunding (saved on the order)…"></textarea>
+      </div>
+      <label style="display:flex; gap:8px; align-items:flex-start; font-size:13px; font-weight:600; color:var(--navy-800); margin-bottom:16px; cursor:pointer;">
+        <input type="checkbox" name="acknowledged" value="1" id="refundAck" style="margin-top:3px;">
+        <span>I understand the provider is <b>not</b> refunded automatically and I have checked the provider side.</span>
+      </label>
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button type="button" class="btn-admin btn-admin--ghost" data-refund-close>Cancel</button>
+        <button type="submit" class="btn-admin btn-admin--danger" id="refundSubmit" data-loading="Refunding…" disabled>
+          Yes, refund to wallet
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
 @endsection
+
+@push('scripts')
+<script>
+(function(){
+  var modal   = document.getElementById('refundModal');
+  if (!modal) return;
+  document.body.appendChild(modal);
+
+  var form    = document.getElementById('refundForm');
+  var sub     = document.getElementById('refundSub');
+  var warn    = document.getElementById('refundWarning');
+  var amtEl   = document.getElementById('refundAmount');
+  var ack     = document.getElementById('refundAck');
+  var submit  = document.getElementById('refundSubmit');
+
+  function open(btn){
+    form.setAttribute('action', btn.dataset.action || '');
+    sub.textContent = 'Order ' + (btn.dataset.ref || '') + ' · ' + (btn.dataset.customer || '') + ' · Status: ' + (btn.dataset.status || '');
+    warn.textContent = btn.dataset.warning || '';
+    amtEl.textContent = 'LKR ' + (btn.dataset.amount || '0.00');
+    ack.checked = false;
+    submit.disabled = true;
+    form.querySelector('textarea[name=note]').value = '';
+    modal.hidden = false;
+  }
+  function close(){ modal.hidden = true; }
+
+  document.addEventListener('click', function(e){
+    var btn = e.target.closest('[data-refund-btn]');
+    if (btn){ e.preventDefault(); open(btn); return; }
+    if (e.target.closest('[data-refund-close]')){ close(); }
+  });
+  ack.addEventListener('change', function(){ submit.disabled = !ack.checked; });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') close(); });
+})();
+</script>
+@endpush

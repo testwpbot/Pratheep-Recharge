@@ -70,22 +70,30 @@
     </div>
   @endif
 
-  @if (in_array($order->status, ['pending','processing']))
+  @if (in_array($order->status, ['pending','processing']) || $order->canManualRefund())
     <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:18px;">
-      <form method="POST" action="{{ route('admin.orders.sync', $order) }}" data-ajax data-ajax-refresh="1">
-        @csrf
-        <button class="btn-admin btn-admin--gold" type="submit" data-loading="Checking…">Re-check provider status</button>
-      </form>
+      @if (in_array($order->status, ['pending','processing']))
+        <form method="POST" action="{{ route('admin.orders.sync', $order) }}" data-ajax data-ajax-refresh="1">
+          @csrf
+          <button class="btn-admin btn-admin--gold" type="submit" data-loading="Checking…">Re-check provider status</button>
+        </form>
 
-      @if ($canFailover)
-        <button class="btn-admin btn-admin--danger" type="button" id="failoverBtn">
-          ⚠ Fail over to Topup Mart
-        </button>
+        @if ($canFailover)
+          <button class="btn-admin btn-admin--danger" type="button" id="failoverBtn">
+            ⚠ Fail over to Topup Mart
+          </button>
+        @endif
+
+        @if ($transferPartner)
+          <button class="btn-admin btn-admin--primary" type="button" id="transferBtn">
+            Send via {{ $transferLabel }}
+          </button>
+        @endif
       @endif
 
-      @if ($transferPartner)
-        <button class="btn-admin btn-admin--primary" type="button" id="transferBtn">
-          Send via {{ $transferLabel }}
+      @if ($order->canManualRefund())
+        <button class="btn-admin btn-admin--danger" type="button" id="refundBtn">
+          ↩ Manual refund
         </button>
       @endif
     </div>
@@ -178,9 +186,70 @@
 </div>
 @endif
 
+@if ($order->canManualRefund())
+{{-- Manual refund confirmation modal --}}
+<div class="rc-modal" id="refundModal" hidden>
+  <div class="rc-modal__backdrop" data-refund-close></div>
+  <div class="rc-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="refundHead">
+    <button class="rc-modal__close" data-refund-close aria-label="Close">✕</button>
+    <div class="rc-modal__head">
+      <h3 id="refundHead">Refund this order?</h3>
+      <small>Order {{ $order->reference }} · {{ $order->user->name }} · Status: {{ $order->statusLabel() }}</small>
+    </div>
+
+    <div class="alert alert--error" style="margin-bottom:14px; line-height:1.6;">{{ $order->manualRefundWarning() }}</div>
+
+    <div style="color:var(--navy-800); font-weight:600; font-size:14px; line-height:1.6; margin-bottom:14px;">
+      <p style="margin:0 0 8px;">This will:</p>
+      <ul style="margin:0; padding-left:20px;">
+        <li>Put <b>LKR {{ number_format((float) $order->amount, 2) }}</b> back into the customer wallet.</li>
+        <li>Mark this order as <b>Refunded</b> and reverse any cashback it earned.</li>
+        <li><b>Not</b> reclaim money from the provider — you must reconcile that side yourself.</li>
+      </ul>
+    </div>
+
+    <form method="POST" id="refundForm" action="{{ route('admin.orders.refund', $order) }}" data-ajax data-ajax-refresh="1">
+      @csrf
+      <div class="field" style="margin-bottom:12px;">
+        <label>Reason / admin note (optional)</label>
+        <textarea name="note" rows="2" class="hpr-input hpr-input--ta" placeholder="Why you are refunding (saved on the order)…"></textarea>
+      </div>
+      <label style="display:flex; gap:8px; align-items:flex-start; font-size:13px; font-weight:600; color:var(--navy-800); margin-bottom:16px; cursor:pointer;">
+        <input type="checkbox" name="acknowledged" value="1" id="refundAck" style="margin-top:3px;">
+        <span>I understand the provider is <b>not</b> refunded automatically and I have checked the provider side.</span>
+      </label>
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button type="button" class="btn-admin btn-admin--ghost" data-refund-close>Cancel</button>
+        <button type="submit" class="btn-admin btn-admin--danger" id="refundSubmit" data-loading="Refunding…" disabled>
+          Yes, refund to wallet
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+@endif
+
 @endsection
 
 @push('scripts')
+@if ($order->canManualRefund())
+<script>
+(function(){
+  var btn = document.getElementById('refundBtn');
+  var modal = document.getElementById('refundModal');
+  if (!btn || !modal) return;
+  document.body.appendChild(modal);
+  var ack = document.getElementById('refundAck');
+  var submit = document.getElementById('refundSubmit');
+  function open(){ ack.checked = false; submit.disabled = true; modal.hidden = false; }
+  function close(){ modal.hidden = true; }
+  btn.addEventListener('click', open);
+  modal.querySelectorAll('[data-refund-close]').forEach(function(el){ el.addEventListener('click', close); });
+  ack.addEventListener('change', function(){ submit.disabled = !ack.checked; });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') close(); });
+})();
+</script>
+@endif
 @if ($canFailover)
 <script>
 (function(){

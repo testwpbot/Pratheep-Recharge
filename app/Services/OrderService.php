@@ -312,6 +312,139 @@ class OrderService
     }
 
     /**
+     * ADMIN MANUAL REFUND. Puts the order's debit back into the customer wallet
+     * and marks the order as refunded — regardless of provider status. This is
+     * a wallet-side action only: it does NOT reclaim money from the upstream
+     * provider. Use when the provider failed but our system missed it, or when
+     * a goodwill refund is agreed.
+     *
+     * Idempotent: if a refund already exists for the order it is a no-op that
+     * still reports success. If the order previously earned cashback (a
+     * successful order being reversed) that cashback is clawed back so wallet
+     * accounting stays correct.
+     *
+     * @return array{refunded:bool,already:bool,cashback_reversed:float,amount:float}
+     */
+    public function manualRefund(Order $order, User $admin, ?string $note = null): array
+    {
+        $order->loadMissing(['user', 'service', 'provider']);
+
+        if ($order->isRefunded()) {
+            return ['refunded' => true, 'already' => true, 'cashback_reversed' => 0.0, 'amount' => (float) $order->amount];
+        }
+
+        $prevStatus = $order->status;
+
+        $result = DB::transaction(function () use ($order, $admin, $note, $prevStatus) {
+            /** @var Order $locked */
+            $locked = Order::with(['user', 'service'])
+                ->whereKey($order->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $locked) {
+                throw new \RuntimeException('Order not found.');
+            }
+            if ($locked->status === Order::STATUS_REFUNDED) {
+                return ['refunded' => true, 'already' => true, 'cashback_reversed' => 0.0, 'amount' => (float) $locked->amount];
+            }
+
+            $wallet = Wallet::firstOrCreate(['user_id' => $locked->user_id]);
+            $wallet = Wallet::whereKey($wallet->id)->lockForUpdate()->first() ?? $wallet;
+
+            // Must have an original debit to refund.
+            $debitTx = WalletTransaction::where('wallet_id', $wallet->id)
+                ->where('transactable_type', Order::class)
+                ->where('transactable_id', $locked->id)
+                ->where('type', WalletTransaction::TYPE_DEBIT)
+                ->first();
+            if (! $debitTx) {
+                throw new \RuntimeException('No original charge (debit) was found for this order, so there is nothing to refund.');
+            }
+
+            // Claw back cashback if this order previously credited any.
+            $cashbackReversed = 0.0;
+            $cashback = Cashback::where('order_id', $locked->id)
+                ->where('status', 'credited')
+                ->first();
+            if ($cashback && (float) $cashback->amount > 0) {
+                $cbAmount = (float) $cashback->amount;
+                $before = (float) $wallet->balance;
+                $after = max(0, $before - $cbAmount); // never push wallet negative
+                $wallet->balance = $after;
+                $wallet->cashback_balance = 0;
+                $wallet->save();
+
+                WalletTransaction::create([
+                    'wallet_id'         => $wallet->id,
+                    'transactable_type' => Order::class,
+                    'transactable_id'   => $locked->id,
+                    'type'              => WalletTransaction::TYPE_ADJUST,
+                    'amount'            => $cbAmount,
+                    'balance_before'    => $before,
+                    'balance_after'     => $after,
+                    'description'       => 'Cashback reversed — manual refund of order ' . $locked->reference,
+                ]);
+
+                $cashback->status = 'reversed';
+                $cashback->save();
+                $cashbackReversed = $cbAmount;
+            }
+
+            // Put the original charge back (idempotent — creates the refund row).
+            $refunded = $this->refundWallet($locked, $note
+                ? ('Manual refund by admin — ' . $note)
+                : ('Manual refund by admin for order ' . $locked->reference));
+
+            // Stamp the order.
+            $stamp = now()->timezone('Asia/Colombo')->format('Y-m-d H:i');
+            $noteText = "[ADMIN MANUAL REFUND {$stamp} by {$admin->name}] "
+                . 'Wallet refunded (was ' . $prevStatus . '). '
+                . 'This is a wallet-side refund only and does not reclaim money from the provider.';
+            if ($note) {
+                $noteText .= ' Reason: ' . $note;
+            }
+
+            $prevResp = is_array($locked->provider_response) ? $locked->provider_response : [];
+            $locked->provider_response = array_merge($prevResp, [
+                '_manual_refund' => [
+                    'at'                => now()->toDateTimeString(),
+                    'by_admin_id'       => $admin->id,
+                    'by_admin_name'     => $admin->name,
+                    'from_status'       => $prevStatus,
+                    'amount'            => (float) $locked->amount,
+                    'cashback_reversed' => $cashbackReversed,
+                    'note'              => $note,
+                ],
+            ]);
+            $locked->message = trim(($locked->message ? $locked->message . "\n\n" : '') . $noteText);
+            $locked->status = Order::STATUS_REFUNDED;
+            $locked->provider_status = 'manual_refund';
+            if (! $locked->completed_at) {
+                $locked->completed_at = now();
+            }
+            $locked->save();
+
+            return [
+                'refunded'          => (bool) $refunded,
+                'already'           => false,
+                'cashback_reversed' => $cashbackReversed,
+                'amount'            => (float) $locked->amount,
+            ];
+        });
+
+        $order->refresh();
+        $this->syncWalletNotice((int) $order->user_id);
+
+        Log::info("Admin manual refund: {$order->reference} by admin {$admin->id}", [
+            'from_status'       => $prevStatus,
+            'cashback_reversed' => $result['cashback_reversed'] ?? 0,
+        ]);
+
+        return $result;
+    }
+
+    /**
      * Admin failover for a PENDING HRC DTH order.
      *
      * Re-sends THE SAME order through Topup Mart. Wallet is not refunded or

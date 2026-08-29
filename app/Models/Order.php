@@ -69,6 +69,40 @@ class Order extends Model
         return in_array($this->status, [self::STATUS_FAILED, self::STATUS_REFUNDED], true);
     }
 
+    /** True once an admin has manually refunded this order's wallet charge. */
+    public function wasManuallyRefunded(): bool
+    {
+        return ! empty($this->responseArray()['_manual_refund']);
+    }
+
+    /**
+     * Can an admin manually refund this order? Anything that is not already
+     * refunded can be refunded to the wallet (pending, processing, success,
+     * failed). The action is blocked only once it is already refunded.
+     */
+    public function canManualRefund(): bool
+    {
+        return $this->status !== self::STATUS_REFUNDED;
+    }
+
+    /**
+     * Plain-English risk warning shown before a manual refund. A manual refund
+     * only puts money back in the CUSTOMER wallet — it never pulls money back
+     * from the upstream provider. How risky that is depends on the order state.
+     */
+    public function manualRefundWarning(): string
+    {
+        return match ($this->status) {
+            self::STATUS_SUCCESS => 'This order is marked SUCCESS — the recharge most likely reached the customer and the provider already charged you for it. '
+                . 'Refunding now returns money to the customer wallet but does NOT get your money back from the provider. Only do this if you are certain the top-up did not actually reach the customer.',
+            self::STATUS_PENDING, self::STATUS_PROCESSING => 'This order is still '.$this->status.' at the provider. It could still complete. '
+                . 'If you refund now and the provider then completes it, the customer keeps the top-up AND the refund. Check the provider status first.',
+            self::STATUS_FAILED => 'This order failed but the wallet was not put back automatically. A manual refund returns the charge to the customer wallet. '
+                . 'The provider is not refunded automatically — confirm with the provider that they did not charge you (or that they will credit you back).',
+            default => 'A manual refund only returns money to the customer wallet. It does NOT automatically reclaim money from the provider — reconcile that side yourself.',
+        };
+    }
+
     /** Simple English label for customer + admin pills. */
     public function statusLabel(): string
     {

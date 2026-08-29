@@ -82,6 +82,57 @@ class AdminOrderController extends Controller
     }
 
     /**
+     * Admin manual refund. Puts the order's charge back into the customer
+     * wallet and marks the order refunded. Wallet-side only — it does NOT
+     * reclaim money from the upstream provider (the UI warns about this).
+     */
+    public function refund(Request $request, Order $order, OrderService $svc)
+    {
+        /** @var User $admin */
+        $admin = Auth::user();
+
+        $validated = $request->validate([
+            'note'         => ['nullable', 'string', 'max:500'],
+            'acknowledged' => ['accepted'],
+        ], [
+            'acknowledged.accepted' => 'Please confirm you understand the provider is not automatically refunded.',
+        ]);
+
+        $note = trim((string) ($validated['note'] ?? ''));
+
+        try {
+            $result = $svc->manualRefund($order, $admin, $note !== '' ? $note : null);
+            $fresh = $order->fresh();
+
+            if (! empty($result['already'])) {
+                $message = "Order {$order->reference} was already refunded. No changes made.";
+            } else {
+                $message = "Order {$order->reference} refunded. LKR "
+                    . number_format((float) $result['amount'], 2)
+                    . ' was put back in the customer wallet.';
+                if (! empty($result['cashback_reversed'])) {
+                    $message .= ' Cashback of LKR ' . number_format((float) $result['cashback_reversed'], 2) . ' was reversed.';
+                }
+            }
+
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'ok'      => true,
+                    'message' => $message,
+                    'status'  => $fresh?->status,
+                ]);
+            }
+            return back()->with('status', $message);
+        } catch (\Throwable $e) {
+            $message = 'Refund failed: ' . $e->getMessage();
+            if ($request->wantsJson()) {
+                return response()->json(['ok' => false, 'message' => $message], 422);
+            }
+            return back()->with('error', $message);
+        }
+    }
+
+    /**
      * Admin failover: cancel stuck HRC order locally and re-send via Topup Mart.
      */
     public function failover(Request $request, Order $order, OrderService $svc)
