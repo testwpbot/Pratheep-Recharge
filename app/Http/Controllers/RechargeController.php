@@ -71,7 +71,7 @@ class RechargeController extends Controller
     {
         $data = $request->validate([
             'service_id' => 'required|exists:services,id',
-            'account_number' => 'required|string|min:6|max:30',
+            'account_number' => 'required|string|min:4|max:30',
             'notify_number'  => 'nullable|string|max:30',
             'amount'         => 'required|numeric|min:10|max:100000',
         ]);

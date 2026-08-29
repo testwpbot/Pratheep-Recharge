@@ -33,11 +33,11 @@
 
       <div class="form-grid">
         <div class="field" style="grid-column:1/-1;">
-          <label>Account / Mobile Number <span class="req">*</span></label>
-          <input type="tel" name="account_number" required pattern="[0-9+()\s-]{6,30}"
-                 value="{{ old('account_number', auth()->user()->phone) }}"
-                 placeholder="e.g. 0771234567 / +94771234567">
-          <div class="hint">The number you want to recharge or pay the bill for.</div>
+          <label>{{ $service->accountFieldLabel() }} <span class="req">*</span></label>
+          <input type="tel" name="account_number" required pattern="[0-9A-Za-z+()\s-]{4,30}"
+                 value="{{ old('account_number', $service->hidesNotifyNumber() ? auth()->user()->phone : '') }}"
+                 placeholder="{{ $service->accountFieldPlaceholder() }}">
+          <div class="hint">{{ $service->accountFieldHint() }}</div>
         </div>
 
         @unless($service->hidesNotifyNumber())

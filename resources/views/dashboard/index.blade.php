@@ -102,6 +102,9 @@
                         data-mode="{{ $isBill ? 'bill' : 'reload' }}"
                         data-category="{{ $catSlug }}"
                         data-pay-kind="{{ $payKind }}"
+                        data-acc-label="{{ $s->accountFieldLabel() }}"
+                        data-acc-placeholder="{{ $s->accountFieldPlaceholder() }}"
+                        data-acc-hint="{{ $s->accountFieldHint() }}"
                         data-hide-notify="{{ ($catSlug === 'mobile' || $svcType === 'postpaid') ? '1' : '0' }}">
                   <img src="{{ $s->logoUrl }}" alt="{{ $s->name }}"
                        onerror="this.src='{{ asset('assets/logo-mark.png') }}'">

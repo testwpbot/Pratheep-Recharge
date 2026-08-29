@@ -45,7 +45,7 @@ class DashboardController extends Controller
         // hides every service that belongs to it.
         $categories = Category::where('is_active', true)
             ->withWhereHas('services', fn ($q) => $q->forCustomers()
-                ->with(['plans', 'specialPrices' => fn ($sp) => $sp->where('user_id', $user->id)])
+                ->with(['plans', 'category', 'specialPrices' => fn ($sp) => $sp->where('user_id', $user->id)])
                 ->orderBy('name'))
             ->orderBy('sort_order')
             ->get();

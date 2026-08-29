@@ -191,6 +191,84 @@ class Service extends Model
         return $slug === 'mobile' || $type === 'postpaid';
     }
 
+    /**
+     * Human label for the account/identifier field, chosen by the real-world
+     * kind of service. DTH needs a smart-card number, insurance a policy
+     * number, electricity a CEB/LECO account number, etc. — never just
+     * "Mobile Number" for everything.
+     *
+     * Relies on op_code + type (both always present) so it works even when the
+     * category relation isn't eager-loaded.
+     */
+    public function accountFieldLabel(): string
+    {
+        $type = strtolower((string) $this->type);
+        $slug = strtolower((string) ($this->category?->slug ?? ''));
+        $op   = (string) $this->op_code;
+
+        // Utility sub-types need a specific account label.
+        if (in_array($op, ['29', '195'], true)) return 'CEB Account Number';
+        if (in_array($op, ['30', '196'], true)) return 'LECO Account Number';
+        if (in_array($op, ['31', '197'], true)) return 'Water Account Number';
+        if ($op === '198')                      return 'SLT Telephone / Account Number';
+        if (in_array($op, ['9', '18'], true))   return 'Telephone Number';
+
+        if ($type === 'dth' || $slug === 'dth')             return 'Smart Card / VC Number';
+        if ($type === 'insurance' || $slug === 'insurance') return 'Policy Number';
+        if ($type === 'wallet' || $slug === 'wallet-topup') return 'Registered Mobile Number';
+        if ($type === 'broadband' || $slug === 'broadband') return 'Account / Username';
+        if ($type === 'tv' || $slug === 'tv')               return 'Account / Smart Card Number';
+        if ($type === 'utility' || $slug === 'utility')     return 'Account / Bill Number';
+        if ($type === 'postpaid' || $type === 'prepaid' || $slug === 'mobile') return 'Mobile Number';
+
+        return 'Account / Reference Number';
+    }
+
+    /** Placeholder text matching accountFieldLabel(). */
+    public function accountFieldPlaceholder(): string
+    {
+        $type = strtolower((string) $this->type);
+        $slug = strtolower((string) ($this->category?->slug ?? ''));
+        $op   = (string) $this->op_code;
+
+        if ($type === 'dth' || $slug === 'dth')             return 'Smart card / viewing card number';
+        if ($type === 'insurance' || $slug === 'insurance') return 'Policy number';
+        if (in_array($op, ['9', '18'], true))               return 'e.g. 0112345678';
+        if ($type === 'broadband' || $slug === 'broadband') return 'Account number or username';
+        if ($type === 'tv' || $slug === 'tv')               return 'Account / smart card number';
+        if ($type === 'utility' || $slug === 'utility')     return 'Account / bill number';
+
+        return 'e.g. 0771234567';
+    }
+
+    /** Short helper line under the account field. */
+    public function accountFieldHint(): string
+    {
+        $type = strtolower((string) $this->type);
+        $slug = strtolower((string) ($this->category?->slug ?? ''));
+
+        if ($type === 'dth' || $slug === 'dth') {
+            return 'Enter the smart card / viewing card (VC) number printed on your DTH box or bill.';
+        }
+        if ($type === 'insurance' || $slug === 'insurance') {
+            return 'Enter your insurance policy number.';
+        }
+        if ($type === 'wallet' || $slug === 'wallet-topup') {
+            return 'Enter the mobile number registered with the app/wallet.';
+        }
+        if ($type === 'utility' || $slug === 'utility') {
+            return 'Enter the account / bill reference number shown on your bill.';
+        }
+        if ($type === 'broadband' || $slug === 'broadband') {
+            return 'Enter your broadband account number or login username.';
+        }
+        if ($type === 'tv' || $slug === 'tv') {
+            return 'Enter your TV account or smart card number.';
+        }
+
+        return 'The number you want to recharge or pay for.';
+    }
+
     /** Public URL for the operator logo */
     public function getLogoUrlAttribute(): string
     {

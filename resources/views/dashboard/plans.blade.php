@@ -217,6 +217,11 @@
                            data-logo="{{ $g->logo ? asset($g->logo) : asset('assets/logo-mark.png') }}"
                            data-op-name="{{ $g->label }}{{ !empty($g->tag) ? ' ' . $g->tag : '' }}"
                            data-hide-notify="{{ ($cat->slug === 'mobile' || strtolower((string) ($g->tag ?? '')) === 'postpaid') ? '1' : '0' }}"
+                           @if($g->primary)
+                           data-acc-label="{{ $g->primary->accountFieldLabel() }}"
+                           data-acc-placeholder="{{ $g->primary->accountFieldPlaceholder() }}"
+                           data-acc-hint="{{ $g->primary->accountFieldHint() }}"
+                           @endif
                            data-cb="{{ number_format($cb, 2) }}"
                            data-details="{{ json_encode($metaDetails, JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT) }}">
                           <img src="{{ $g->logo ? asset($g->logo) : asset('assets/logo-mark.png') }}"
@@ -257,6 +262,9 @@
                      data-logo="{{ $g->logo ? asset($g->logo) : asset('assets/logo-mark.png') }}"
                      data-op-name="{{ $g->label }}{{ !empty($g->tag) ? ' ' . $g->tag : '' }}"
                      data-hide-notify="{{ ($cat->slug === 'mobile' || strtolower((string) ($g->tag ?? '')) === 'postpaid') ? '1' : '0' }}"
+                     data-acc-label="{{ $g->primary->accountFieldLabel() }}"
+                     data-acc-placeholder="{{ $g->primary->accountFieldPlaceholder() }}"
+                     data-acc-hint="{{ $g->primary->accountFieldHint() }}"
                      data-mode="reload">
                     <x-icon name="bolt-nav" :size="13"/> {{ $isReloadOnly ? 'Recharge now' : 'Custom amount' }}
                   </button>
@@ -271,6 +279,9 @@
                        data-logo="{{ $g->logo ? asset($g->logo) : asset('assets/logo-mark.png') }}"
                        data-op-name="{{ $g->bill_label ?? ('Pay ' . $billSvc->name) }}"
                        data-hide-notify="{{ ($cat->slug === 'mobile' || strtolower((string) $billSvc->type) === 'postpaid') ? '1' : '0' }}"
+                       data-acc-label="{{ $billSvc->accountFieldLabel() }}"
+                       data-acc-placeholder="{{ $billSvc->accountFieldPlaceholder() }}"
+                       data-acc-hint="{{ $billSvc->accountFieldHint() }}"
                        data-mode="bill">
                       <x-icon name="bill" :size="13"/>
                       {{ $g->bill_label ?? ('Pay ' . $billSvc->name) }}
@@ -287,6 +298,9 @@
                      data-logo="{{ $g->logo ? asset($g->logo) : asset('assets/logo-mark.png') }}"
                      data-op-name="{{ $g->bill_label ?? ('Pay ' . $g->label) }}"
                      data-hide-notify="{{ ($cat->slug === 'mobile' || strtolower((string) ($g->primary->type ?? '')) === 'postpaid' || strtolower((string) ($g->tag ?? '')) === 'postpaid') ? '1' : '0' }}"
+                     data-acc-label="{{ $g->primary->accountFieldLabel() }}"
+                     data-acc-placeholder="{{ $g->primary->accountFieldPlaceholder() }}"
+                     data-acc-hint="{{ $g->primary->accountFieldHint() }}"
                      data-mode="bill">
                     <x-icon name="bill" :size="13"/>
                     {{ $g->bill_label ?? ('Pay ' . $g->label) }}
