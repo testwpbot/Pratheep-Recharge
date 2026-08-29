@@ -1706,14 +1706,39 @@
       }, wait);
     }
 
-    fetch('{{ route('recharge.confirm') }}', {
-      method: 'POST',
-      body: fd,
-      headers: {'X-Requested-With': 'XMLHttpRequest', 'Accept':'application/json'},
-      credentials: 'same-origin'
-    })
-    .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, status:r.status, data:d}; }); })
+    // POST the order. If the session/CSRF token has expired (HTTP 419) we
+    // silently fetch a fresh token and retry ONCE, so the customer never sees
+    // a raw "CSRF token mismatch" page or has to log out and back in.
+    function postOrder(isRetry){
+      return fetch('{{ route('recharge.confirm') }}', {
+        method: 'POST',
+        body: fd,
+        headers: {'X-Requested-With': 'XMLHttpRequest', 'Accept':'application/json'},
+        credentials: 'same-origin'
+      }).then(function(r){
+        if (r.status === 419 && !isRetry){
+          return fetch('{{ route('csrf.token') }}', {
+            headers: {'Accept':'application/json'}, credentials: 'same-origin'
+          })
+          .then(function(t){ return t.json(); })
+          .then(function(tj){
+            if (tj && tj.token){
+              var tokenField = mForm.querySelector('input[name=_token]');
+              if (tokenField) tokenField.value = tj.token;
+              fd.set('_token', tj.token);
+            }
+            return postOrder(true);
+          });
+        }
+        return r.json().then(function(d){ return {ok:r.ok, status:r.status, data:d}; });
+      });
+    }
+
+    postOrder(false)
     .then(function(res){
+      if (res.status === 419){
+        throw new Error('Your session expired. Please refresh the page and try again.');
+      }
       if (!res.ok || !res.data.ok){
         throw new Error((res.data && res.data.message) || 'Order failed. Please try again.');
       }

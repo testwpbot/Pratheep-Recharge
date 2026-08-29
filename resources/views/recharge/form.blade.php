@@ -241,8 +241,25 @@
   }
 
   var form = document.querySelector('form[action="{{ route('recharge.confirm') }}"]');
+
+  // Refresh the CSRF token right before the real POST, then submit. This keeps
+  // orders working even after the session has been idle long enough for the
+  // page's token to go stale (avoids the raw "CSRF token mismatch" page).
+  function submitWithFreshToken(){
+    fetch('{{ route('csrf.token') }}', {headers:{'Accept':'application/json'}, credentials:'same-origin'})
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        if (j && j.token){
+          var f = form.querySelector('input[name=_token]');
+          if (f) f.value = j.token;
+        }
+      })
+      .catch(function(){ /* fall back to existing token */ })
+      .finally(function(){ HTMLFormElement.prototype.submit.call(form); });
+  }
+
   var confirmBox = document.getElementById('billConfirm');
-  if (form && confirmBox){
+  if (form){
     var acc = form.querySelector('[name=account_number]');
     var confirmText = document.getElementById('billConfirmText');
     var allowSubmit = false;
@@ -250,29 +267,37 @@
       if (allowSubmit) return;
       e.preventDefault();
       if (!form.reportValidity()) return;
-      var amt = parseFloat(input.value || '0');
-      var num = (acc && acc.value) ? acc.value.trim() : '';
-      var fee = feeFor(amt);
-      if (fee > 0){
-        confirmText.innerHTML = 'Pay for <b>{{ addslashes($service->name) }}</b> to <b>' + num + '</b>:<br>'
-          + 'Bill amount: LKR ' + amt.toFixed(2) + '<br>'
-          + 'Service fee: LKR ' + fee.toFixed(2) + '<br>'
-          + '<b>Total from wallet: LKR ' + (amt+fee).toFixed(2) + '</b>';
+      // Bill-like services show a confirmation step; others submit directly.
+      if (confirmBox){
+        var amt = parseFloat(input.value || '0');
+        var num = (acc && acc.value) ? acc.value.trim() : '';
+        var fee = feeFor(amt);
+        if (fee > 0){
+          confirmText.innerHTML = 'Pay for <b>{{ addslashes($service->name) }}</b> to <b>' + num + '</b>:<br>'
+            + 'Bill amount: LKR ' + amt.toFixed(2) + '<br>'
+            + 'Service fee: LKR ' + fee.toFixed(2) + '<br>'
+            + '<b>Total from wallet: LKR ' + (amt+fee).toFixed(2) + '</b>';
+        } else {
+          confirmText.textContent = 'Pay LKR ' + amt.toFixed(2) + ' to ' + num + ' for {{ addslashes($service->name) }} from your wallet?';
+        }
+        confirmBox.hidden = false;
       } else {
-        confirmText.textContent = 'Pay LKR ' + amt.toFixed(2) + ' to ' + num + ' for {{ addslashes($service->name) }} from your wallet?';
-      }
-      confirmBox.hidden = false;
-    });
-    confirmBox.querySelectorAll('[data-bill-back]').forEach(function(btn){
-      btn.addEventListener('click', function(){ confirmBox.hidden = true; });
-    });
-    var yes = document.getElementById('billConfirmYes');
-    if (yes){
-      yes.addEventListener('click', function(){
         allowSubmit = true;
-        confirmBox.hidden = true;
-        form.submit();
+        submitWithFreshToken();
+      }
+    });
+    if (confirmBox){
+      confirmBox.querySelectorAll('[data-bill-back]').forEach(function(btn){
+        btn.addEventListener('click', function(){ confirmBox.hidden = true; });
       });
+      var yes = document.getElementById('billConfirmYes');
+      if (yes){
+        yes.addEventListener('click', function(){
+          allowSubmit = true;
+          confirmBox.hidden = true;
+          submitWithFreshToken();
+        });
+      }
     }
   }
 })();

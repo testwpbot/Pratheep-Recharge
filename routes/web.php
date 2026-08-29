@@ -82,6 +82,13 @@ Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])
 Route::get('/services',                [RechargeController::class, 'index'])->name('recharge.index');
 Route::get('/services/{categorySlug}', [RechargeController::class, 'index'])->name('recharge.category');
 
+// Fresh CSRF token for AJAX forms. GET routes are not CSRF-protected, so this
+// works even after a session/token expires — the client fetches a new token,
+// retries the request, and the customer never sees a raw 419 page.
+Route::get('/csrf-token', fn () => response()->json([
+    'token' => csrf_token(),
+]))->name('csrf.token');
+
 Route::redirect('/mobile-reload', '/services/mobile');
 Route::redirect('/postpaid',      '/services/mobile');
 Route::redirect('/data-packages', '/services/mobile');
