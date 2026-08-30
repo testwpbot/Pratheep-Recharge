@@ -49,13 +49,13 @@
 
         @php $isDth = $service->isDth(); $fxRate = $service->fxRate(); @endphp
         <div class="field">
-          <label>{{ $isDth ? 'Pack Amount (INR)' : 'Amount (LKR)' }} <span class="req">*</span></label>
+          <label>Amount (LKR) <span class="req">*</span></label>
           <input type="number" step="0.01" min="10" max="100000" name="amount" id="amount"
                  data-fx-rate="{{ $fxRate }}"
-                 value="{{ old('amount') }}" placeholder="{{ $isDth ? 'e.g. 500 (INR)' : 'e.g. 100' }}" required>
+                 value="{{ old('amount') }}" placeholder="{{ $isDth ? 'e.g. 1000' : 'e.g. 100' }}" required>
           <div class="hint">
             @if($isDth)
-              Enter the DTH pack value in Indian Rupees (INR). Your LKR wallet is charged INR × {{ $fxRate }}.
+              Enter the amount in LKR. The DTH provider is credited the equivalent in Indian Rupees (LKR ÷ {{ $fxRate }}).
             @else
               Pick a plan below or enter a custom amount. You pay exactly this amount.
             @endif
@@ -238,12 +238,13 @@
       b.classList.toggle('active', Math.abs(parseFloat(b.dataset.value) - amt) < 0.01);
     });
 
-    // DTH: show live INR -> LKR wallet conversion.
+    // DTH: show live LKR -> INR conversion (what the provider receives).
     if (fxRate > 1 && fxNote){
       if (amt > 0){
-        const lkr = Math.round(amt * fxRate * 100) / 100;
-        fxNote.textContent = 'INR ' + amt.toFixed(2) + ' × ' + fxRate
-          + ' = LKR ' + lkr.toLocaleString('en-LK', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' from your wallet.';
+        const inr = Math.round(amt / fxRate * 100) / 100;
+        fxNote.textContent = 'You pay LKR ' + amt.toLocaleString('en-LK', {minimumFractionDigits:2, maximumFractionDigits:2})
+          + ' → provider credited INR ' + inr.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})
+          + ' (rate ' + fxRate + ').';
         fxNote.style.display = '';
       } else {
         fxNote.style.display = 'none';

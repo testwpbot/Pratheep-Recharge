@@ -38,7 +38,7 @@
     </div>
   @elseif ($order->isForeignCurrency())
     <div style="margin-top:-6px; margin-bottom:6px; font-size:13px; color:var(--muted); text-align:right;">
-      INR {{ number_format($order->amount, 2) }} × {{ rtrim(rtrim(number_format($order->fxRate(), 4), '0'), '.') }} = LKR {{ number_format($order->totalPaid(), 2) }}
+      LKR {{ number_format($order->amount, 2) }} → INR {{ number_format($order->providerAmount(), 2) }} (rate {{ rtrim(rtrim(number_format($order->fxRate(), 4), '0'), '.') }})
     </div>
   @endif
 
@@ -62,9 +62,9 @@
       <dt>Service fee</dt><dd>LKR {{ number_format($order->feeAmount(), 2) }}</dd>
       <dt>Total paid</dt><dd><b>LKR {{ number_format($order->totalPaid(), 2) }}</b></dd>
     @elseif ($order->isForeignCurrency())
-      <dt>Pack value</dt><dd>INR {{ number_format($order->amount, 2) }}</dd>
+      <dt>Amount paid</dt><dd>LKR {{ number_format($order->amount, 2) }}</dd>
       <dt>Rate</dt><dd>INR 1 = LKR {{ rtrim(rtrim(number_format($order->fxRate(), 4), '0'), '.') }}</dd>
-      <dt>Total paid</dt><dd><b>LKR {{ number_format($order->totalPaid(), 2) }}</b></dd>
+      <dt>Provider credited</dt><dd>INR {{ number_format($order->providerAmount(), 2) }}</dd>
       @if ($order->profit > 0)<dt>Cashback earned</dt><dd>LKR {{ number_format($order->profit, 2) }} @if($order->cashback && $order->cashback->status === 'credited')<span class="pill pill--success">Credited</span>@endif</dd>@endif
     @else
       <dt>Cashback earned</dt><dd>LKR {{ number_format($order->profit, 2) }} @if($order->cashback && $order->cashback->status === 'credited')<span class="pill pill--success">Credited</span>@endif</dd>

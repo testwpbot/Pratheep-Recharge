@@ -200,7 +200,10 @@ class TMobiling implements ProviderInterface
     public function recharge(Order $order): array
     {
         $number = preg_replace('/[^0-9]/', '', (string) $order->account_number);
-        $amount = rtrim(rtrim(number_format((float) $order->amount, 2, '.', ''), '0'), '.');
+        // DTH packs are priced in INR. The customer paid in LKR (order->amount);
+        // the provider must be sent the INR equivalent (LKR / rate). For every
+        // other service providerAmount() returns the LKR amount unchanged.
+        $amount = rtrim(rtrim(number_format($order->providerAmount(), 2, '.', ''), '0'), '.');
         $op = $order->sendOpCode() ?: (string) ($order->service?->op_code ?? '');
 
         $query = [

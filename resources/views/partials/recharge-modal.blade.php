@@ -397,9 +397,9 @@ button.service-card{
     } else if (mode === 'reload'){
       mTitle.textContent = 'Recharge — ' + op;
       mAccLabel.innerHTML = 'Mobile / Account Number <span class="req">*</span>';
-      mAmountLabel.innerHTML = (isDth ? 'Pack Amount (INR)' : 'Amount (LKR)') + ' <span class="req">*</span>';
+      mAmountLabel.innerHTML = 'Amount (LKR) <span class="req">*</span>';
       mAccountInput.placeholder = 'e.g. 0771234567';
-      mAmountInput.placeholder = isDth ? 'Enter INR pack value (e.g. 500)' : 'Enter amount (e.g. 250)';
+      mAmountInput.placeholder = isDth ? 'Enter amount in LKR (e.g. 1000)' : 'Enter amount (e.g. 250)';
       mAmountInput.readOnly = false;
       mAmountInput.min = isDth ? '10' : '50';
       mAmountInput.value = '';
@@ -407,7 +407,7 @@ button.service-card{
       mPlanBox.style.display = 'none';
       mHintIc.innerHTML = iconSvg.bolt;
       mHintText.textContent = isDth
-        ? 'Enter the DTH pack value in Indian Rupees (INR). Your LKR wallet is charged INR × ' + currentFxRate + '.'
+        ? 'Enter the amount in LKR. The DTH provider is credited the equivalent in Indian Rupees (LKR ÷ ' + currentFxRate + ').'
         : 'Minimum recharge is LKR 50. Enter the amount to send. You pay exactly this amount.';
       mHint.hidden = false;
     } else {
@@ -519,11 +519,11 @@ button.service-card{
     if (title) title.textContent = isBill ? 'Confirm this payment?' : 'Confirm this reload?';
     if (mConfirmText){
       if (currentFxRate > 1){
-        var lkr = Math.round(amt * currentFxRate * 100) / 100;
+        var inr = Math.round(amt / currentFxRate * 100) / 100;
         mConfirmText.innerHTML = 'Recharge ' + (op || 'this service') + ' to <b>' + acc + '</b>:<br>'
-          + 'Pack value: INR ' + amt.toFixed(2) + '<br>'
+          + 'You pay: LKR ' + amt.toFixed(2) + '<br>'
           + 'Rate: INR 1 = LKR ' + currentFxRate + '<br>'
-          + '<b>Total from wallet: LKR ' + lkr.toFixed(2) + '</b>';
+          + '<b>Provider credited: INR ' + inr.toFixed(2) + '</b>';
       } else if (fee > 0){
         mConfirmText.innerHTML = 'Pay for ' + (op || 'this service') + ' to <b>' + acc + '</b>:<br>'
           + 'Bill amount: LKR ' + amt.toFixed(2) + '<br>'

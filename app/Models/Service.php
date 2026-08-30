@@ -328,13 +328,13 @@ class Service extends Model
     }
 
     /**
-     * What the customer's wallet is charged in LKR for a given entered amount.
-     * For DTH the entered amount is INR, so LKR = amount x fxRate. For other
-     * services it equals the amount (plus any fee is added separately).
+     * The amount to send to the provider for a given LKR amount the customer
+     * entered. DTH packs are priced in INR, so the provider receives
+     * amount / fxRate. Every other service is 1:1 (LKR).
      */
-    public function walletChargeFor(float $amount): float
+    public function providerAmountFor(float $amount): float
     {
-        return round($amount * $this->fxRate(), 2);
+        return round($amount / $this->fxRate(), 2);
     }
 
     /**

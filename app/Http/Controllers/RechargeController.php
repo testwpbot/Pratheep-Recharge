@@ -95,13 +95,12 @@ class RechargeController extends Controller
         $type = strtolower((string) $service->type);
         $isBillLike = in_array($type, ['utility', 'postpaid', 'bill', 'insurance', 'wallet'], true);
         $isDth = $service->isDth();
-        // DTH amounts are entered in INR (min pack ~10 INR); bills LKR 10; else LKR 50.
+        // All amounts are entered in LKR. DTH & bills can be low (LKR 10); mobile 50.
         $minAmount = ($isBillLike || $isDth) ? 10 : 50;
-        $cur = $isDth ? 'INR' : 'LKR';
 
         if ((float) $data['amount'] < $minAmount) {
             $msg = ($isBillLike || $isDth)
-                ? "Minimum amount is {$cur} {$minAmount}."
+                ? "Minimum amount is LKR {$minAmount}."
                 : "Minimum recharge amount is LKR {$minAmount}. Please enter LKR {$minAmount} or more.";
             if ($request->wantsJson()) {
                 return response()->json(['ok' => false, 'message' => $msg], 422);

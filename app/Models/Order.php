@@ -87,33 +87,36 @@ class Order extends Model
      * Total the customer's wallet was charged: the bill/recharge amount plus
      * any service fee. `amount` alone is always what the provider is sent.
      */
-    /** INR->LKR rate used on this order (1 for non-DTH). */
+    /** INR/LKR rate used on this order (1 for non-DTH). 1 INR = this many LKR. */
     public function fxRate(): float
     {
         $r = (float) $this->fx_rate;
         return $r > 0 ? $r : 1.0;
     }
 
-    /** True when this order was converted from INR (a DTH recharge). */
+    /** True when this order was converted to a foreign currency (DTH -> INR). */
     public function isForeignCurrency(): bool
     {
         return $this->fxRate() != 1.0;
     }
 
-    /** The LKR value of the entered amount after INR->LKR conversion. */
-    public function convertedAmount(): float
+    /**
+     * The amount sent to the provider in its own currency. DTH packs are priced
+     * in INR, so provider amount = LKR amount / rate. Everything else is 1:1.
+     */
+    public function providerAmount(): float
     {
-        return round((float) $this->amount * $this->fxRate(), 2);
+        return round((float) $this->amount / $this->fxRate(), 2);
     }
 
     /**
-     * Total the customer's wallet was charged in LKR: the (converted) amount
-     * plus any service fee. For DTH this is INR amount x rate; for everything
-     * else it is amount + fee.
+     * Total the customer's wallet was charged in LKR: the entered amount plus
+     * any service fee. `amount` is always LKR (what the customer paid); the
+     * INR conversion only affects what the provider receives.
      */
     public function totalPaid(): float
     {
-        return round($this->convertedAmount() + $this->feeAmount(), 2);
+        return round((float) $this->amount + $this->feeAmount(), 2);
     }
 
     /** True once an admin has manually refunded this order's wallet charge. */

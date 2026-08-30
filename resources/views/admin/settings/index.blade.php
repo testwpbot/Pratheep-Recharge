@@ -54,7 +54,7 @@
           <label>DTH rate — INR to LKR</label>
           <input type="number" name="dth_inr_rate" min="0.01" max="100" step="0.01"
                  value="{{ old('dth_inr_rate', $general['dth_inr_rate'] ?? '3.65') }}" required>
-          <div class="hint">DTH packs are priced in Indian Rupees. The customer enters the INR amount and their LKR wallet is charged INR × this rate. Example: 500 INR × 3.65 = LKR 1,825.</div>
+          <div class="hint">How many LKR one Indian Rupee is worth. The customer pays in LKR; the DTH provider is credited the INR equivalent (LKR ÷ this rate). Example: LKR 1,825 ÷ 3.65 = 500 INR credited.</div>
         </div>
         <div class="field" style="grid-column:1/-1;">
           <label>Deposit note (shown to customers)</label>

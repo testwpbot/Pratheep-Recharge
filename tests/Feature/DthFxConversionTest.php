@@ -16,9 +16,10 @@ use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 /**
- * DTH recharges are priced in INR: the customer enters the INR pack value,
- * which is sent to the provider unchanged, but the LKR wallet is charged
- * INR x the admin rate (general.dth_inr_rate, default 3.65).
+ * DTH recharges: the customer pays in LKR (like every other service) and their
+ * wallet is charged exactly that LKR amount. DTH packs are priced in INR, so
+ * the provider is credited the INR equivalent = LKR / rate
+ * (general.dth_inr_rate = LKR per 1 INR, default 3.65).
  */
 class DthFxConversionTest extends TestCase
 {
@@ -35,7 +36,7 @@ class DthFxConversionTest extends TestCase
 
         return Service::create([
             'provider_id' => $p->id, 'category_id' => $cat->id,
-            'op_code' => '20', 'name' => 'Airtel DTH', 'type' => 'dth',
+            'op_code' => '20', 'name' => 'Sun Direct', 'type' => 'dth',
             'profit' => 0, 'profit_type' => 'FLAT', 'is_active' => true,
         ]);
     }
@@ -45,7 +46,7 @@ class DthFxConversionTest extends TestCase
         $this->assertEquals(3.65, Setting::dthInrRate());
     }
 
-    public function test_wallet_charged_inr_times_rate(): void
+    public function test_wallet_charged_lkr_provider_credited_inr(): void
     {
         Setting::set('general', 'dth_inr_rate', '3.65');
         $svc = $this->dthService();
@@ -54,21 +55,28 @@ class DthFxConversionTest extends TestCase
 
         Http::fake(['*tmobiling.lk/*' => Http::response(['status' => 'success', 'transaction_id' => 'TM-1'], 200)]);
 
-        // Customer enters INR 500.
-        $order = app(OrderService::class)->placeOrder($user, $svc->id, '1234567890', 500);
+        // Customer enters LKR 1825.
+        $order = app(OrderService::class)->placeOrder($user, $svc->id, '1234567890', 1825);
 
-        // Provider still gets 500 (INR pack value) stored as amount.
-        $this->assertEquals(500, (float) $order->amount);
+        // amount is the LKR the customer paid; wallet charged exactly that.
+        $this->assertEquals(1825, (float) $order->amount);
         $this->assertEquals(3.65, $order->fxRate());
-        // Wallet charged 500 * 3.65 = 1825.
         $this->assertEquals(1825, $order->totalPaid());
         $this->assertEquals(10000 - 1825, (float) Wallet::where('user_id', $user->id)->value('balance'));
+
+        // Provider is credited the INR equivalent: 1825 / 3.65 = 500.
+        $this->assertEquals(500, $order->providerAmount());
+
+        // And the outgoing request carried 500, not 1825.
+        Http::assertSent(function ($request) {
+            return $request['method'] === 'recharge' && (string) $request['amount'] === '500';
+        });
 
         $debit = WalletTransaction::where('transactable_id', $order->id)->where('type', 'debit')->first();
         $this->assertEquals(1825, (float) $debit->amount);
     }
 
-    public function test_admin_rate_change_applies_to_new_orders_only(): void
+    public function test_rate_stored_per_order_is_immutable(): void
     {
         $svc = $this->dthService();
         $user = User::factory()->create();
@@ -76,14 +84,15 @@ class DthFxConversionTest extends TestCase
         Http::fake(['*tmobiling.lk/*' => Http::response(['status' => 'success', 'transaction_id' => 'TM-2'], 200)]);
 
         Setting::set('general', 'dth_inr_rate', '4.00');
-        $order = app(OrderService::class)->placeOrder($user, $svc->id, '1234567890', 100);
+        $order = app(OrderService::class)->placeOrder($user, $svc->id, '1234567890', 400);
         $this->assertEquals(4.0, $order->fxRate());
-        $this->assertEquals(400, $order->totalPaid());
+        $this->assertEquals(100, $order->providerAmount()); // 400 / 4
 
-        // Changing the rate later must not alter the stored rate on the order.
+        // Changing the rate later must not alter this order.
         Setting::set('general', 'dth_inr_rate', '5.00');
         $order->refresh();
         $this->assertEquals(4.0, $order->fxRate());
+        $this->assertEquals(100, $order->providerAmount());
         $this->assertEquals(400, $order->totalPaid());
     }
 
@@ -103,5 +112,6 @@ class DthFxConversionTest extends TestCase
 
         $this->assertFalse($svc->isDth());
         $this->assertEquals(1.0, $svc->fxRate());
+        $this->assertEquals(250.0, $svc->providerAmountFor(250));
     }
 }

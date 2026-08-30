@@ -66,11 +66,14 @@ class OrderService
         // exclusive (a negative profit yields a fee and zero cashback).
         $fee = $service->calculateFee($amount, $user);
 
-        // INR -> LKR conversion for DTH. The customer enters the INR pack value
-        // (stored on the order as `amount` and sent to the provider as-is), but
-        // the LKR wallet is charged amount x rate. Non-DTH services have rate 1.
+        // DTH currency conversion. The customer enters (and their wallet is
+        // charged) the LKR amount, exactly like every other service. DTH packs
+        // are priced in INR, so the provider must receive the INR equivalent:
+        // INR = LKR / rate. We store the rate used on the order so the provider
+        // amount and any reports stay reproducible if the admin changes it.
+        // Non-DTH services have rate 1 (no conversion).
         $fxRate = $service->fxRate();
-        $totalCharge = round(($amount * $fxRate) + $fee, 2);
+        $totalCharge = round($amount + $fee, 2);
 
         // ----- WALLET: balance check -----
         // Customers pay from their wallet balance. We debit ATOMICALLY with
@@ -113,8 +116,10 @@ class OrderService
 
             $debitDesc = 'Recharge: ' . ($service->name ?? 'Service') . ' ' . $accountNumber;
             if ($fxRate != 1.0) {
+                $providerInr = round($amount / $fxRate, 2);
                 $debitDesc = 'DTH recharge: ' . ($service->name ?? 'Service') . ' ' . $accountNumber
-                    . ' (' . number_format($amount, 2) . ' INR x ' . rtrim(rtrim(number_format($fxRate, 4), '0'), '.') . ')';
+                    . ' (LKR ' . number_format($amount, 2) . ' = ' . number_format($providerInr, 2)
+                    . ' INR @ ' . rtrim(rtrim(number_format($fxRate, 4), '0'), '.') . ')';
             } elseif ($fee > 0) {
                 $debitDesc = 'Bill payment: ' . ($service->name ?? 'Service') . ' ' . $accountNumber
                     . ' (incl. LKR ' . number_format($fee, 2) . ' service fee)';
