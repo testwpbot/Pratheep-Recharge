@@ -65,10 +65,40 @@ class AdminSpecialPricingController extends Controller
             $rows = [];
         }
 
-        $serviceIds = Service::where('is_active', true)->pluck('id')->all();
+        $services = Service::where('is_active', true)->with('category')->get()->keyBy('id');
 
-        DB::transaction(function () use ($rows, $user, $serviceIds) {
-            foreach ($serviceIds as $sid) {
+        // A negative special profit is a customer fee (surcharge) — exactly like
+        // the service management page. It is only allowed on bill-like services
+        // (utility / postpaid / insurance / wallet). Validate before saving so
+        // the admin gets a clear error instead of a silent clamp.
+        $badFee = [];
+        foreach ($services as $sid => $service) {
+            $row = $rows[$sid] ?? null;
+            if (! is_array($row) || empty($row['enabled'])) {
+                continue;
+            }
+            $profit = (float) ($row['profit'] ?? 0);
+            $type   = (($row['profit_type'] ?? 'FLAT') === 'PCT') ? 'PCT' : 'FLAT';
+            if ($profit < 0) {
+                if (! $service->allowsFee()) {
+                    $badFee[] = $service->name;
+                } elseif ($type === 'PCT' && $profit < -100) {
+                    return back()->withInput()->withErrors([
+                        'rows' => 'A percentage fee cannot be more than 100%.',
+                    ]);
+                }
+            }
+        }
+        if (! empty($badFee)) {
+            return back()->withInput()->withErrors([
+                'rows' => 'A negative profit (customer fee) is only allowed on bill-type services. '
+                    . 'These are not bill services: ' . implode(', ', array_slice($badFee, 0, 5))
+                    . (count($badFee) > 5 ? '…' : '') . '.',
+            ]);
+        }
+
+        DB::transaction(function () use ($rows, $user, $services) {
+            foreach ($services as $sid => $service) {
                 $row = $rows[$sid] ?? null;
                 $enabled = is_array($row) && ! empty($row['enabled']);
                 if (! $enabled) {
@@ -76,7 +106,11 @@ class AdminSpecialPricingController extends Controller
                     continue;
                 }
                 $type = (($row['profit_type'] ?? 'FLAT') === 'PCT') ? 'PCT' : 'FLAT';
-                $profit = max(0, (float) ($row['profit'] ?? 0));
+                $profit = (float) ($row['profit'] ?? 0);
+                // Fee (negative) only honoured on bill-like services; clamp others to >= 0.
+                if ($profit < 0 && ! $service->allowsFee()) {
+                    $profit = 0;
+                }
                 SpecialPrice::updateOrCreate(
                     ['user_id' => $user->id, 'service_id' => $sid],
                     ['profit' => $profit, 'profit_type' => $type]
@@ -98,22 +132,36 @@ class AdminSpecialPricingController extends Controller
         abort_if($user->is_admin, 404);
 
         $data = $request->validate([
-            'profit'      => 'required|numeric|min:0',
+            // Negative = customer fee (surcharge); only applied to bill-like services.
+            'profit'      => 'required|numeric|min:-100000|max:100000',
             'profit_type' => 'required|in:FLAT,PCT',
         ]);
 
-        $ids = Service::where('is_active', true)->pluck('id');
-        DB::transaction(function () use ($ids, $user, $data) {
-            foreach ($ids as $sid) {
+        $profit = (float) $data['profit'];
+        if ($profit < 0 && $data['profit_type'] === 'PCT' && $profit < -100) {
+            return back()->withInput()->withErrors([
+                'profit' => 'A percentage fee cannot be more than 100%.',
+            ]);
+        }
+
+        $services = Service::where('is_active', true)->with('category')->get();
+        DB::transaction(function () use ($services, $user, $data, $profit) {
+            foreach ($services as $service) {
+                // A fee (negative) is only meaningful on bill-like services;
+                // set every other service to 0 so nobody gets a surprise surcharge.
+                $value = ($profit < 0 && ! $service->allowsFee()) ? 0 : $profit;
                 SpecialPrice::updateOrCreate(
-                    ['user_id' => $user->id, 'service_id' => $sid],
-                    ['profit' => $data['profit'], 'profit_type' => $data['profit_type']]
+                    ['user_id' => $user->id, 'service_id' => $service->id],
+                    ['profit' => $value, 'profit_type' => $data['profit_type']]
                 );
             }
             $user->forceFill(['is_retailer' => true])->save();
         });
 
-        return back()->with('status', "Applied {$data['profit']}" . ($data['profit_type'] === 'PCT' ? '%' : ' LKR') . " to every active service for {$user->name}.");
+        $verb = $profit < 0 ? 'fee of' : 'profit of';
+        $unit = $data['profit_type'] === 'PCT' ? '%' : ' LKR';
+        return back()->with('status', "Applied {$verb} " . abs($profit) . $unit . " to every active service for {$user->name}"
+            . ($profit < 0 ? ' (fee only on bill-type services).' : '.'));
     }
 
     public function clear(Request $request, User $user): RedirectResponse

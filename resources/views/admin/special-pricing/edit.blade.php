@@ -31,9 +31,15 @@
         <button type="button" class="hpr-dd__item" data-value="PCT" data-label="% (percent)">% (percent)</button>
       </div>
     </div>
-    <input class="sp-amt" type="number" step="0.01" min="0" name="profit" required placeholder="Profit / commission">
+    <input class="sp-amt" type="number" step="0.01" name="profit" required placeholder="Profit / commission">
     <button class="btn-admin btn-admin--primary btn-admin--sm" type="submit" data-loading="Applying…">Apply to all</button>
   </form>
+  <p class="hint" style="margin:8px 2px 0; color:var(--muted); font-size:12.5px;">
+    <b>Positive</b> = cashback for this customer. <b>Negative</b> = a customer fee (surcharge) added on top —
+    only applied to bill-type services (utility, postpaid, insurance, wallet).
+  </p>
+  @error('profit')<p class="hint" style="margin:6px 2px 0; color:var(--danger,#c0392b); font-weight:700;">{{ $message }}</p>@enderror
+  @error('rows')<p class="hint" style="margin:6px 2px 0; color:var(--danger,#c0392b); font-weight:700;">{{ $message }}</p>@enderror
 
   <form method="POST" action="{{ route('admin.special-pricing.update', $user) }}">
     @csrf
@@ -62,8 +68,9 @@
             @php
               $ov = $overrides->get($s->id);
               $type = $ov->profit_type ?? 'FLAT';
+              $allowsFee = $s->allowsFee();
             @endphp
-            <tr>
+            <tr data-allows-fee="{{ $allowsFee ? '1' : '0' }}">
               <td>
                 <label class="sw">
                   <input type="checkbox" name="rows[{{ $s->id }}][enabled]" value="1" {{ $ov ? 'checked' : '' }}>
@@ -100,8 +107,10 @@
                 </div>
               </td>
               <td>
-                <input class="sp-amt" type="number" step="0.01" min="0" name="rows[{{ $s->id }}][profit]"
-                       value="{{ $ov->profit ?? $s->profit }}">
+                <input class="sp-amt" type="number" step="0.01" name="rows[{{ $s->id }}][profit]"
+                       value="{{ $ov->profit ?? $s->profit }}"
+                       @unless($allowsFee) min="0" title="This service is not a bill-type service, so it cannot have a customer fee (negative value)." @endunless>
+                <span class="sp-fee-tag" hidden>fee</span>
               </td>
             </tr>
           @endforeach
@@ -125,7 +134,35 @@
 
 <p style="margin-top:14px; color:var(--muted); font-size:13px;">
   Turn <b>On</b> to override the default service profit for this customer only. Off rows keep the catalog default.
+  A <b>positive</b> value is cashback for this customer; a <b>negative</b> value is a customer fee (surcharge) that is
+  added on top of the bill — allowed only on bill-type services (utility, postpaid, insurance, wallet).
   This customer is marked as a retailer when you save.
 </p>
+
+<style>
+  .sp-fee-tag{
+    display:inline-block; margin-left:6px; padding:1px 7px; border-radius:999px;
+    background:#fff4d6; color:#a67c00; font-size:11px; font-weight:800; letter-spacing:.04em;
+    text-transform:uppercase; vertical-align:middle;
+  }
+  tr.sp-row--fee .sp-amt{ border-color:#e0a800; background:#fffdf5; }
+</style>
+<script>
+(function(){
+  function refreshRow(input){
+    var tr = input.closest('tr');
+    if (!tr) return;
+    var tag = tr.querySelector('.sp-fee-tag');
+    var val = parseFloat(input.value || '0');
+    var isFee = val < 0;
+    tr.classList.toggle('sp-row--fee', isFee);
+    if (tag) tag.hidden = !isFee;
+  }
+  document.querySelectorAll('.sp-table--svc .sp-amt').forEach(function(input){
+    refreshRow(input);
+    input.addEventListener('input', function(){ refreshRow(input); });
+  });
+})();
+</script>
 
 @endsection
