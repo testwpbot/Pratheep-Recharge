@@ -230,39 +230,40 @@ class DashboardController extends Controller
             ],
 
             // ===== DTH (Indian Direct-To-Home) =====
-            // Each brand maps to BOTH providers' op codes. 'primary_op' is the
-            // TMobiling code (the live SL provider); 'fallback_ops' is the
-            // Topup Mart equivalent. The card renders through whichever provider
-            // is currently enabled — turning one provider off automatically
-            // routes DTH through the other, with no duplicate cards.
+            // DTH is routed through Topup Mart, so 'primary_op' is the Topup Mart
+            // op code (120-124) and the TMobiling code is the fallback. The card
+            // renders through whichever provider is currently enabled; with both
+            // on, Topup Mart wins. Topup Mart DTH packs are priced in INR — the
+            // customer enters INR, their wallet is charged INR × rate (LKR), and
+            // we send Topup Mart the INR pack value.
             (object) [
                 'key' => 'airtel-dth', 'label' => 'Airtel Digital TV',
                 'logo' => 'assets/logos/airtel.png',
-                'primary_op' => '23', 'fallback_ops' => ['120'], 'bill_ops' => [], 'other_ops' => [],
+                'primary_op' => '120', 'fallback_ops' => ['23'], 'bill_ops' => [], 'other_ops' => [],
                 'category' => 'dth', 'is_bill_only' => false, 'bill_label' => null,
             ],
             (object) [
                 'key' => 'dish-tv', 'label' => 'Dish TV',
                 'logo' => 'assets/logos/dishtv.png',
-                'primary_op' => '22', 'fallback_ops' => ['121'], 'bill_ops' => [], 'other_ops' => [],
+                'primary_op' => '121', 'fallback_ops' => ['22'], 'bill_ops' => [], 'other_ops' => [],
                 'category' => 'dth', 'is_bill_only' => false, 'bill_label' => null,
             ],
             (object) [
                 'key' => 'sun-direct', 'label' => 'Sun Direct',
                 'logo' => 'assets/logos/sundirect.png',
-                'primary_op' => '20', 'fallback_ops' => ['122'], 'bill_ops' => [], 'other_ops' => [],
+                'primary_op' => '122', 'fallback_ops' => ['20'], 'bill_ops' => [], 'other_ops' => [],
                 'category' => 'dth', 'is_bill_only' => false, 'bill_label' => null,
             ],
             (object) [
                 'key' => 'tata-play', 'label' => 'Tata Play',
                 'logo' => 'assets/logos/tataplay.png',
-                'primary_op' => '79', 'fallback_ops' => ['123'], 'bill_ops' => [], 'other_ops' => [],
+                'primary_op' => '123', 'fallback_ops' => ['79'], 'bill_ops' => [], 'other_ops' => [],
                 'category' => 'dth', 'is_bill_only' => false, 'bill_label' => null,
             ],
             (object) [
                 'key' => 'videocon-d2h', 'label' => 'Videocon d2h',
                 'logo' => 'assets/logos/d2h.png',
-                'primary_op' => '21', 'fallback_ops' => ['124'], 'bill_ops' => [], 'other_ops' => [],
+                'primary_op' => '124', 'fallback_ops' => ['21'], 'bill_ops' => [], 'other_ops' => [],
                 'category' => 'dth', 'is_bill_only' => false, 'bill_label' => null,
             ],
 

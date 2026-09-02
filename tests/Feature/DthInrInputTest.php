@@ -93,4 +93,54 @@ class DthInrInputTest extends TestCase
         $res->assertStatus(422);
         $this->assertEquals(0, \App\Models\Order::count());
     }
+
+    /**
+     * DTH is routed through Topup Mart (op codes 120-124). Topup Mart must be
+     * sent the INR pack value, NOT the LKR wallet charge. This is the exact
+     * scenario that previously failed with "Invalid operator code" because the
+     * LKR amount (not INR) was sent.
+     */
+    public function test_topup_mart_dth_receives_inr_pack_value(): void
+    {
+        Setting::set('general', 'dth_inr_rate', '3.65');
+
+        $cat = Category::create(['name' => 'DTH Recharge', 'slug' => 'dth', 'sort_order' => 1, 'is_active' => true]);
+        $topup = Provider::create([
+            'name' => 'Topup Mart', 'slug' => 'topup-mart', 'country' => 'LK',
+            'api_class' => 'topup_mart', 'base_url' => 'https://topupmart.online/api/v2',
+            'api_key' => 'k', 'is_active' => true,
+        ]);
+        // Videocon d2h on Topup Mart = op 124.
+        $svc = Service::create([
+            'provider_id' => $topup->id, 'category_id' => $cat->id,
+            'op_code' => '124', 'name' => 'Videocon d2h', 'type' => 'dth',
+            'profit' => 0, 'profit_type' => 'FLAT', 'is_active' => true,
+        ]);
+
+        $user = User::factory()->create();
+        Wallet::create(['user_id' => $user->id, 'balance' => 10000]);
+
+        Http::fake(['*topupmart.online/api/v2/recharge.php' => Http::response([
+            'status' => 'success', 'transaction_id' => 'TM-DTH-1', 'message' => 'OK',
+        ], 200)]);
+
+        // Customer enters INR 500; wallet charged 500 * 3.65 = LKR 1825.
+        $res = $this->actingAs($user)->postJson(route('recharge.confirm'), [
+            'service_id'     => $svc->id,
+            'account_number' => '1234567890',
+            'amount'         => 500,
+        ]);
+        $res->assertOk()->assertJsonPath('ok', true);
+
+        $order = \App\Models\Order::first();
+        $this->assertEquals(1825, (float) $order->amount);       // LKR wallet charge
+        $this->assertEquals(500, $order->providerAmount());      // INR pack value
+
+        // Topup Mart must have received the INR pack value (500), with op 124.
+        Http::assertSent(function ($request) {
+            return str_contains($request->url(), 'topupmart.online')
+                && (string) $request['amount'] === '500'
+                && (string) $request['op_code'] === '124';
+        });
+    }
 }
