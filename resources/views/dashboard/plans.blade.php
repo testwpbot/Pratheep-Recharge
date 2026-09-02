@@ -5,27 +5,25 @@
 
 @if (!empty($planSlides))
   <div class="plan-slideshow" id="planSlideshow" data-count="{{ count($planSlides) }}">
-    <div class="plan-slideshow__track" id="planSlideshowTrack">
-      @foreach ($planSlides as $i => $slide)
-        <figure class="plan-slide {{ $i === 0 ? 'is-active' : '' }}" data-slide-index="{{ $i }}">
-          <img src="{{ asset($slide) }}" alt="Promotion {{ $i + 1 }}" {{ $i === 0 ? '' : 'loading=lazy' }}>
-        </figure>
-      @endforeach
-    </div>
-
-    @if (count($planSlides) > 1)
-      <button type="button" class="plan-slideshow__nav plan-slideshow__nav--prev" id="planSlidePrev" aria-label="Previous">
-        <x-icon name="caret" :size="18" class="ss-caret-left"/>
-      </button>
-      <button type="button" class="plan-slideshow__nav plan-slideshow__nav--next" id="planSlideNext" aria-label="Next">
-        <x-icon name="caret" :size="18" class="ss-caret-right"/>
-      </button>
-      <div class="plan-slideshow__dots" id="planSlideDots">
+    <div class="plan-slideshow__viewport" id="planSlideshowViewport">
+      <div class="plan-slideshow__track" id="planSlideshowTrack">
         @foreach ($planSlides as $i => $slide)
-          <button type="button" class="plan-slideshow__dot {{ $i === 0 ? 'is-active' : '' }}" data-go="{{ $i }}" aria-label="Go to slide {{ $i + 1 }}"></button>
+          <figure class="plan-slide" data-slide-index="{{ $i }}">
+            <span class="plan-slide__inner">
+              <img src="{{ asset($slide) }}" alt="Promotion {{ $i + 1 }}" {{ $i === 0 ? '' : 'loading=lazy' }}>
+            </span>
+          </figure>
         @endforeach
       </div>
-    @endif
+    </div>
+
+    <button type="button" class="plan-slideshow__nav plan-slideshow__nav--prev" id="planSlidePrev" aria-label="Previous" hidden>
+      <x-icon name="caret" :size="18" class="ss-caret-left"/>
+    </button>
+    <button type="button" class="plan-slideshow__nav plan-slideshow__nav--next" id="planSlideNext" aria-label="Next" hidden>
+      <x-icon name="caret" :size="18" class="ss-caret-right"/>
+    </button>
+    <div class="plan-slideshow__dots" id="planSlideDots"></div>
   </div>
 @endif
 
@@ -478,31 +476,43 @@
    in their base rule, which otherwise overrides the UA [hidden]{display:none}. */
 [hidden]{display:none !important;}
 
-/* ======== Plans & Rates slideshow (portrait posters, shown in full) ======== */
+/* ======== Plans & Rates slideshow (multi-item sliding carousel) ========
+   Testimonials-style strip: several posters visible in a row on desktop,
+   sliding as a group. --ss-per = how many cards show at once (set per
+   breakpoint below and read by the JS to compute paging). */
 .plan-slideshow{
+  --ss-per:3;
+  --ss-gap:16px;
   position:relative;
   width:100%;
-  max-width:520px;           /* posters are portrait; keep the stage narrow so it isn't huge */
-  margin:0 auto 18px;
-  border-radius:16px;
+  margin:0 auto 20px;
+  padding:0 44px;            /* room for the side arrows so they don't cover cards */
+}
+.plan-slideshow__viewport{
   overflow:hidden;
-  background:#0b1a33;         /* fills any letterbox gap with a dark brand tone, never white */
-  box-shadow:0 10px 30px rgba(11,42,91,.18);
+  border-radius:14px;
 }
 .plan-slideshow__track{
-  position:relative;
-  width:100%;
-  /* Height follows the TALLEST poster ratio (~1023x1439 ≈ 3/4.2). Portrait
-     images sit inside via object-fit:contain, so nothing is cropped and the
-     dark background covers any small side gaps. */
-  aspect-ratio:1023 / 1439;
+  display:flex;
+  gap:var(--ss-gap);
+  will-change:transform;
+  transition:transform .5s cubic-bezier(.22,.61,.36,1);
 }
 .plan-slide{
-  position:absolute; inset:0; margin:0;
-  display:flex; align-items:center; justify-content:center;
-  opacity:0; transition:opacity .5s ease; pointer-events:none;
+  margin:0;
+  flex:0 0 calc((100% - (var(--ss-per) - 1) * var(--ss-gap)) / var(--ss-per));
+  max-width:calc((100% - (var(--ss-per) - 1) * var(--ss-gap)) / var(--ss-per));
 }
-.plan-slide.is-active{opacity:1; pointer-events:auto;}
+.plan-slide__inner{
+  display:block;
+  border-radius:14px;
+  overflow:hidden;
+  background:#0b1a33;        /* dark tone fills any letterbox gap, never white */
+  box-shadow:0 8px 22px rgba(11,42,91,.16);
+  /* Reduced-height, landscape-leaning stage (was tall portrait). Whole image
+     stays visible via object-fit:contain. */
+  aspect-ratio:4 / 3;
+}
 .plan-slide img{
   width:100%; height:100%;
   object-fit:contain;        /* WHOLE image visible — no cropping */
@@ -511,26 +521,32 @@
 .plan-slideshow__nav{
   position:absolute; top:50%; transform:translateY(-50%);
   width:38px; height:38px; border:none; border-radius:999px;
-  background:rgba(255,255,255,.86); color:#0b2a5b; cursor:pointer;
+  background:rgba(255,255,255,.95); color:#0b2a5b; cursor:pointer;
   display:flex; align-items:center; justify-content:center;
-  box-shadow:0 2px 8px rgba(0,0,0,.25); z-index:2; transition:background .15s;
+  box-shadow:0 2px 10px rgba(11,42,91,.22); z-index:2; transition:background .15s, opacity .15s;
 }
 .plan-slideshow__nav:hover{background:#fff;}
-.plan-slideshow__nav--prev{left:10px;}
-.plan-slideshow__nav--next{right:10px;}
+.plan-slideshow__nav[disabled]{opacity:.35; cursor:default;}
+.plan-slideshow__nav--prev{left:2px;}
+.plan-slideshow__nav--next{right:2px;}
 .plan-slideshow__nav .ss-caret-left{transform:rotate(90deg);}
 .plan-slideshow__nav .ss-caret-right{transform:rotate(-90deg);}
 .plan-slideshow__dots{
-  position:absolute; left:0; right:0; bottom:10px;
-  display:flex; gap:7px; justify-content:center; z-index:2;
+  display:flex; gap:7px; justify-content:center; margin-top:12px;
 }
 .plan-slideshow__dot{
   width:8px; height:8px; padding:0; border:none; border-radius:999px;
-  background:rgba(255,255,255,.5); cursor:pointer; transition:all .15s;
+  background:rgba(11,42,91,.25); cursor:pointer; transition:all .15s;
 }
-.plan-slideshow__dot.is-active{background:#fff; width:22px; border-radius:999px;}
+.plan-slideshow__dot.is-active{background:#0b2a5b; width:22px; border-radius:999px;}
+
+/* Tablet: two per row */
+@media (max-width:900px){
+  .plan-slideshow{--ss-per:2;}
+}
+/* Mobile: one per row, arrows tucked to the edges */
 @media (max-width:600px){
-  .plan-slideshow{max-width:100%;}
+  .plan-slideshow{--ss-per:1; --ss-gap:12px; padding:0 34px;}
   .plan-slideshow__nav{width:32px; height:32px;}
 }
 
@@ -1068,32 +1084,69 @@
 @push('scripts')
 <script>
 (function(){
-  // ----- Plans slideshow -----
+  // ----- Plans slideshow (multi-item sliding carousel) -----
   var ss = document.getElementById('planSlideshow');
   if (ss){
+    var track = document.getElementById('planSlideshowTrack');
     var slides = Array.prototype.slice.call(ss.querySelectorAll('.plan-slide'));
-    var dots = Array.prototype.slice.call(ss.querySelectorAll('.plan-slideshow__dot'));
-    var idx = 0, timer = null;
-    var AUTO_MS = 5000;
-    function show(n){
-      idx = (n + slides.length) % slides.length;
-      slides.forEach(function(s, i){ s.classList.toggle('is-active', i === idx); });
-      dots.forEach(function(d, i){ d.classList.toggle('is-active', i === idx); });
-    }
-    function next(){ show(idx + 1); }
-    function prev(){ show(idx - 1); }
-    function start(){ if (slides.length > 1){ stop(); timer = setInterval(next, AUTO_MS); } }
-    function stop(){ if (timer){ clearInterval(timer); timer = null; } }
+    var dotsWrap = document.getElementById('planSlideDots');
     var nextBtn = document.getElementById('planSlideNext');
     var prevBtn = document.getElementById('planSlidePrev');
-    if (nextBtn) nextBtn.addEventListener('click', function(){ next(); start(); });
-    if (prevBtn) prevBtn.addEventListener('click', function(){ prev(); start(); });
-    dots.forEach(function(d){
-      d.addEventListener('click', function(){ show(parseInt(d.dataset.go, 10) || 0); start(); });
-    });
+    var total = slides.length;
+    var page = 0, perView = 1, pageCount = 1, timer = null;
+    var AUTO_MS = 5000;
+
+    function perViewNow(){
+      var v = parseInt(getComputedStyle(ss).getPropertyValue('--ss-per'), 10);
+      return (v && v > 0) ? v : 1;
+    }
+    function buildDots(){
+      dotsWrap.innerHTML = '';
+      for (var i = 0; i < pageCount; i++){
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'plan-slideshow__dot' + (i === page ? ' is-active' : '');
+        b.setAttribute('aria-label', 'Go to slide group ' + (i + 1));
+        (function(n){ b.addEventListener('click', function(){ go(n); restart(); }); })(i);
+        dotsWrap.appendChild(b);
+      }
+    }
+    function render(){
+      // Slide by whole pages; clamp the last page so cards never overscroll.
+      var maxOffset = Math.max(0, total - perView);
+      var offsetItems = Math.min(page * perView, maxOffset);
+      // Move by whole items: each item occupies (100% + gap)/perView of the viewport.
+      track.style.transform = 'translateX(calc(-1 * (' + offsetItems + ' * (100% + var(--ss-gap)) / ' + perView + ')))';
+      Array.prototype.forEach.call(dotsWrap.children, function(d, i){
+        d.classList.toggle('is-active', i === page);
+      });
+      var showControls = pageCount > 1;
+      nextBtn.hidden = !showControls;
+      prevBtn.hidden = !showControls;
+      dotsWrap.style.display = showControls ? '' : 'none';
+      prevBtn.disabled = page <= 0;
+      nextBtn.disabled = page >= pageCount - 1;
+    }
+    function go(n){ page = (n + pageCount) % pageCount; render(); }
+    function next(){ go(page + 1); }
+    function prev(){ go(page - 1); }
+    function recalc(){
+      perView = perViewNow();
+      pageCount = Math.max(1, Math.ceil(total / perView));
+      if (page > pageCount - 1) page = pageCount - 1;
+      buildDots();
+      render();
+    }
+    function start(){ if (pageCount > 1){ stop(); timer = setInterval(next, AUTO_MS); } }
+    function stop(){ if (timer){ clearInterval(timer); timer = null; } }
+    function restart(){ stop(); start(); }
+
+    if (nextBtn) nextBtn.addEventListener('click', function(){ next(); restart(); });
+    if (prevBtn) prevBtn.addEventListener('click', function(){ prev(); restart(); });
     ss.addEventListener('mouseenter', stop);
     ss.addEventListener('mouseleave', start);
-    // Basic swipe support on touch devices.
+
+    // Swipe support on touch devices.
     var startX = null;
     ss.addEventListener('touchstart', function(e){ startX = e.touches[0].clientX; stop(); }, {passive:true});
     ss.addEventListener('touchend', function(e){
@@ -1102,6 +1155,14 @@
       if (Math.abs(dx) > 40){ dx < 0 ? next() : prev(); }
       startX = null; start();
     }, {passive:true});
+
+    var rt = null;
+    window.addEventListener('resize', function(){
+      clearTimeout(rt);
+      rt = setTimeout(recalc, 150);
+    });
+
+    recalc();
     start();
   }
 
