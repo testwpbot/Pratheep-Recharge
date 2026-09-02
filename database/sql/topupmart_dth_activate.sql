@@ -19,6 +19,11 @@
 -- 1) Make sure the Topup Mart provider itself is active.
 UPDATE providers SET is_active = 1 WHERE slug = 'topup-mart';
 
+-- 1b) Make sure the DTH category is active, otherwise the "Plans & Rates" page
+--     hides the whole DTH tab (it only renders categories that are active),
+--     even when the DTH services below are switched on.
+UPDATE categories SET is_active = 1 WHERE slug = 'dth';
+
 -- 2) Activate the Topup Mart DTH operators and fix their names/logos.
 UPDATE services s
 JOIN providers p ON p.id = s.provider_id AND p.slug = 'topup-mart'
