@@ -3,6 +3,32 @@
 
 @section('content')
 
+@if (!empty($planSlides))
+  <div class="plan-slideshow" id="planSlideshow" data-count="{{ count($planSlides) }}">
+    <div class="plan-slideshow__track" id="planSlideshowTrack">
+      @foreach ($planSlides as $i => $slide)
+        <figure class="plan-slide {{ $i === 0 ? 'is-active' : '' }}" data-slide-index="{{ $i }}">
+          <img src="{{ asset($slide) }}" alt="Promotion {{ $i + 1 }}" {{ $i === 0 ? '' : 'loading=lazy' }}>
+        </figure>
+      @endforeach
+    </div>
+
+    @if (count($planSlides) > 1)
+      <button type="button" class="plan-slideshow__nav plan-slideshow__nav--prev" id="planSlidePrev" aria-label="Previous">
+        <x-icon name="caret" :size="18" class="ss-caret-left"/>
+      </button>
+      <button type="button" class="plan-slideshow__nav plan-slideshow__nav--next" id="planSlideNext" aria-label="Next">
+        <x-icon name="caret" :size="18" class="ss-caret-right"/>
+      </button>
+      <div class="plan-slideshow__dots" id="planSlideDots">
+        @foreach ($planSlides as $i => $slide)
+          <button type="button" class="plan-slideshow__dot {{ $i === 0 ? 'is-active' : '' }}" data-go="{{ $i }}" aria-label="Go to slide {{ $i + 1 }}"></button>
+        @endforeach
+      </div>
+    @endif
+  </div>
+@endif
+
 <div class="card">
   <div class="card__head">
     <h3>Plans & Rates</h3>
@@ -106,10 +132,10 @@
       @endforeach
     </div>
 
-    <div class="kind-tabs" id="mobileKindTabs" role="tablist" aria-label="Prepaid or Postpaid"
+    <div class="kind-tabs" id="mobileKindTabs" role="tablist" aria-label="Prepaid, API or Postpaid"
          @if(($visibleCategories->first()->slug ?? '') !== 'mobile') hidden @endif>
-      <button type="button" class="kind-tab active" data-kind="" aria-selected="true">All</button>
-      <button type="button" class="kind-tab" data-kind="prepaid" aria-selected="false">Prepaid</button>
+      <button type="button" class="kind-tab active" data-kind="prepaid" aria-selected="true">Prepaid</button>
+      <button type="button" class="kind-tab" data-kind="api" aria-selected="false">API</button>
       <button type="button" class="kind-tab" data-kind="postpaid" aria-selected="false">Postpaid</button>
     </div>
 
@@ -121,7 +147,14 @@
 
           @foreach ($cat->groups as $g)
             @php
-              $hasPrepaidLine = !$g->is_bill_only && ($g->planCount > 0 || $g->primary);
+              $isApi = !empty($g->is_api);
+              // The "prepaid line" of a card (plans + reload button) belongs to
+              // the API tab for TMobiling cards, otherwise the Prepaid tab.
+              $prepaidKind = $isApi ? 'api' : 'prepaid';
+              // On the mobile section: API cards (TMobiling) belong to the API
+              // tab only; TopupMart cards belong to the Prepaid tab.
+              $hasPrepaidLine = !$isApi && !$g->is_bill_only && ($g->planCount > 0 || $g->primary);
+              $hasApiLine = $isApi && ($g->planCount > 0 || $g->primary);
               $hasPostpaidLine = ($g->billServices && $g->billServices->isNotEmpty())
                 || ($g->is_bill_only && $g->primary)
                 || (!empty($g->tag) && strtolower($g->tag) === 'postpaid');
@@ -130,6 +163,7 @@
                  id="op-{{ $g->key }}" data-op data-op-name="{{ strtolower($g->label) }}"
                  data-op-key="{{ $g->key }}"
                  data-line-prepaid="{{ $hasPrepaidLine ? '1' : '0' }}"
+                 data-line-api="{{ $hasApiLine ? '1' : '0' }}"
                  data-line-postpaid="{{ $hasPostpaidLine ? '1' : '0' }}">
 
               {{-- Operator header --}}
@@ -173,7 +207,7 @@
                      like HBB routers end up with .type-panel{display:none} never overridden).
                      Visually hide the tabs when there's only one group so it stays clean. --}}
                 <div class="type-tabs type-tabs--{{ $g->plansGrouped->count() === 1 ? 'single' : 'multi' }}"
-                     role="tablist" data-type-tabs data-kind-part="prepaid" @if($g->plansGrouped->count() === 1) style="display:none" @endif>
+                     role="tablist" data-type-tabs data-kind-part="{{ $prepaidKind }}" @if($g->plansGrouped->count() === 1) style="display:none" @endif>
                   @foreach ($g->plansGrouped as $grp)
                     <button type="button"
                             role="tab"
@@ -192,7 +226,7 @@
                   <div class="type-panel @if($loop->first) is-active @endif"
                        data-type-panel="{{ $g->key }}-{{ $grp['type'] }}"
                        data-type="{{ $grp['type'] }}"
-                       data-kind-part="prepaid">
+                       data-kind-part="{{ $prepaidKind }}">
                     <div class="plan-grid">
                       @foreach ($grp['items'] as $p)
                         @php
@@ -257,7 +291,7 @@
                 @if ($g->primary && !$g->is_bill_only)
                   <button type="button"
                      class="btn-admin {{ $isReloadOnly ? 'btn-admin--primary' : 'btn-admin--ghost' }} btn-admin--sm"
-                     data-kind-part="prepaid"
+                     data-kind-part="{{ $prepaidKind }}"
                      data-rc-custom
                      data-service-id="{{ $g->primary->id }}"
                      data-logo="{{ $g->logo ? asset($g->logo) : asset('assets/logo-mark.png') }}"
@@ -443,6 +477,62 @@
 /* Hidden attribute must always win — many components set display:flex/block
    in their base rule, which otherwise overrides the UA [hidden]{display:none}. */
 [hidden]{display:none !important;}
+
+/* ======== Plans & Rates slideshow (portrait posters, shown in full) ======== */
+.plan-slideshow{
+  position:relative;
+  width:100%;
+  max-width:520px;           /* posters are portrait; keep the stage narrow so it isn't huge */
+  margin:0 auto 18px;
+  border-radius:16px;
+  overflow:hidden;
+  background:#0b1a33;         /* fills any letterbox gap with a dark brand tone, never white */
+  box-shadow:0 10px 30px rgba(11,42,91,.18);
+}
+.plan-slideshow__track{
+  position:relative;
+  width:100%;
+  /* Height follows the TALLEST poster ratio (~1023x1439 ≈ 3/4.2). Portrait
+     images sit inside via object-fit:contain, so nothing is cropped and the
+     dark background covers any small side gaps. */
+  aspect-ratio:1023 / 1439;
+}
+.plan-slide{
+  position:absolute; inset:0; margin:0;
+  display:flex; align-items:center; justify-content:center;
+  opacity:0; transition:opacity .5s ease; pointer-events:none;
+}
+.plan-slide.is-active{opacity:1; pointer-events:auto;}
+.plan-slide img{
+  width:100%; height:100%;
+  object-fit:contain;        /* WHOLE image visible — no cropping */
+  display:block;
+}
+.plan-slideshow__nav{
+  position:absolute; top:50%; transform:translateY(-50%);
+  width:38px; height:38px; border:none; border-radius:999px;
+  background:rgba(255,255,255,.86); color:#0b2a5b; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 2px 8px rgba(0,0,0,.25); z-index:2; transition:background .15s;
+}
+.plan-slideshow__nav:hover{background:#fff;}
+.plan-slideshow__nav--prev{left:10px;}
+.plan-slideshow__nav--next{right:10px;}
+.plan-slideshow__nav .ss-caret-left{transform:rotate(90deg);}
+.plan-slideshow__nav .ss-caret-right{transform:rotate(-90deg);}
+.plan-slideshow__dots{
+  position:absolute; left:0; right:0; bottom:10px;
+  display:flex; gap:7px; justify-content:center; z-index:2;
+}
+.plan-slideshow__dot{
+  width:8px; height:8px; padding:0; border:none; border-radius:999px;
+  background:rgba(255,255,255,.5); cursor:pointer; transition:all .15s;
+}
+.plan-slideshow__dot.is-active{background:#fff; width:22px; border-radius:999px;}
+@media (max-width:600px){
+  .plan-slideshow{max-width:100%;}
+  .plan-slideshow__nav{width:32px; height:32px;}
+}
 
 /* Scroll lock when modal is open.
    We don't touch overflow/position on body/html because that resets
@@ -978,6 +1068,43 @@
 @push('scripts')
 <script>
 (function(){
+  // ----- Plans slideshow -----
+  var ss = document.getElementById('planSlideshow');
+  if (ss){
+    var slides = Array.prototype.slice.call(ss.querySelectorAll('.plan-slide'));
+    var dots = Array.prototype.slice.call(ss.querySelectorAll('.plan-slideshow__dot'));
+    var idx = 0, timer = null;
+    var AUTO_MS = 5000;
+    function show(n){
+      idx = (n + slides.length) % slides.length;
+      slides.forEach(function(s, i){ s.classList.toggle('is-active', i === idx); });
+      dots.forEach(function(d, i){ d.classList.toggle('is-active', i === idx); });
+    }
+    function next(){ show(idx + 1); }
+    function prev(){ show(idx - 1); }
+    function start(){ if (slides.length > 1){ stop(); timer = setInterval(next, AUTO_MS); } }
+    function stop(){ if (timer){ clearInterval(timer); timer = null; } }
+    var nextBtn = document.getElementById('planSlideNext');
+    var prevBtn = document.getElementById('planSlidePrev');
+    if (nextBtn) nextBtn.addEventListener('click', function(){ next(); start(); });
+    if (prevBtn) prevBtn.addEventListener('click', function(){ prev(); start(); });
+    dots.forEach(function(d){
+      d.addEventListener('click', function(){ show(parseInt(d.dataset.go, 10) || 0); start(); });
+    });
+    ss.addEventListener('mouseenter', stop);
+    ss.addEventListener('mouseleave', start);
+    // Basic swipe support on touch devices.
+    var startX = null;
+    ss.addEventListener('touchstart', function(e){ startX = e.touches[0].clientX; stop(); }, {passive:true});
+    ss.addEventListener('touchend', function(e){
+      if (startX === null) return;
+      var dx = e.changedTouches[0].clientX - startX;
+      if (Math.abs(dx) > 40){ dx < 0 ? next() : prev(); }
+      startX = null; start();
+    }, {passive:true});
+    start();
+  }
+
   // ----- Category tabs -----
   var catTabs = document.querySelectorAll('#planCatTabs .cat-tab');
   var panels  = document.querySelectorAll('.plan-panel');
@@ -1152,8 +1279,9 @@
       if (first) label.textContent = first.textContent.trim();
     });
     if (kindTabs){
-      kindTabs.querySelectorAll('.kind-tab').forEach(function(t){
-        var on = !t.dataset.kind;
+      // Reset to the first kind tab (Prepaid) — there is no "All" tab.
+      kindTabs.querySelectorAll('.kind-tab').forEach(function(t, i){
+        var on = i === 0;
         t.classList.toggle('active', on);
         t.setAttribute('aria-selected', on ? 'true' : 'false');
       });
@@ -1292,9 +1420,10 @@
       var hasBillTip = !!block.querySelector('.op-block__tip:not([hidden])');
       var kindOk = true;
       if (kindFilter === 'prepaid') kindOk = block.dataset.linePrepaid === '1';
+      if (kindFilter === 'api') kindOk = block.dataset.lineApi === '1';
       if (kindFilter === 'postpaid') kindOk = block.dataset.linePostpaid === '1';
 
-      var blockVisible = opMatch && kindOk && (blockHasVisiblePlans || hasBillCta || hasBillTip || (billOnly && kindFilter !== 'prepaid'));
+      var blockVisible = opMatch && kindOk && (blockHasVisiblePlans || hasBillCta || hasBillTip || (billOnly && kindFilter === 'postpaid'));
       block.classList.toggle('is-hidden', !blockVisible);
 
       // Per-block no-match message: only show when there's an active filter AND

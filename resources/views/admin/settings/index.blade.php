@@ -1,6 +1,21 @@
 @extends('layouts.admin')
 @section('title', 'Settings')
 
+@push('styles')
+<style>
+  .slide-preview{margin-top:14px; padding:12px; background:#f7f9fd; border:1px dashed var(--line,#d5deee); border-radius:12px;}
+  .slide-preview__label{font-size:12.5px; font-weight:700; color:var(--muted); margin-bottom:10px;}
+  .slide-preview__grid, .slide-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:12px;}
+  .slide-preview__cell{display:flex; flex-direction:column; gap:5px; font-size:11px; color:var(--muted); word-break:break-all;}
+  .slide-preview__cell img{width:100%; aspect-ratio:3/4; object-fit:contain; background:#fff; border:1px solid var(--line,#e6ebf3); border-radius:8px;}
+  .slide-item{position:relative; border:1px solid var(--line,#e6ebf3); border-radius:10px; overflow:hidden; background:#fff;}
+  .slide-item img{width:100%; aspect-ratio:3/4; object-fit:contain; display:block; background:#f2f5fa;}
+  .slide-item__remove{position:absolute; top:6px; right:6px; width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center;
+    border:none; border-radius:999px; background:rgba(192,57,43,.92); color:#fff; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,.2);}
+  .slide-item__remove:hover{background:#c0392b;}
+</style>
+@endpush
+
 @section('content')
 
 <div class="set-hero">
@@ -15,6 +30,7 @@
   <button type="button" class="set-tab" data-set-tab="whatsapp">WhatsApp</button>
   <button type="button" class="set-tab" data-set-tab="bank">Bank accounts</button>
   <button type="button" class="set-tab" data-set-tab="seo">SEO</button>
+  <button type="button" class="set-tab" data-set-tab="slideshow">Plans slideshow</button>
   <button type="button" class="set-tab" data-set-tab="smtp">Email / SMTP</button>
   @if($isMainAdmin)
     <button type="button" class="set-tab" data-set-tab="admins">Admins</button>
@@ -242,6 +258,68 @@
   </div>
 </div>
 
+{{-- ===== PLANS SLIDESHOW ===== --}}
+<div class="set-panel" data-set-panel="slideshow">
+  <div class="card">
+    <div class="card__head">
+      <h3>Plans & Rates slideshow</h3>
+      <small style="color:var(--muted); font-weight:600;">Images shown at the top of the customer Plans &amp; Rates page. Portrait posters work best; the whole image is always shown.</small>
+    </div>
+
+    <form method="POST" action="{{ route('admin.settings.plan-slides.store') }}" enctype="multipart/form-data" id="slideUploadForm">
+      @csrf
+      <div class="field">
+        <label>Upload images</label>
+        <input type="file" name="images[]" id="slideInput" accept="image/png,image/jpeg,image/webp" multiple>
+        <div class="hint">You can select several images at once. JPG, PNG or WebP, up to 5 MB each. New images are added to the ones already there.</div>
+        @error('images')<div class="hint" style="color:var(--danger,#c0392b); font-weight:700;">{{ $message }}</div>@enderror
+        @error('images.*')<div class="hint" style="color:var(--danger,#c0392b); font-weight:700;">{{ $message }}</div>@enderror
+      </div>
+
+      {{-- Live preview of the files the admin just picked (before uploading) --}}
+      <div id="slidePreview" class="slide-preview" hidden>
+        <div class="slide-preview__label">Selected images (not uploaded yet):</div>
+        <div class="slide-preview__grid" id="slidePreviewGrid"></div>
+      </div>
+
+      <div style="margin-top:16px; display:flex; gap:10px; justify-content:flex-end;">
+        <button type="submit" class="btn-admin btn-admin--gold" id="slideUploadBtn" disabled>
+          <span class="btn-label"><x-icon name="check" :size="14"/> Upload images</span>
+          <span class="btn-spinner" hidden></span>
+        </button>
+      </div>
+    </form>
+
+    <hr style="margin:22px 0; border:none; border-top:1px solid var(--line, #e6ebf3);">
+
+    <div class="card__head" style="margin-bottom:12px;">
+      <h3 style="font-size:15px;">Current images</h3>
+      <small style="color:var(--muted); font-weight:600;">{{ count($planSlides) }} image{{ count($planSlides) === 1 ? '' : 's' }} live on the Plans page.</small>
+    </div>
+
+    @if (empty($planSlides))
+      <p style="margin:0; color:var(--muted); font-weight:600;">No slideshow images yet. Upload some above — the slideshow stays hidden on the Plans page until at least one image is added.</p>
+    @else
+      <div class="slide-grid">
+        @foreach ($planSlides as $slide)
+          <div class="slide-item">
+            <img src="{{ asset($slide) }}" alt="Slide" loading="lazy">
+            <form method="POST" action="{{ route('admin.settings.plan-slides.destroy') }}"
+                  onsubmit="return confirm('Remove this image from the slideshow?');">
+              @csrf
+              @method('DELETE')
+              <input type="hidden" name="path" value="{{ $slide }}">
+              <button type="submit" class="slide-item__remove" title="Remove image" aria-label="Remove image">
+                <x-icon name="x" :size="14"/>
+              </button>
+            </form>
+          </div>
+        @endforeach
+      </div>
+    @endif
+  </div>
+</div>
+
 {{-- ===== SMTP ===== --}}
 <div class="set-panel" data-set-panel="smtp">
   <div class="card">
@@ -443,6 +521,41 @@
   tabs.forEach(function(t){ t.addEventListener('click', function(){ openTab(t.dataset.setTab); }); });
   var q = new URLSearchParams(window.location.search).get('tab');
   if (q) openTab(q);
+
+  // ----- Plans slideshow: multi-image preview before upload -----
+  (function(){
+    var input = document.getElementById('slideInput');
+    var box = document.getElementById('slidePreview');
+    var grid = document.getElementById('slidePreviewGrid');
+    var btn = document.getElementById('slideUploadBtn');
+    if (!input || !grid) return;
+    input.addEventListener('change', function(){
+      grid.innerHTML = '';
+      var files = Array.prototype.slice.call(input.files || []);
+      if (!files.length){
+        box.hidden = true;
+        if (btn) btn.disabled = true;
+        return;
+      }
+      files.forEach(function(f){
+        if (!f.type || f.type.indexOf('image/') !== 0) return;
+        var cell = document.createElement('div');
+        cell.className = 'slide-preview__cell';
+        var img = document.createElement('img');
+        img.alt = f.name;
+        var reader = new FileReader();
+        reader.onload = function(ev){ img.src = ev.target.result; };
+        reader.readAsDataURL(f);
+        var cap = document.createElement('span');
+        cap.textContent = f.name;
+        cell.appendChild(img);
+        cell.appendChild(cap);
+        grid.appendChild(cell);
+      });
+      box.hidden = false;
+      if (btn) btn.disabled = false;
+    });
+  })();
 
   function setFilePreview(box, src){
     if (!box || !src) return;

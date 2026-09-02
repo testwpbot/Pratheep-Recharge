@@ -20,6 +20,7 @@ class AdminSettingsController extends Controller
         $general = Setting::forGroup('general');
         $whatsapp = Setting::whatsapp();
         $seo = Setting::seo();
+        $planSlides = Setting::planSlides();
         $banks = BankAccount::query()->orderBy('sort_order')->orderBy('id')->get();
         $bankCatalog = SriLankanBanks::all();
         $isMainAdmin = auth()->user()?->isMainAdmin() ?? false;
@@ -32,7 +33,7 @@ class AdminSettingsController extends Controller
             : collect();
 
         return view('admin.settings.index', compact(
-            'smtp', 'general', 'whatsapp', 'seo', 'banks', 'bankCatalog', 'admins', 'isMainAdmin'
+            'smtp', 'general', 'whatsapp', 'seo', 'planSlides', 'banks', 'bankCatalog', 'admins', 'isMainAdmin'
         ));
     }
 
@@ -98,6 +99,62 @@ class AdminSettingsController extends Controller
 
         return redirect()->route('admin.settings.index', ['tab' => 'seo'])
             ->with('success', 'SEO settings saved.');
+    }
+
+    /**
+     * Upload one or more slideshow images shown on top of the customer
+     * Plans & Rates page. New images are appended to the existing list.
+     */
+    public function savePlanSlides(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'images'   => 'required|array|min:1',
+            'images.*' => 'image|mimes:jpg,jpeg,png,webp|max:5120', // 5 MB each
+        ], [
+            'images.required' => 'Choose at least one image to upload.',
+            'images.*.image'  => 'Every file must be an image (JPG, PNG or WebP).',
+            'images.*.max'    => 'Each image must be 5 MB or smaller.',
+        ]);
+
+        $dir = public_path('uploads/plan-slides');
+        if (! is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+
+        $slides = Setting::planSlides();
+        foreach ($request->file('images', []) as $file) {
+            $ext  = strtolower($file->getClientOriginalExtension() ?: 'jpg');
+            $name = 'slide-' . time() . '-' . bin2hex(random_bytes(4)) . '.' . $ext;
+            $file->move($dir, $name);
+            $slides[] = 'uploads/plan-slides/' . $name;
+        }
+
+        Setting::setPlanSlides($slides);
+
+        return redirect()->route('admin.settings.index', ['tab' => 'slideshow'])
+            ->with('success', 'Slideshow images uploaded.');
+    }
+
+    /** Remove a single slideshow image (by its stored path) and delete the file. */
+    public function deletePlanSlide(Request $request): RedirectResponse
+    {
+        $target = ltrim((string) $request->input('path', ''), '/');
+
+        $slides = Setting::planSlides();
+        $remaining = array_values(array_filter($slides, fn ($p) => $p !== $target));
+
+        // Only delete files inside the plan-slides folder, never anything else.
+        if ($target !== '' && str_starts_with($target, 'uploads/plan-slides/')) {
+            $full = public_path($target);
+            if (is_file($full)) {
+                @unlink($full);
+            }
+        }
+
+        Setting::setPlanSlides($remaining);
+
+        return redirect()->route('admin.settings.index', ['tab' => 'slideshow'])
+            ->with('success', 'Slideshow image removed.');
     }
 
     public function storeBank(Request $request): RedirectResponse

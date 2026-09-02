@@ -41,11 +41,20 @@ class Service extends Model
 
     /**
      * Services customers can buy: service On, provider On, not a hidden API twin.
+     *
+     * The 'api' type marks the hidden Dialog routing twins on TopupMart
+     * (op 921/922/923) that customer orders are silently routed through — those
+     * must stay hidden. TMobiling's own customer-facing services may also be
+     * marked 'api' (the "API" section on the plans page), and those SHOULD show.
+     * So we only hide 'api' services that are NOT on the TMobiling provider.
      */
     public function scopeForCustomers($query)
     {
         return $query->where('services.is_active', true)
-            ->where('type', '!=', 'api')
+            ->where(function ($q) {
+                $q->where('type', '!=', 'api')
+                  ->orWhereHas('provider', fn ($p) => $p->where('slug', 'tmobiling'));
+            })
             ->whereHas('provider', fn ($q) => $q->where('is_active', true));
     }
 
@@ -54,11 +63,15 @@ class Service extends Model
         if (! $this->is_active) {
             return false;
         }
-        if (strtolower((string) $this->type) === 'api') {
-            return false;
-        }
 
         $provider = $this->relationLoaded('provider') ? $this->provider : $this->provider()->first();
+
+        // Hidden Dialog routing twins (TopupMart 'api' type) stay hidden;
+        // TMobiling 'api' services are customer-facing and remain visible.
+        if (strtolower((string) $this->type) === 'api'
+            && (! $provider || $provider->slug !== 'tmobiling')) {
+            return false;
+        }
 
         return $provider && $provider->is_active;
     }

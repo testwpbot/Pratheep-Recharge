@@ -45,7 +45,7 @@ class DashboardController extends Controller
         // hides every service that belongs to it.
         $categories = Category::where('is_active', true)
             ->withWhereHas('services', fn ($q) => $q->forCustomers()
-                ->with(['plans', 'category', 'specialPrices' => fn ($sp) => $sp->where('user_id', $user->id)])
+                ->with(['plans', 'category', 'provider', 'specialPrices' => fn ($sp) => $sp->where('user_id', $user->id)])
                 ->orderBy('name'))
             ->orderBy('sort_order')
             ->get();
@@ -136,6 +136,36 @@ class DashboardController extends Controller
                 'primary_op' => '180', 'fallback_ops' => ['2'], 'bill_ops' => ['170', '13'], 'other_ops' => [],
                 'category' => 'mobile', 'is_bill_only' => false,
                 'bill_label' => 'Postpaid bill payment',
+            ],
+
+            // ===== MOBILE — API (TMobiling) =====
+            // The SAME mobile brands, but routed through the TMobiling provider.
+            // These render under the "API" filter tab on the mobile section.
+            // (TMobiling mobile prepaid op codes: 1=Dialog, 2=Airtel, 3=Mobitel,
+            //  4=Hutch — distinct from TopupMart's 18x codes, so no collision.)
+            (object) [
+                'key' => 'dialog-api', 'label' => 'Dialog', 'logo' => 'assets/logos/dialog.png',
+                'tag' => 'API', 'is_api' => true,
+                'primary_op' => '1', 'fallback_ops' => [], 'bill_ops' => [], 'other_ops' => [],
+                'category' => 'mobile', 'is_bill_only' => false, 'bill_label' => null,
+            ],
+            (object) [
+                'key' => 'mobitel-api', 'label' => 'Mobitel', 'logo' => 'assets/logos/sltmobitel.png',
+                'tag' => 'API', 'is_api' => true,
+                'primary_op' => '3', 'fallback_ops' => [], 'bill_ops' => [], 'other_ops' => [],
+                'category' => 'mobile', 'is_bill_only' => false, 'bill_label' => null,
+            ],
+            (object) [
+                'key' => 'hutch-api', 'label' => 'Hutch', 'logo' => 'assets/logos/hutch.png',
+                'tag' => 'API', 'is_api' => true,
+                'primary_op' => '4', 'fallback_ops' => [], 'bill_ops' => [], 'other_ops' => [],
+                'category' => 'mobile', 'is_bill_only' => false, 'bill_label' => null,
+            ],
+            (object) [
+                'key' => 'airtel-api', 'label' => 'Airtel', 'logo' => 'assets/logos/airtel.png',
+                'tag' => 'API', 'is_api' => true,
+                'primary_op' => '2', 'fallback_ops' => [], 'bill_ops' => [], 'other_ops' => [],
+                'category' => 'mobile', 'is_bill_only' => false, 'bill_label' => null,
             ],
 
             // ===== BROADBAND =====
@@ -441,7 +471,9 @@ class DashboardController extends Controller
             })
             ->values();
 
-        return view('dashboard.plans', compact('visibleCategories', 'typeMeta'));
+        $planSlides = \App\Models\Setting::planSlides();
+
+        return view('dashboard.plans', compact('visibleCategories', 'typeMeta', 'planSlides'));
     }
 
     /**

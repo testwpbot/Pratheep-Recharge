@@ -69,10 +69,10 @@
       @endforeach
     </div>
 
-    <div class="kind-tabs" id="mobileKindTabs" role="tablist" aria-label="Prepaid or Postpaid"
+    <div class="kind-tabs" id="mobileKindTabs" role="tablist" aria-label="Prepaid, API or Postpaid"
          @if(($categories->first()->slug ?? '') !== 'mobile') hidden @endif>
-      <button type="button" class="kind-tab active" data-kind="" aria-selected="true">All</button>
-      <button type="button" class="kind-tab" data-kind="prepaid" aria-selected="false">Prepaid</button>
+      <button type="button" class="kind-tab active" data-kind="prepaid" aria-selected="true">Prepaid</button>
+      <button type="button" class="kind-tab" data-kind="api" aria-selected="false">API</button>
       <button type="button" class="kind-tab" data-kind="postpaid" aria-selected="false">Postpaid</button>
     </div>
 
@@ -91,7 +91,10 @@
                   $catSlug = strtolower((string) $cat->slug);
                   $isBill = in_array($svcType, ['utility','postpaid','bill','insurance','wallet'], true)
                     || in_array($catSlug, ['utility','insurance','wallet-topup'], true);
-                  $payKind = $svcType === 'postpaid' ? 'postpaid' : 'prepaid';
+                  $isApi = strtolower((string) ($s->provider->slug ?? '')) === 'tmobiling';
+                  $payKind = $svcType === 'postpaid'
+                    ? 'postpaid'
+                    : ($isApi ? 'api' : 'prepaid');
                 @endphp
                 <button type="button"
                         class="service-card"
@@ -383,6 +386,10 @@
     var match = tabsEl.querySelector('.cat-tab[data-cat-slug="'+slug+'"]');
     if (match){ activate(match, false); }
   }
+
+  // Initial state: the default kind tab (Prepaid) must filter cards on load.
+  var firstActive = tabsEl.querySelector('.cat-tab.active');
+  syncKindTabs(firstActive ? firstActive.dataset.catSlug : '');
 })();
 </script>
 @endpush

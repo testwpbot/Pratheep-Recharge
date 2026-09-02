@@ -58,7 +58,11 @@ class RechargeController extends Controller
         if (! auth()->user()?->is_admin) {
             abort_unless($service->isVisibleToCustomers(), 404);
         }
-        if (strtolower((string) $service->type) === 'api' && ! auth()->user()?->is_admin) {
+        // Hidden Dialog routing twins (TopupMart 'api') stay blocked for customers;
+        // TMobiling 'api' services are customer-facing (handled by isVisibleToCustomers).
+        if (strtolower((string) $service->type) === 'api'
+            && $service->provider?->slug !== 'tmobiling'
+            && ! auth()->user()?->is_admin) {
             abort(404);
         }
         $service->load(['category', 'plans', 'specialPrices' => fn ($sp) => $sp->where('user_id', auth()->id())]);

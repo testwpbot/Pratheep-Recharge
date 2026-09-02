@@ -72,6 +72,42 @@ class Setting extends Model
     }
 
     /**
+     * Slideshow images shown on top of the customer Plans & Rates page.
+     * Stored as a JSON list of public-relative paths (e.g. uploads/plan-slides/x.jpg).
+     *
+     * @return list<string>
+     */
+    public static function planSlides(): array
+    {
+        $raw = static::get('plan_slides', 'images', null);
+        if ($raw === null || $raw === '') {
+            return [];
+        }
+
+        $decoded = is_array($raw) ? $raw : json_decode((string) $raw, true);
+        if (! is_array($decoded)) {
+            return [];
+        }
+
+        // Keep only entries whose file still exists on disk, so a deleted file
+        // never renders a broken image on the customer page.
+        return array_values(array_filter(
+            array_map(fn ($p) => ltrim((string) $p, '/'), $decoded),
+            fn ($p) => $p !== '' && is_file(public_path($p))
+        ));
+    }
+
+    /** Persist the slideshow image list. */
+    public static function setPlanSlides(array $paths): void
+    {
+        $clean = array_values(array_filter(array_map(
+            fn ($p) => ltrim((string) $p, '/'),
+            $paths
+        )));
+        static::set('plan_slides', 'images', json_encode($clean));
+    }
+
+    /**
      * WhatsApp chat button. Hidden until admin turns it on and sets a number.
      *
      * @return array{enabled:bool,phone:string,message:string,href:?string}

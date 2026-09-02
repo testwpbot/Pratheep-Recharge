@@ -214,6 +214,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified.otp', 'adm
     Route::post('/settings/whatsapp',                     [AdminSettingsController::class, 'saveWhatsapp'])->name('settings.whatsapp');
     Route::post('/settings/test-smtp',                    [AdminSettingsController::class, 'testSmtp'])->name('settings.test-smtp');
     Route::post('/settings/seo',                          [AdminSettingsController::class, 'saveSeo'])->name('settings.seo');
+    Route::post('/settings/plan-slides',                  [AdminSettingsController::class, 'savePlanSlides'])->name('settings.plan-slides.store');
+    Route::delete('/settings/plan-slides',                [AdminSettingsController::class, 'deletePlanSlide'])->name('settings.plan-slides.destroy');
     Route::post('/settings/banks',                        [AdminSettingsController::class, 'storeBank'])->name('settings.banks.store');
     Route::patch('/settings/banks/{bankAccount}',         [AdminSettingsController::class, 'updateBank'])->name('settings.banks.update');
     Route::delete('/settings/banks/{bankAccount}',        [AdminSettingsController::class, 'destroyBank'])->name('settings.banks.destroy');
