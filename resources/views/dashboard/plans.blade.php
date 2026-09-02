@@ -25,6 +25,14 @@
     </button>
     <div class="plan-slideshow__dots" id="planSlideDots"></div>
   </div>
+
+  {{-- Fullscreen preview shown when a poster is tapped/clicked --}}
+  <div class="plan-lightbox" id="planLightbox" role="dialog" aria-modal="true" aria-label="Image preview">
+    <button type="button" class="plan-lightbox__close" id="planLightboxClose" aria-label="Close preview">
+      <x-icon name="x" :size="20"/>
+    </button>
+    <img src="" alt="" class="plan-lightbox__img" id="planLightboxImg">
+  </div>
 @endif
 
 <div class="card">
@@ -509,6 +517,7 @@
   overflow:hidden;
   background:#0b1a33;        /* dark tone fills any letterbox gap, never white */
   box-shadow:0 8px 22px rgba(11,42,91,.16);
+  cursor:zoom-in;            /* hints the poster opens full-size on tap/click */
   /* Reduced-height, landscape-leaning stage (was tall portrait). Whole image
      stays visible via object-fit:contain. */
   aspect-ratio:4 / 3;
@@ -544,10 +553,40 @@
 @media (max-width:900px){
   .plan-slideshow{--ss-per:2;}
 }
-/* Mobile: one per row, arrows tucked to the edges */
+/* Mobile: one per row, arrows tucked to the edges. Only one poster shows,
+   so give it more height for readability (taller than the desktop 4:3). */
 @media (max-width:600px){
   .plan-slideshow{--ss-per:1; --ss-gap:12px; padding:0 34px;}
   .plan-slideshow__nav{width:32px; height:32px;}
+  .plan-slide__inner{aspect-ratio:3 / 4;}
+}
+
+/* ---- Fullscreen poster preview (lightbox) ---- */
+.plan-lightbox{
+  position:fixed; inset:0; z-index:1000;
+  display:none; align-items:center; justify-content:center;
+  padding:24px;
+  background:rgba(6,16,33,.92);
+  opacity:0; transition:opacity .2s ease;
+}
+.plan-lightbox.is-open{display:flex; opacity:1;}
+.plan-lightbox__img{
+  max-width:100%; max-height:100%;
+  object-fit:contain;
+  border-radius:10px;
+  box-shadow:0 20px 60px rgba(0,0,0,.5);
+}
+.plan-lightbox__close{
+  position:absolute; top:16px; right:16px;
+  width:44px; height:44px; border:none; border-radius:999px;
+  background:rgba(255,255,255,.95); color:#0b2a5b; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 2px 10px rgba(0,0,0,.3); transition:background .15s;
+}
+.plan-lightbox__close:hover{background:#fff;}
+@media (max-width:600px){
+  .plan-lightbox{padding:14px;}
+  .plan-lightbox__close{top:10px; right:10px; width:40px; height:40px;}
 }
 
 /* Scroll lock when modal is open.
@@ -1161,6 +1200,38 @@
       clearTimeout(rt);
       rt = setTimeout(recalc, 150);
     });
+
+    // ----- Fullscreen preview (lightbox) -----
+    var lb = document.getElementById('planLightbox');
+    var lbImg = document.getElementById('planLightboxImg');
+    var lbClose = document.getElementById('planLightboxClose');
+    if (lb && lbImg){
+      function openLightbox(src, alt){
+        lbImg.src = src;
+        lbImg.alt = alt || '';
+        lb.classList.add('is-open');
+        stop();                       // pause auto-rotate while previewing
+        document.body.style.overflow = 'hidden';
+      }
+      function closeLightbox(){
+        lb.classList.remove('is-open');
+        lbImg.src = '';
+        document.body.style.overflow = '';
+        start();
+      }
+      track.addEventListener('click', function(e){
+        var img = e.target.closest('.plan-slide img');
+        if (!img) return;
+        openLightbox(img.getAttribute('src'), img.getAttribute('alt'));
+      });
+      if (lbClose) lbClose.addEventListener('click', closeLightbox);
+      lb.addEventListener('click', function(e){
+        if (e.target === lb) closeLightbox();   // click the dark backdrop closes
+      });
+      document.addEventListener('keydown', function(e){
+        if (e.key === 'Escape' && lb.classList.contains('is-open')) closeLightbox();
+      });
+    }
 
     recalc();
     start();
