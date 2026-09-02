@@ -1610,6 +1610,7 @@
   var currentMode = 'plan';
   var currentFee = 0;
   var currentFeePct = 0;
+  var currentFxRate = 1;   // INR->LKR rate for DTH (1 = no conversion)
   var mAmount  = document.getElementById('rcAmount');
   var mSubmit  = document.getElementById('rcSubmit');
   var mSpinner = mSubmit.querySelector('.btn-spinner');
@@ -1705,6 +1706,8 @@
     currentMode = mode;
     currentFee = parseFloat(card.dataset.feeFlat || '0') || 0;
     currentFeePct = parseFloat(card.dataset.feePct || '0') || 0;
+    currentFxRate = parseFloat(card.dataset.fxRate || '1') || 1;
+    var isDth = currentFxRate > 1;
     var hideNotify = card.dataset.hideNotify === '1' || /postpaid/i.test(card.dataset.opName || '');
     var details;
     try { details = JSON.parse(card.dataset.details || '[]'); } catch(e){ details = []; }
@@ -1762,16 +1765,18 @@
       // Custom reload/topup — empty amount, user types
       mTitle.textContent = 'Custom Reload — ' + op;
       mAccLabel.innerHTML = 'Mobile Number <span class="req">*</span>';
-      mAmountLabel.innerHTML = 'Reload Amount (LKR) <span class="req">*</span>';
+      mAmountLabel.innerHTML = (isDth ? 'Amount (INR)' : 'Reload Amount (LKR)') + ' <span class="req">*</span>';
       mAccountInput.placeholder = 'e.g. 0771234567';
-      mAmountInput.placeholder = 'Enter amount (e.g. 250)';
+      mAmountInput.placeholder = isDth ? 'Enter DTH pack value in INR (e.g. 500)' : 'Enter amount (e.g. 250)';
       mAmountInput.readOnly = false;
-      mAmountInput.min = '50';
+      mAmountInput.min = isDth ? '10' : '50';
       mAmountInput.value = '';
       mSubmitLabel.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Reload Now';
       mPlanBox.style.display = 'none';
       mHintIc.innerHTML = iconSvg.bolt;
-      mHintText.textContent = 'Minimum reload is LKR 50. Enter an amount between LKR 50 and LKR 100,000 — the exact amount will be credited to the mobile number.';
+      mHintText.textContent = isDth
+        ? 'Enter the DTH pack value in Indian Rupees (INR). A service charge is added and your wallet is charged in LKR (INR × ' + currentFxRate + ').'
+        : 'Minimum reload is LKR 50. Enter an amount between LKR 50 and LKR 100,000 — the exact amount will be credited to the mobile number.';
       mHint.hidden = false;
     } else {
       // Bill payment — account number, exact bill amount
@@ -1904,7 +1909,13 @@
     var title = document.getElementById('rcConfirmTitle') || document.querySelector('#rcConfirm h4');
     if (title) title.textContent = isBill ? 'Confirm this payment?' : 'Confirm this reload?';
     if (mConfirmText){
-      if (fee > 0){
+      if (currentFxRate > 1){
+        var walletLkr = Math.round(amt * currentFxRate * 100) / 100;
+        mConfirmText.innerHTML = 'Recharge ' + (op || 'this service') + ' to <b>' + acc + '</b>:<br>'
+          + 'DTH pack: INR ' + amt.toFixed(2) + '<br>'
+          + 'Service charge: INR 1 = LKR ' + currentFxRate + '<br>'
+          + '<b>Total from wallet: LKR ' + walletLkr.toFixed(2) + '</b>';
+      } else if (fee > 0){
         mConfirmText.innerHTML = 'Pay for ' + (op || 'this service') + ' to <b>' + acc + '</b>:<br>'
           + 'Bill amount: LKR ' + amt.toFixed(2) + '<br>'
           + 'Service fee: LKR ' + fee.toFixed(2) + '<br>'

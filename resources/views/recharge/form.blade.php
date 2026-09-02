@@ -49,13 +49,13 @@
 
         @php $isDth = $service->isDth(); $fxRate = $service->fxRate(); @endphp
         <div class="field">
-          <label>Amount (LKR) <span class="req">*</span></label>
+          <label>{{ $isDth ? 'Amount (INR)' : 'Amount (LKR)' }} <span class="req">*</span></label>
           <input type="number" step="0.01" min="10" max="100000" name="amount" id="amount"
                  data-fx-rate="{{ $fxRate }}"
-                 value="{{ old('amount') }}" placeholder="{{ $isDth ? 'e.g. 1000' : 'e.g. 100' }}" required>
+                 value="{{ old('amount') }}" placeholder="{{ $isDth ? 'e.g. 500' : 'e.g. 100' }}" required>
           <div class="hint">
             @if($isDth)
-              Enter the amount in LKR. The DTH provider is credited the equivalent in Indian Rupees (LKR ÷ {{ $fxRate }}).
+              Enter the DTH pack value in Indian Rupees (INR). A service charge is added and your wallet is charged in LKR (INR × {{ $fxRate }}).
             @else
               Pick a plan below or enter a custom amount. You pay exactly this amount.
             @endif
@@ -234,17 +234,20 @@
 
   function updateCashback(){
     const amt = parseFloat(input.value || '0');
+    // For DTH the customer types INR; their wallet is charged INR * rate (LKR).
+    const isDth = fxRate > 1;
+    const walletLkr = isDth ? Math.round(amt * fxRate * 100) / 100 : amt;
     if (picker) picker.querySelectorAll('.pick').forEach(b => {
       b.classList.toggle('active', Math.abs(parseFloat(b.dataset.value) - amt) < 0.01);
     });
 
-    // DTH: show live LKR -> INR conversion (what the provider receives).
-    if (fxRate > 1 && fxNote){
+    // DTH: show the live INR -> LKR wallet charge (service charge shown to the
+    // customer as a plain LKR total; we never expose the "provider" wording).
+    if (isDth && fxNote){
       if (amt > 0){
-        const inr = Math.round(amt / fxRate * 100) / 100;
-        fxNote.textContent = 'You pay LKR ' + amt.toLocaleString('en-LK', {minimumFractionDigits:2, maximumFractionDigits:2})
-          + ' → provider credited INR ' + inr.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})
-          + ' (rate ' + fxRate + ').';
+        fxNote.textContent = 'DTH pack INR ' + amt.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2})
+          + ' — your wallet is charged LKR ' + walletLkr.toLocaleString('en-LK', {minimumFractionDigits:2, maximumFractionDigits:2})
+          + ' (service charge INR 1 = LKR ' + fxRate + ').';
         fxNote.style.display = '';
       } else {
         fxNote.style.display = 'none';
@@ -254,15 +257,15 @@
     if (!amt){ note.style.display='none'; return; }
 
     // Negative profit on a bill service = a customer service fee shown up front.
-    const fee = feeFor(amt);
+    const fee = feeFor(walletLkr);
     if (fee > 0){
-      txt.textContent = `A service fee of LKR ${fee.toFixed(2)} applies. Total to pay: LKR ${(amt+fee).toFixed(2)} (bill LKR ${amt.toFixed(2)} + fee LKR ${fee.toFixed(2)}).`;
+      txt.textContent = `A service fee of LKR ${fee.toFixed(2)} applies. Total to pay: LKR ${(walletLkr+fee).toFixed(2)} (bill LKR ${walletLkr.toFixed(2)} + fee LKR ${fee.toFixed(2)}).`;
       note.style.display='flex';
       return;
     }
 
     if (profit <= 0){ note.style.display='none'; return; }
-    const cb = profitType === 'PCT' ? (amt*profit/100) : profit;
+    const cb = profitType === 'PCT' ? (walletLkr*profit/100) : profit;
     txt.textContent = `You'll earn LKR ${cb.toFixed(2)} cashback on a successful order.`;
     note.style.display='flex';
   }

@@ -374,7 +374,14 @@ class InvoiceService
         $rows[] = ['label' => 'Date & Time',      'value' => ($order->completed_at ?: $order->created_at)->timezone('Asia/Colombo')->format('d M Y, h:i A')];
 
         $rows[] = ['section' => 'Payment Summary'];
-        $rows[] = ['label' => 'Recharge Amount',  'value' => 'LKR ' . number_format((float) $order->amount, 2)];
+        if ($order->isForeignCurrency()) {
+            // DTH: customer buys an INR pack; a service charge converts it to LKR.
+            $rows[] = ['label' => 'DTH Pack',         'value' => 'INR ' . number_format($order->providerAmount(), 2)];
+            $rows[] = ['label' => 'Service Charge',   'value' => 'INR 1 = LKR ' . rtrim(rtrim(number_format($order->fxRate(), 4), '0'), '.')];
+            $rows[] = ['label' => 'Recharge Amount',  'value' => 'LKR ' . number_format((float) $order->amount, 2)];
+        } else {
+            $rows[] = ['label' => 'Recharge Amount',  'value' => 'LKR ' . number_format((float) $order->amount, 2)];
+        }
         if ($order->hasFee()) {
             $rows[] = ['label' => 'Service Fee',      'value' => 'LKR ' . number_format($order->feeAmount(), 2)];
         } elseif ((float) $order->profit > 0) {

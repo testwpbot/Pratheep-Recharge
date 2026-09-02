@@ -39,10 +39,12 @@
         <dt>Reference</dt><dd>{{ $order->reference }}</dd>
         <dt>Service</dt><dd>{{ $order->customerServiceName() }}</dd>
         <dt>Account</dt><dd>{{ $order->account_number }}</dd>
-        <dt>Amount</dt><dd>LKR {{ number_format((float) $order->amount, 2) }}</dd>
         @if ($order->isForeignCurrency())
-          <dt>Rate</dt><dd>INR 1 = LKR {{ rtrim(rtrim(number_format($order->fxRate(), 4), '0'), '.') }}</dd>
-          <dt>Provider credited</dt><dd>INR {{ number_format($order->providerAmount(), 2) }}</dd>
+          <dt>DTH pack</dt><dd>INR {{ number_format($order->providerAmount(), 2) }}</dd>
+          <dt>Service charge</dt><dd>INR 1 = LKR {{ rtrim(rtrim(number_format($order->fxRate(), 4), '0'), '.') }}</dd>
+          <dt>Amount</dt><dd>LKR {{ number_format((float) $order->amount, 2) }}</dd>
+        @else
+          <dt>Amount</dt><dd>LKR {{ number_format((float) $order->amount, 2) }}</dd>
         @endif
         @if ($order->hasFee())
           <dt>Service fee</dt><dd>LKR {{ number_format($order->feeAmount(), 2) }}</dd>

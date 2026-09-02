@@ -397,9 +397,9 @@ button.service-card{
     } else if (mode === 'reload'){
       mTitle.textContent = 'Recharge — ' + op;
       mAccLabel.innerHTML = 'Mobile / Account Number <span class="req">*</span>';
-      mAmountLabel.innerHTML = 'Amount (LKR) <span class="req">*</span>';
+      mAmountLabel.innerHTML = (isDth ? 'Amount (INR)' : 'Amount (LKR)') + ' <span class="req">*</span>';
       mAccountInput.placeholder = 'e.g. 0771234567';
-      mAmountInput.placeholder = isDth ? 'Enter amount in LKR (e.g. 1000)' : 'Enter amount (e.g. 250)';
+      mAmountInput.placeholder = isDth ? 'Enter DTH pack value in INR (e.g. 500)' : 'Enter amount (e.g. 250)';
       mAmountInput.readOnly = false;
       mAmountInput.min = isDth ? '10' : '50';
       mAmountInput.value = '';
@@ -407,7 +407,7 @@ button.service-card{
       mPlanBox.style.display = 'none';
       mHintIc.innerHTML = iconSvg.bolt;
       mHintText.textContent = isDth
-        ? 'Enter the amount in LKR. The DTH provider is credited the equivalent in Indian Rupees (LKR ÷ ' + currentFxRate + ').'
+        ? 'Enter the DTH pack value in Indian Rupees (INR). A service charge is added and your wallet is charged in LKR (INR × ' + currentFxRate + ').'
         : 'Minimum recharge is LKR 50. Enter the amount to send. You pay exactly this amount.';
       mHint.hidden = false;
     } else {
@@ -519,11 +519,11 @@ button.service-card{
     if (title) title.textContent = isBill ? 'Confirm this payment?' : 'Confirm this reload?';
     if (mConfirmText){
       if (currentFxRate > 1){
-        var inr = Math.round(amt / currentFxRate * 100) / 100;
+        var walletLkr = Math.round(amt * currentFxRate * 100) / 100;
         mConfirmText.innerHTML = 'Recharge ' + (op || 'this service') + ' to <b>' + acc + '</b>:<br>'
-          + 'You pay: LKR ' + amt.toFixed(2) + '<br>'
-          + 'Rate: INR 1 = LKR ' + currentFxRate + '<br>'
-          + '<b>Provider credited: INR ' + inr.toFixed(2) + '</b>';
+          + 'DTH pack: INR ' + amt.toFixed(2) + '<br>'
+          + 'Service charge: INR 1 = LKR ' + currentFxRate + '<br>'
+          + '<b>Total from wallet: LKR ' + walletLkr.toFixed(2) + '</b>';
       } else if (fee > 0){
         mConfirmText.innerHTML = 'Pay for ' + (op || 'this service') + ' to <b>' + acc + '</b>:<br>'
           + 'Bill amount: LKR ' + amt.toFixed(2) + '<br>'

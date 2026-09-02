@@ -16,9 +16,12 @@ use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 /**
- * DTH recharges: the customer pays in LKR (like every other service) and their
- * wallet is charged exactly that LKR amount. DTH packs are priced in INR, so
- * the provider is credited the INR equivalent = LKR / rate
+ * Internal contract of OrderService::placeOrder() for DTH.
+ *
+ * The controller converts the customer's INR input to LKR before calling
+ * placeOrder() (see DthInrInputTest for the INR-input HTTP flow). placeOrder()
+ * itself always receives the LKR wallet charge in `amount`; DTH packs are
+ * priced in INR, so the provider is credited amount / rate
  * (general.dth_inr_rate = LKR per 1 INR, default 3.65).
  */
 class DthFxConversionTest extends TestCase
@@ -55,7 +58,8 @@ class DthFxConversionTest extends TestCase
 
         Http::fake(['*tmobiling.lk/*' => Http::response(['status' => 'success', 'transaction_id' => 'TM-1'], 200)]);
 
-        // Customer enters LKR 1825.
+        // placeOrder() receives the LKR wallet charge (the controller already
+        // converted the customer's INR 500 input to 500 * 3.65 = 1825).
         $order = app(OrderService::class)->placeOrder($user, $svc->id, '1234567890', 1825);
 
         // amount is the LKR the customer paid; wallet charged exactly that.

@@ -99,12 +99,22 @@ class RechargeController extends Controller
         $type = strtolower((string) $service->type);
         $isBillLike = in_array($type, ['utility', 'postpaid', 'bill', 'insurance', 'wallet'], true);
         $isDth = $service->isDth();
-        // All amounts are entered in LKR. DTH & bills can be low (LKR 10); mobile 50.
+        $rate = $service->fxRate();
+
+        // DTH is entered by the customer in INR (the pack value). Their wallet is
+        // charged INR * rate (LKR); the provider then receives the INR pack value
+        // (providerAmount = LKR / rate). Every other service is entered in LKR 1:1.
+        $entered   = (float) $data['amount'];
+        $amountLkr = $isDth ? round($entered * $rate, 2) : $entered;
+
+        // Minimums are checked against what the customer typed: DTH in INR,
+        // everything else in LKR.
         $minAmount = ($isBillLike || $isDth) ? 10 : 50;
 
-        if ((float) $data['amount'] < $minAmount) {
+        if ($entered < $minAmount) {
+            $unit = $isDth ? 'INR' : 'LKR';
             $msg = ($isBillLike || $isDth)
-                ? "Minimum amount is LKR {$minAmount}."
+                ? "Minimum amount is {$unit} {$minAmount}."
                 : "Minimum recharge amount is LKR {$minAmount}. Please enter LKR {$minAmount} or more.";
             if ($request->wantsJson()) {
                 return response()->json(['ok' => false, 'message' => $msg], 422);
@@ -112,15 +122,15 @@ class RechargeController extends Controller
             return back()->withInput()->with('error', $msg);
         }
 
-        // Cashback preview
-        $cashback = $service->calculateCashback((float) $data['amount']);
+        // Cashback preview (based on the LKR wallet charge).
+        $cashback = $service->calculateCashback($amountLkr);
 
         try {
             $order = $svc->placeOrder(
                 user:          $user,
                 serviceId:     (int) $data['service_id'],
                 accountNumber: $data['account_number'],
-                amount:        (float) $data['amount'],
+                amount:        $amountLkr,
                 notifyNumber:  $data['notify_number'] ?? null,
             );
         } catch (\Throwable $e) {
