@@ -96,9 +96,9 @@ class DthInrInputTest extends TestCase
 
     /**
      * DTH is routed through Topup Mart (op codes 120-124). Topup Mart must be
-     * sent the INR pack value, NOT the LKR wallet charge. This is the exact
-     * scenario that previously failed with "Invalid operator code" because the
-     * LKR amount (not INR) was sent.
+     * sent the EXACT value the customer typed in the amount box (Topup Mart
+     * treats it as LKR), NOT the converted LKR wallet charge. The customer's
+     * wallet is still charged (typed x rate) LKR via our conversion.
      */
     public function test_topup_mart_dth_receives_inr_pack_value(): void
     {
@@ -124,7 +124,7 @@ class DthInrInputTest extends TestCase
             'status' => 'success', 'transaction_id' => 'TM-DTH-1', 'message' => 'OK',
         ], 200)]);
 
-        // Customer enters INR 500; wallet charged 500 * 3.65 = LKR 1825.
+        // Customer types 500 in the amount box; wallet charged 500 * 3.65 = LKR 1825.
         $res = $this->actingAs($user)->postJson(route('recharge.confirm'), [
             'service_id'     => $svc->id,
             'account_number' => '1234567890',
@@ -134,9 +134,9 @@ class DthInrInputTest extends TestCase
 
         $order = \App\Models\Order::first();
         $this->assertEquals(1825, (float) $order->amount);       // LKR wallet charge
-        $this->assertEquals(500, $order->providerAmount());      // INR pack value
+        $this->assertEquals(500, $order->providerAmount());      // exact typed value
 
-        // Topup Mart must have received the INR pack value (500), with op 124.
+        // Topup Mart must have received the exact typed value (500), with op 124.
         Http::assertSent(function ($request) {
             return str_contains($request->url(), 'topupmart.online')
                 && (string) $request['amount'] === '500'

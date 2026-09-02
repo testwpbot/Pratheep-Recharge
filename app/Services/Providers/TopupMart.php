@@ -117,10 +117,13 @@ class TopupMart implements ProviderInterface
             ? preg_replace('/[^0-9]/', '', $order->notify_number)
             : $mobile;
 
-        // Amount sent to TopupMart. For DTH the pack is priced in INR, so we
-        // send providerAmount() (LKR wallet charge / rate = the INR pack value).
+        // Amount sent to TopupMart = the EXACT value the customer typed in the
+        // amount box. TopupMart expects that raw value (it treats it as LKR).
+        // For DTH the customer's wallet is charged (typed × rate) LKR, but the
+        // provider still receives the typed value itself — providerAmount()
+        // reconstructs it as (LKR wallet charge ÷ rate) = the typed amount.
         // For every other service providerAmount() equals order->amount (rate 1),
-        // so this is safe across the board. Strip trailing zeros so "10.00"
+        // so this is correct across the board. Strip trailing zeros so "10.00"
         // becomes "10" (some LK provider APIs reject decimal amounts on integer
         // services).
         $amount = rtrim(rtrim(number_format($order->providerAmount(), 2, '.', ''), '0'), '.');
@@ -174,7 +177,8 @@ class TopupMart implements ProviderInterface
     /* ---------- status check ---------- */
     public function checkStatus(Order $order): array
     {
-        // Must match the amount we sent on recharge (INR pack value for DTH).
+        // Must match the amount we sent on recharge (the exact value the
+        // customer typed — providerAmount() reconstructs it for DTH orders).
         $amount = null;
         if ($order->amount) {
             $amount = rtrim(rtrim(number_format($order->providerAmount(), 2, '.', ''), '0'), '.');
