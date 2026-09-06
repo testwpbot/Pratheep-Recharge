@@ -156,6 +156,125 @@ class OrderRefundStatusTest extends TestCase
         $this->assertEquals(300, (float) Wallet::where('user_id', $user->id)->value('balance'));
     }
 
+    public function test_cron_refunds_when_provider_reports_cancelled_under_error_status(): void
+    {
+        // Provider replies with a non-standard status ("error") but a message
+        // that clearly means the transaction was refunded/cancelled on their
+        // side. The cron must treat this as a terminal failure and refund.
+        $svc = $this->seedService();
+        $user = User::factory()->create();
+        Wallet::create(['user_id' => $user->id, 'balance' => 300]);
+
+        Http::fake([
+            '*topupmart.online/api/v2/recharge.php' => Http::response([
+                'status' => 'pending', 'transaction_id' => 'TM-C', 'message' => 'queued',
+            ], 200),
+            '*topupmart.online/api/v2/status.php' => Http::response([
+                'status' => 'error', 'message' => 'Transaction cancelled and amount refunded to your wallet.',
+            ], 200),
+        ]);
+
+        $orders = app(OrderService::class);
+        $order = $orders->placeOrder($user, $svc->id, '0771234567', 100);
+        $this->assertSame('pending', $order->status);
+
+        $this->assertSame(1, $orders->syncPending());
+        $this->assertSame(Order::STATUS_REFUNDED, $order->fresh()->status);
+        $this->assertEquals(300, (float) Wallet::where('user_id', $user->id)->value('balance'));
+        $this->assertEquals(1, WalletTransaction::where('transactable_id', $order->id)
+            ->where('type', 'refund')->count());
+    }
+
+    public function test_cron_refunds_order_stuck_after_auto_transfer_exhausted(): void
+    {
+        // Reproduces the real stuck order: an AUTO fallback switched routes, the
+        // second route hard-failed with no transaction_id, so status polls come
+        // back "missing transaction_id" forever. The cron must refund it.
+        $svc = $this->seedService();
+        $user = User::factory()->create();
+        Wallet::create(['user_id' => $user->id, 'balance' => 500]);
+
+        Http::fake([
+            '*topupmart.online/*' => Http::response([
+                'status' => 'error', 'message' => 'Missing required fields: transaction_id',
+            ], 200),
+        ]);
+
+        // Simulate the post-auto-transfer state directly on a pending order.
+        $order = Order::create([
+            'reference'       => Order::generateReference(),
+            'user_id'         => $user->id,
+            'service_id'      => $svc->id,
+            'provider_id'     => $svc->provider_id,
+            'account_number'  => '0771234567',
+            'amount'          => 100,
+            'profit'          => 0,
+            'fee'             => 0,
+            'fx_rate'         => 1,
+            'status'          => 'pending',
+            'provider_status' => 'switch_fail',
+            'processed_at'    => now(),
+            'provider_response' => [
+                '_route_op_code' => '181',
+                '_transfer' => ['auto' => true, 'to_op' => '181'],
+                '_transfer_response' => ['status' => 'failed', 'message' => 'Recharge failed.'],
+            ],
+        ]);
+
+        // Record the wallet debit so a refund has something to reverse.
+        $wallet = Wallet::where('user_id', $user->id)->first();
+        $wallet->balance = 400;
+        $wallet->save();
+        WalletTransaction::create([
+            'wallet_id'         => $wallet->id,
+            'transactable_type' => Order::class,
+            'transactable_id'   => $order->id,
+            'type'              => 'debit',
+            'amount'            => 100,
+            'balance_before'    => 500,
+            'balance_after'     => 400,
+            'description'       => 'Recharge debit',
+        ]);
+
+        $orders = app(OrderService::class);
+        $this->assertSame(1, $orders->syncPending());
+
+        $order->refresh();
+        $this->assertSame(Order::STATUS_REFUNDED, $order->status);
+        $this->assertEquals(500, (float) Wallet::where('user_id', $user->id)->value('balance'));
+        $this->assertEquals(1, WalletTransaction::where('transactable_id', $order->id)
+            ->where('type', 'refund')->count());
+    }
+
+    public function test_provider_funds_issue_is_not_treated_as_cancellation(): void
+    {
+        // An "insufficient balance" reply is recoverable (top up + retry), so it
+        // must NOT be auto-refunded as a cancellation — it goes on hold instead.
+        $svc = $this->seedService();
+        $user = User::factory()->create();
+        Wallet::create(['user_id' => $user->id, 'balance' => 300]);
+
+        Http::fake([
+            '*topupmart.online/api/v2/recharge.php' => Http::response([
+                'status' => 'pending', 'transaction_id' => 'TM-F', 'message' => 'queued',
+            ], 200),
+            '*topupmart.online/api/v2/status.php' => Http::response([
+                'status' => 'error', 'message' => 'Insufficient balance in reseller wallet',
+            ], 200),
+        ]);
+
+        $orders = app(OrderService::class);
+        $order = $orders->placeOrder($user, $svc->id, '0771234567', 100);
+        $this->assertSame('pending', $order->status);
+
+        $orders->syncPending();
+
+        $order->refresh();
+        $this->assertNotSame(Order::STATUS_REFUNDED, $order->status);
+        $this->assertTrue($order->isAwaitingProviderFunds());
+        $this->assertEquals(200, (float) Wallet::where('user_id', $user->id)->value('balance'));
+    }
+
     public function test_customer_pages_show_refunded_not_failed(): void
     {
         $svc = $this->seedService();

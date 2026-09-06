@@ -746,8 +746,16 @@ class OrderService
             $order->save();
         } elseif (ProviderErrors::isFundsIssue($resp['message'] ?? null, is_array($resp) ? $resp : [])) {
             $this->holdForProviderFunds($order, $resp['message'] ?? 'Provider has no money');
+        } elseif ($admin === null && empty($resp['transaction_id'])) {
+            // AUTO transfer: this was the last route and it hard-failed with no
+            // recoverable transaction to poll. The order can never resolve on its
+            // own, so refund the customer now instead of leaving it stuck pending.
+            $order->provider_status = 'switch_fail';
+            $order->save();
+            $this->markFailed($order, $resp['message'] ?? 'Recharge failed on every route — refunded to wallet.');
         } else {
-            // Keep pending so admin can send it back the other way.
+            // ADMIN switch (or a retry that returned a transaction id): keep
+            // pending so the admin can send it back the other way / reconcile.
             // Do not refund — the first request may still complete.
             $order->status = 'pending';
             $order->provider_status = 'switch_fail';
@@ -865,9 +873,28 @@ class OrderService
                     continue;
                 }
 
+                // Safety net for orders whose AUTO fallback exhausted every route
+                // and hard-failed on the last one (both Dialog routes tried, the
+                // second returned a terminal failure, no recoverable transaction).
+                // These otherwise sit pending forever because a status poll has no
+                // valid reference to look up. Refund the customer.
+                if ($this->autoTransferExhausted($order)) {
+                    $this->markFailed($order, $order->message ?: 'Recharge failed on every route — refunded to wallet.');
+                    $notes[] = $label.': all routes exhausted — refunded.';
+                    $count++;
+                    Log::info("Order {$order->reference} reconciled to REFUNDED by cron (auto-transfer exhausted)");
+                    continue;
+                }
+
                 $client = ProviderFactory::make($order->provider);
                 $resp = $client->checkStatus($order);
                 $status = strtolower((string) ($resp['status'] ?? 'pending'));
+
+                // A provider may report a cancellation/refund/reversal under a
+                // non-standard status (e.g. status:"error", message:"...refunded").
+                // Treat any such terminal negative outcome as a failure so the
+                // customer is auto-refunded instead of being left pending.
+                $providerCancelled = ProviderErrors::isCancelledOrRefunded($resp['message'] ?? null, $resp);
 
                 $prev = is_array($order->provider_response) ? $order->provider_response : [];
                 $order->provider_response = array_merge($prev, $resp, ['_last_checked' => now()->toDateTimeString()]);
@@ -885,7 +912,7 @@ class OrderService
                     $count++;
                     $notes[] = $label.': provider said success.';
                     Log::info("Order {$order->reference} reconciled to SUCCESS by cron");
-                } elseif (($status === 'failed' || $status === 'refund' || $status === 'cancelled')
+                } elseif (($status === 'failed' || $status === 'refund' || $status === 'cancelled' || $providerCancelled)
                     && ! $order->isFailedLike()) {
                     if (ProviderErrors::isFundsIssue($resp['message'] ?? null, $resp)) {
                         $this->holdForProviderFunds($order, $resp['message'] ?? 'Provider has no money');
@@ -1164,6 +1191,64 @@ class OrderService
     protected function hasRecordedHardFail(Order $order): bool
     {
         return $order->hasRecordedHardFail();
+    }
+
+    /**
+     * True when an order was AUTO-switched to its paired route (e.g. Dialog API
+     * → Dialog Prepaid) and that final route hard-failed, leaving nothing more
+     * to try. Such orders can never resolve on their own: the transfer cleared
+     * the original transaction_id and the failed retry produced no new one, so
+     * every status poll comes back "missing transaction_id" and the order sits
+     * pending forever. We must refund the customer.
+     *
+     * Scoped to AUTO transfers only — an ADMIN switch is intentional and the
+     * admin may still be reconciling by hand, so we never auto-refund those.
+     * Provider-funds problems are recoverable and are excluded.
+     */
+    protected function autoTransferExhausted(Order $order): bool
+    {
+        if (! in_array($order->status, ['pending', 'processing'], true)) {
+            return false;
+        }
+        if ($order->isAwaitingProviderFunds()) {
+            return false;
+        }
+
+        $resp = $order->responseArray();
+
+        // Only orders that were auto-switched (not admin) to the paired route.
+        $transfer = $resp['_transfer'] ?? null;
+        if (! is_array($transfer) || empty($transfer['auto'])) {
+            return false;
+        }
+
+        // The paired route's own response must be a terminal failure.
+        $tResp = $resp['_transfer_response'] ?? null;
+        if (! is_array($tResp)) {
+            return false;
+        }
+        $tStatus = strtolower((string) ($tResp['status'] ?? ''));
+        $tMsg = (string) ($tResp['message'] ?? '');
+
+        $terminalFail = in_array($tStatus, ['failed', 'refund', 'cancelled', 'canceled', 'error'], true)
+            || ProviderErrors::isCancelledOrRefunded($tMsg, $tResp);
+
+        if (! $terminalFail) {
+            return false;
+        }
+
+        // If the failed retry still handed us a fresh transaction_id we can keep
+        // polling it, so don't force-refund yet.
+        if (! empty($tResp['transaction_id'])) {
+            return false;
+        }
+
+        // A provider-funds issue on the retry is recoverable — leave it waiting.
+        if (ProviderErrors::isFundsIssue($tMsg, $tResp)) {
+            return false;
+        }
+
+        return true;
     }
 
     protected function canFallbackDialogPrepaid(Order $order): bool
